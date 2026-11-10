@@ -1,0 +1,47 @@
+package com.hisaab.domain;
+
+import com.hisaab.domain.Enums.AccountType;
+import com.hisaab.domain.Enums.Direction;
+import com.hisaab.domain.Enums.Institution;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.Instant;
+
+/** An SMS format learned from a correction. */
+@Entity
+@Getter
+@Setter
+public class SmsTemplate {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(columnDefinition = "text")
+    private String skeleton;
+
+    @Column(columnDefinition = "text")
+    private String pattern;
+
+    @Enumerated(EnumType.STRING)
+    private Institution institution;
+
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
+    @Enumerated(EnumType.STRING)
+    private Direction direction;
+
+    private boolean cardPayment;
+
+    @Column(columnDefinition = "text")
+    private String sample;
+
+    private int hits;
+
+    @Column(insertable = false, updatable = false)
+    private Instant createdAt;
+
+    private Instant lastUsedAt;
+}

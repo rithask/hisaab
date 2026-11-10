@@ -1,0 +1,14 @@
+# Keep the build context small and free of local data and secrets.
+.git
+.env
+*.local
+**/.DS_Store
+**/.vscode
+backend/target
+backend/data
+frontend/node_modules
+frontend/dist
+frontend/tsconfig.tsbuildinfo
+# the running stack's database, statements and backups (compose.yaml mounts ./data)
+data
+backups

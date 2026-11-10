@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: hisaab
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hisaab}
+    username: ${DB_USERNAME:${USER:postgres}}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: true
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      # Jackson 3 defaults this to true; treat a missing boolean/number as false/0 instead of a 400
+      fail-on-null-for-primitives: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  web:
+    resources:
+      static-locations: classpath:/static/, file:${APP_STATIC_DIR:../frontend/dist}/
+
+server:
+  port: ${PORT:8080}
+  # Behind a reverse proxy (Caddy), trust its X-Forwarded-Proto/-For/-Host the standard Tomcat way: only from private
+  # addresses (10/8, 172.16/12, 192.168/16, 100.64/10 for Tailscale, localhost). That's how the app knows a request came
+  # in over HTTPS, which in turn marks the session cookie Secure and builds https:// OIDC callback URLs.
+  # Another proxy address: SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES (a regex).
+  forward-headers-strategy: native
+  mime-mappings:
+    webmanifest: application/manifest+json
+  servlet:
+    session:
+      timeout: 30d
+      cookie:
+        name: HISAAB_SESSION
+        http-only: true
+        # lax, not strict: the cookie must survive the redirect back from the OIDC provider. Cross-site POST/PUT/
+        # DELETE (every state change here) still never carries it.
+        same-site: lax
+        # Secure follows the request: set on HTTPS requests (see forward-headers above), not on plain http://
+        max-age: 30d
+
+app:
+  auth:
+    username: ${APP_USERNAME:admin}
+    password: ${APP_PASSWORD:}
+    # Offer the username/password form. Only honoured when OIDC is configured (so you can't lock yourself out).
+    password-login: ${PASSWORD_LOGIN:true}
+  oidc:
+    # OpenID Connect sign-in, e.g. Pocket ID. Leave OIDC_ISSUER_URI empty to turn it off.
+    # Callback URL to register at the provider: https://<this app>/login/oauth2/code/oidc
+    issuer-uri: ${OIDC_ISSUER_URI:}
+    client-id: ${OIDC_CLIENT_ID:}
+    client-secret: ${OIDC_CLIENT_SECRET:}
+    provider-name: ${OIDC_PROVIDER_NAME:Pocket ID}
+    auto-redirect: ${OIDC_AUTO_REDIRECT:true}
+  mail:
+    # Gmail: imap.gmail.com   iCloud: imap.mail.me.com   (both port 993, use an app-specific password)
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:993}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    folder: ${MAIL_FOLDER:INBOX}
+    poll-interval: ${MAIL_POLL_INTERVAL:PT2M}
+  storage:
+    dir: ${STORAGE_DIR:./data}
+  prices:
+    enabled: ${PRICES_ENABLED:true}
+  backup:
+    # Where backup zips go, how many to keep, and when to run (cron: sec min hour day month weekday, in TZ).
+    dir: ${BACKUP_DIR:./backups}
+    keep: ${BACKUP_KEEP:14}
+    cron: ${BACKUP_CRON:0 30 3 * * *}
+    pg-dump: ${PG_DUMP:pg_dump}
+
+logging:
+  level:
+    com.hisaab: INFO

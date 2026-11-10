@@ -1,0 +1,73 @@
+# Hisaab. Configure everything in .env (copy .env.example); this file doesn't need editing.
+#   docker compose pull && docker compose up -d     # use a published image (APP_IMAGE:APP_VERSION)
+#   docker compose up -d --build                    # or build it from this checkout
+name: hisaab
+
+services:
+  app:
+    image: ${APP_IMAGE:-ghcr.io/rithask/hisaab}:${APP_VERSION:-latest}
+    build:
+      context: .
+      args:
+        VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    environment:
+      TZ: ${TZ:-UTC}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75}
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-hisaab}
+      DB_USERNAME: ${POSTGRES_USER:-hisaab}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      PASSWORD_LOGIN: ${PASSWORD_LOGIN:-true}
+      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-Pocket ID}
+      OIDC_AUTO_REDIRECT: ${OIDC_AUTO_REDIRECT:-true}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-993}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FOLDER: ${MAIL_FOLDER:-INBOX}
+      MAIL_POLL_INTERVAL: ${MAIL_POLL_INTERVAL:-PT2M}
+      PRICES_ENABLED: ${PRICES_ENABLED:-true}
+      LOGGING_LEVEL_COM_HISAAB: ${LOG_LEVEL:-INFO}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_CRON: ${BACKUP_CRON:-0 30 3 * * *}
+    # Everything is kept in folders next to this file (created on first start), so it's easy to see, copy and
+    # back up: ./data/files (statement PDFs) and ./data/backups. BACKUP_PATH can move backups elsewhere.
+    volumes:
+      - ./data/files:/data
+      - ${BACKUP_PATH:-./data/backups}:/backups
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  db:
+    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      POSTGRES_DB: ${POSTGRES_DB:-hisaab}
+      POSTGRES_USER: ${POSTGRES_USER:-hisaab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./data/db:/var/lib/postgresql/data   # the database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

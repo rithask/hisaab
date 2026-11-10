@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Hisaab",
+  "short_name": "Hisaab",
+  "description": "Your accounts, cards, spending and investments in one place.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f4f5",
+  "theme_color": "#f4f4f5",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Add transaction", "short_name": "Add", "url": "/?add", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Activity", "url": "/transactions", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "share_target": {
+    "action": "/inbox",
+    "method": "GET",
+    "params": { "title": "title", "text": "text" }
+  }
+}

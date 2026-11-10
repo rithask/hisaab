@@ -1,0 +1,51 @@
+# Changelog
+
+Every notable change, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and versions follow [Semantic Versioning](https://semver.org/). See [docs/versioning.md](docs/versioning.md) for
+how to pick the next version and cut a release.
+
+Write entries for the person running the app, not for developers: what they'll notice, and anything they
+must do when upgrading (marked **Upgrade:**).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-11-11
+
+First release, for trying the app in production.
+
+### Added
+- Transactions from bank alert emails (IMAP: Gmail, iCloud) and from forwarded SMS (`POST /api/ingest/sms` with
+  an API token). The SMS parser learns new message formats from your corrections.
+- Accounts and credit cards with limits, billing cycles and due dates; balance-mismatch alerts.
+- Categories that learn from manual corrections; tags; transfers between your own accounts; manual entries.
+- Split payments with people, with repayments you confirm.
+- Investments: Indian stocks and mutual funds with live prices.
+- Statement PDF import (Canara, Axis bank, Axis MY Zone card, HDFC Swiggy card) with review before import,
+  filling details into matching transactions; statements that arrive by email are read automatically.
+- Insights by day, week and month.
+- Optional features, each with a switch in Settings → Features:
+  - Automatic nightly backups (database + statements in one zip), downloadable from Settings.
+  - Upcoming bills, learned from payments that repeat.
+  - Monthly budgets per category.
+  - Net worth over time.
+  - Year in review.
+  - Advanced search in Activity (date range, amount range, sort).
+  - Subscription watch: fixed-price payments that repeat, with alerts when a price goes up, a charge comes
+    twice, a new one starts (often a free trial turning paid) or one stops.
+  - Unusual activity: double charges, amounts far above your usual at a merchant, large first payments to
+    new payees, foreign-currency and late-night spends. Mark any payment "I'm expecting a refund" and you're
+    warned if the money hasn't come back by the date.
+  - Rewards: describe each card's cashback or points rules (special rates, caps per cycle) and see what each
+    billing cycle should earn, with refunds taking rewards back and cashback credits tracked.
+- Install it as an app (PWA): home-screen icon, full screen, opens offline with the last-loaded data,
+  shortcuts for Add transaction and Activity, and on Android, share an SMS straight into the app.
+- Sign-in with a password and/or Pocket ID (or any OpenID Connect provider): standard discovery from the issuer
+  URL, authorization code with PKCE, identity by issuer and subject. The provider decides who may sign in; the
+  first sign-in asks before linking that account. Password sign-in can be hidden and the sign-in page can go
+  straight to Pocket ID.
+- The session cookie is marked Secure automatically on HTTPS (forwarded headers are trusted from private and
+  Tailscale addresses), so the app works both behind Caddy and over plain `http://` on your network.
+- Sign-in logging.
+- Your time zone is a setting (`TZ`, default UTC): it decides where days, months and years begin. Times are
+  stored in UTC; bank alerts, statements and card billing cycles are always read in India time.
+- Docker image published to ghcr.io for every release; `compose.yaml` pulls it by version.
