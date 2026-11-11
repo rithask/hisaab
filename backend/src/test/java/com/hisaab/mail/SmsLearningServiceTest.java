@@ -41,6 +41,7 @@ class SmsLearningServiceTest {
         SmsTemplateRepo repo = mock(SmsTemplateRepo.class);
         when(repo.save(any())).thenAnswer(i -> {
             SmsTemplate t = i.getArgument(0);
+            if (t.getId() == null) t.setId((long) store.size() + 1 + store.stream().mapToLong(x -> x.getId() == null ? 0 : x.getId()).max().orElse(0));
             if (!store.contains(t)) store.add(t);
             return t;
         });
@@ -221,6 +222,33 @@ class SmsLearningServiceTest {
         lessons.removeIf(e -> LearnedExample.SKIP.equals(e.getKind()));
         learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
         assertEquals(Direction.CREDIT, read(sms).direction());
+    }
+
+    @Test
+    void aFormatThatKeepsBeingCorrectedIsPaused() {
+        // a broad format: "<payee>" swallows everything after "to"
+        String a = "Paid INR 300.00 from acct 2286 to RAHUL K";
+        learning.learn(a, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        SmsTemplate broad = store.get(0);
+        String b = "Paid INR 80.00 from acct 2286 to CAFE ONE";
+        // I correct a message it read: the amount was right but I say it was money in (a reversal) -> wrong once
+        assertFalse(learning.corrected(broad, b, new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null)));
+        assertEquals(1, broad.getCorrections());
+        // a correction that agrees with it doesn't count
+        assertFalse(learning.corrected(broad, b, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("80"), axis, null)));
+        assertEquals(1, broad.getCorrections());
+        assertTrue(learning.corrected(broad, b, null), "second time wrong (it isn't a transaction at all): paused");
+        assertTrue(broad.isPaused());
+        assertTrue(learning.match(b, DEC).isEmpty(), "a paused format isn't used");
+        assertTrue(learning.pausedFor(Channel.SMS, b).isPresent());
+        // the safety net still protects the paused format's own lesson
+        var r = learning.teach("Paid INR 80.00 from acct 2286 to CAFE ONE", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+        assertEquals(1, r.conflicts());
+        assertTrue(broad.isPaused());
+        // teaching that exact wording again starts it afresh
+        learning.learn(a, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        assertFalse(broad.isPaused());
+        assertEquals(0, broad.getCorrections());
     }
 
     @Test

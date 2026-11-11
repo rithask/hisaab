@@ -126,7 +126,8 @@ public class InboxController {
         return processor.preview(emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found")));
     }
 
-    public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts) {}
+    public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
+                                boolean pausedFormat) {}
 
     /** Correct an SMS; the parser learns its format and account from the correction. */
     @PostMapping("/emails/{id}/teach")
@@ -134,11 +135,11 @@ public class InboxController {
         RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found"));
         EmailProcessor.TeachResult r = processor.teach(e, in);
         return new TeachResponse(EmailDto.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
-                r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts());
+                r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat());
     }
 
     public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,
-                              java.time.Instant lastUsedAt, String channel, String kind) {}
+                              java.time.Instant lastUsedAt, String channel, String kind, int corrections, boolean paused) {}
 
     public record AliasDto(Long id, String rawKey, String displayName, int hits) {}
 
@@ -150,9 +151,15 @@ public class InboxController {
         return new Learned(
                 learning.templates().stream().map(t -> new TemplateDto(t.getId(), t.getSkeleton(), t.getSample(),
                         t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
-                        t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind())).toList(),
+                        t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused())).toList(),
                 aliases.all().stream().map(a -> new AliasDto(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
                 learning.senderCount());
+    }
+
+    /** Use a paused format again (its correction count starts over). */
+    @PostMapping("/sms/formats/{id}/resume")
+    public void resumeFormat(@PathVariable Long id) {
+        learning.resume(id);
     }
 
     @DeleteMapping("/sms/formats/{id}")

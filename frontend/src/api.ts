@@ -421,10 +421,12 @@ export interface TeachResult {
   alsoFixed: number
   /** no format was learned because it would change how this many earlier lessons are read */
   conflicts: number
+  /** the format that had read it was paused: it has now been corrected too often */
+  pausedFormat: boolean
 }
 
 export interface Learned {
-  formats: { id: number; skeleton: string; sample?: string; institution?: string; direction?: Direction; hits: number; lastUsedAt?: string; channel: 'SMS' | 'EMAIL'; kind: 'TXN' | 'SKIP' }[]
+  formats: { id: number; skeleton: string; sample?: string; institution?: string; direction?: Direction; hits: number; lastUsedAt?: string; channel: 'SMS' | 'EMAIL'; kind: 'TXN' | 'SKIP'; corrections: number; paused: boolean }[]
   payees: { id: number; rawKey: string; displayName: string; hits: number }[]
   senders: number
 }

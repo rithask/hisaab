@@ -158,6 +158,13 @@ public class EmailProcessor {
         StringBuilder notes = new StringBuilder();
         try {
             Optional<SmsLearningService.Match> learned = learning.match(raw.getBodyText(), raw.getReceivedAt());
+            raw.setTemplate(learned.map(SmsLearningService.Match::template).orElse(null));
+            if (learned.isEmpty() && learning.pausedFor(Channel.SMS, raw.getBodyText()).isPresent()) {
+                raw.setParser("sms-learned");
+                raw.setStatus(EmailStatus.NEEDS_REVIEW);
+                raw.setNote(PAUSED_NOTE);
+                return new ClassifyResult(null, null);
+            }
             if (learned.isPresent() && learned.get().skip()) {
                 raw.setParser("sms-learned");
                 raw.setStatus(EmailStatus.IGNORED);
@@ -291,7 +298,8 @@ public class EmailProcessor {
      * @param alsoFixed other waiting messages that could be recorded thanks to what was just learned
      * @param conflicts when no format was learned because of the safety net: how many earlier lessons it would break
      */
-    public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts) {}
+    public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
+                              boolean pausedFormat) {}
 
     /**
      * I say what an SMS or bank email really was. The transaction is recorded (replacing a wrong one if it had been
@@ -317,8 +325,12 @@ public class EmailProcessor {
         for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
         txns.unpair(raw);
 
-        SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text,
-                new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked), raw);
+        SmsLearningService.Truth truth = new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked);
+        // the format that read it (if one did) was wrong: count that against it before learning the right one
+        com.hisaab.domain.SmsTemplate readBy = raw.getTemplate();
+        boolean paused = learning.corrected(readBy, text, truth);
+        SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text, truth, raw);
+        raw.setTemplate(null);
         if (raw.getChannel() == Channel.EMAIL) trustTaughtSender(raw);
         boolean learnedFormat = learned.template().isPresent();
 
@@ -357,10 +369,12 @@ public class EmailProcessor {
                 if (other.getStatus() == EmailStatus.PARSED) alsoFixed++;
             }
         }
-        return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts());
+        return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts(),
+                paused && readBy.isPaused());
     }
 
     static final String NOT_A_TXN_NOTE = "Not a transaction: worded like a message you marked as not one.";
+    static final String PAUSED_NOTE = "Worded like a learned format that was paused because it kept being corrected. Check it and teach it.";
 
     /** @param alsoSkipped other messages waiting for review that are worded the same and were skipped too */
     public record SkipResult(RawEmail message, boolean learned, int conflicts, int alsoSkipped) {}
@@ -372,6 +386,8 @@ public class EmailProcessor {
     @Transactional
     public SkipResult notATransaction(RawEmail raw) {
         if (raw.getStatus() == EmailStatus.STATEMENT) throw new IllegalArgumentException("Statements are imported, not taught");
+        learning.corrected(raw.getTemplate(), raw.getBodyText(), null);
+        raw.setTemplate(null);
         SmsLearningService.LearnResult r = learning.skip(raw.getChannel(), raw.getBodyText(), raw);
         for (Txn t : txns.forMessage(raw)) txns.delete(t.getId());
         txns.unpair(raw);
@@ -447,6 +463,13 @@ public class EmailProcessor {
         raw.setHold(null);
         // A format I taught for emails comes first: where I've corrected a reading, my answer wins.
         Optional<SmsLearningService.Match> learned = learning.match(Channel.EMAIL, raw.getBodyText(), raw.getReceivedAt());
+        raw.setTemplate(learned.map(SmsLearningService.Match::template).orElse(null));
+        if (learned.isEmpty() && learning.pausedFor(Channel.EMAIL, raw.getBodyText()).isPresent()) {
+            raw.setParser("email-learned");
+            raw.setStatus(EmailStatus.NEEDS_REVIEW);
+            raw.setNote(PAUSED_NOTE);
+            return;
+        }
         if (learned.isPresent() && learned.get().skip()) {
             raw.setParser("email-learned");
             raw.setStatus(EmailStatus.IGNORED);

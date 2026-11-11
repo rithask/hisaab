@@ -211,6 +211,7 @@ function EmailView({ id }: { id: number; onDone: () => void }) {
               ? ` Didn't learn this format: it would change how ${taught.conflicts} message${taught.conflicts > 1 ? 's' : ''} you taught earlier ${taught.conflicts > 1 ? 'are' : 'is'} read.`
               : ' The amount isn\'t in the text, so no format could be learned from it.'}
           {taught.learnedAccount ? ' Remembered which account it belongs to.' : ''}
+          {taught.pausedFormat ? ' The format that misread it has been corrected too often and is paused (Settings → What it has learned).' : ''}
           {taught.alsoFixed > 0 ? ` ${taught.alsoFixed} other waiting message${taught.alsoFixed > 1 ? 's were' : ' was'} recorded too.` : ''}
         </Notice>
       )}

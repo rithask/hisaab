@@ -106,9 +106,11 @@ public class SmsLearningService {
 
     /** The first of these formats (in the order given) that fits the whole message. */
     static Optional<Read> read(List<SmsTemplate> set, String flat) {
-        // "not a transaction" formats are checked first, then the ones that read transactions, in the order given
-        List<SmsTemplate> ordered = new ArrayList<>(set.stream().filter(SmsTemplate::isSkip).toList());
-        set.stream().filter(t -> !t.isSkip()).forEach(ordered::add);
+        // "Not a transaction" formats are checked first, then the ones that read transactions; within each, the
+        // newest lesson wins (the safety net already made sure it doesn't break older ones). Paused ones aren't used.
+        Comparator<SmsTemplate> newestFirst = Comparator.comparing((SmsTemplate t) -> t.getId() == null ? Long.MAX_VALUE : t.getId()).reversed();
+        List<SmsTemplate> ordered = new ArrayList<>(set.stream().filter(t -> t.isSkip() && !t.isPaused()).sorted(newestFirst).toList());
+        set.stream().filter(t -> !t.isSkip() && !t.isPaused()).sorted(newestFirst).forEach(ordered::add);
         for (SmsTemplate t : ordered) {
             Matcher m;
             try {
@@ -220,6 +222,9 @@ public class SmsLearningService {
         overruled.forEach(templates::delete);
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
+        // taught again in this exact wording: a fresh start
+        t.setCorrections(0);
+        t.setPaused(false);
         SmsTemplate saved = templates.save(t);
         remember(channel, flat, text, truth, source);
         return new LearnResult(Optional.of(saved), 0);
@@ -272,14 +277,78 @@ public class SmsLearningService {
         return new LearnResult(Optional.of(saved), 0);
     }
 
+    /** Corrections after which a format stops being used. */
+    static final int PAUSE_AFTER = 2;
+
+    /**
+     * A message this format read was corrected: count it if the format's reading differs from what I said, and
+     * pause the format once it has been wrong {@value #PAUSE_AFTER} times. (Teaching the same wording again
+     * replaces the format and clears the count, see {@link #teach}.)
+     *
+     * @param truth what the message really was, or null for "not a transaction"
+     * @return true if the format was paused now
+     */
+    @Transactional
+    public boolean corrected(SmsTemplate t, String text, Truth truth) {
+        if (t == null) return false;
+        Optional<Read> r = read(List.of(withoutPause(t)), flat(text));
+        boolean wrong;
+        if (truth == null) {
+            wrong = r.isEmpty() || !r.get().skip();
+        } else {
+            LearnedExample e = new LearnedExample();
+            e.setDirection(truth.direction());
+            e.setAmount(truth.amount());
+            e.setInstitution(truth.account().getInstitution());
+            int[] marked = span(truth.payeeAt(), flat(text));
+            e.setPayee(marked != null ? clean(flat(text).substring(marked[0], marked[1])) : null);
+            wrong = !right(e, r);
+        }
+        if (!wrong) return false;
+        t.setCorrections(t.getCorrections() + 1);
+        if (t.getCorrections() >= PAUSE_AFTER && !t.isPaused()) {
+            t.setPaused(true);
+            return true;
+        }
+        return false;
+    }
+
+    private static SmsTemplate withoutPause(SmsTemplate t) {
+        if (!t.isPaused()) return t;
+        SmsTemplate c = new SmsTemplate();
+        c.setId(t.getId());
+        c.setPattern(t.getPattern());
+        c.setKind(t.getKind());
+        c.setDirection(t.getDirection());
+        c.setInstitution(t.getInstitution());
+        return c;
+    }
+
+    /** A paused format that fits this message, if any (its messages wait for review instead). */
+    public Optional<SmsTemplate> pausedFor(Channel channel, String text) {
+        String flat = flat(text);
+        return templates.findByChannelOrderByHitsDescIdAsc(channel).stream().filter(SmsTemplate::isPaused)
+                .filter(t -> read(List.of(withoutPause(t)), flat).isPresent()).findFirst();
+    }
+
+    @Transactional
+    public void resume(Long id) {
+        templates.findById(id).ifPresent(t -> {
+            t.setPaused(false);
+            t.setCorrections(0);
+        });
+    }
+
     /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
     int regressions(Channel channel, List<SmsTemplate> before, List<SmsTemplate> after, String exceptText) {
         int n = 0;
+        // a paused format still counts for the lessons it reads: pausing mustn't let a change slip past them
+        List<SmsTemplate> was = before.stream().map(SmsLearningService::withoutPause).toList();
         for (LearnedExample e : examples.findByChannel(channel)) {
             String f = flat(e.getText());
             if (f.equals(exceptText)) continue;
             Optional<Read> now = read(after, f);
-            boolean broken = right(e, read(before, f)) && !right(e, now);
+            boolean broken = right(e, read(was, f)) && !right(e, now);
             // never skip a message I said was a transaction, even one no format reads yet
             boolean hidden = LearnedExample.TXN.equals(e.getKind()) && now.isPresent() && now.get().skip();
             if (broken || hidden) n++;

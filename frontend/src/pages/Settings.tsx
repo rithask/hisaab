@@ -199,6 +199,7 @@ function SmsForwarding() {
 function LearnedCard() {
   const learned = useQuery({ queryKey: ['sms-learned'], queryFn: () => api<Learned>('/sms/learned') })
   const forgetFormat = useMoneyMutation((id: number) => api(`/sms/formats/${id}`, { method: 'DELETE' }))
+  const resumeFormat = useMoneyMutation((id: number) => api(`/sms/formats/${id}/resume`, { method: 'POST' }))
   const forgetPayee = useMoneyMutation((id: number) => api(`/sms/payees/${id}`, { method: 'DELETE' }))
   const l = learned.data
   const empty = !l || (l.formats.length === 0 && l.payees.length === 0)
@@ -233,7 +234,16 @@ function LearnedCard() {
                         {f.channel === 'EMAIL' ? 'Email · ' : ''}
                         {f.kind === 'SKIP' ? 'not a transaction' : `${f.institution} · ${f.direction === 'DEBIT' ? 'money out' : 'money in'}`} · used {f.hits} time{f.hits === 1 ? '' : 's'}
                         {f.lastUsedAt ? ` · last ${dateTime(f.lastUsedAt)}` : ''}
+                        {f.corrections > 0 ? ` · corrected ${f.corrections === 1 ? 'once' : `${f.corrections} times`}` : ''}
                       </p>
+                      {f.paused && (
+                        <p className="mt-1.5 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-300">
+                          Paused: it kept being corrected, so its messages wait for review.
+                          <button className="link font-semibold" onClick={() => resumeFormat.mutate(f.id)}>
+                            Resume
+                          </button>
+                        </p>
+                      )}
                     </div>
                     <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this format" onClick={() => confirm('Forget this format?') && forgetFormat.mutate(f.id)}>
                       <X size={14} weight="bold" />

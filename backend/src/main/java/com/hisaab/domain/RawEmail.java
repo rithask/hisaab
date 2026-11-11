@@ -48,6 +48,10 @@ public class RawEmail {
     /** Why an alert was held instead of recorded: UNKNOWN_SENDER | UNVERIFIED_SENDER, else null. */
     private String hold;
 
+    /** The learned format it was read with, if any. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    private SmsTemplate template;
+
     @Column(insertable = false, updatable = false)
     private Instant createdAt;
 }

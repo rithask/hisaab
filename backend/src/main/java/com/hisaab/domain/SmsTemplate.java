@@ -52,6 +52,12 @@ public class SmsTemplate {
 
     private int hits;
 
+    /** How often a reading by this format was corrected. */
+    private int corrections;
+
+    /** Not used until I resume it (set after repeated corrections). */
+    private boolean paused;
+
     @Column(insertable = false, updatable = false)
     private Instant createdAt;
 

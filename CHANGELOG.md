@@ -21,6 +21,12 @@ must do when upgrading (marked **Upgrade:**).
 - **Not a transaction**: for an offer, payment request or anything else that isn't money moving. The message is
   ignored, and later ones worded the same are skipped automatically (waiting ones too). It replaces Ignore in the
   Inbox; a recorded message can be marked too, which removes its transaction.
+- A learned format that keeps reading messages wrong stops being used: after two corrections it's paused and its
+  messages wait in Needs review. Settings → What it has learned shows how often each format was corrected, and
+  paused ones can be resumed.
+
+### Changed
+- When two learned formats fit a message, the one you taught most recently is used.
 
 ## [0.3.0] - 2026-11-11
 
