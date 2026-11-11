@@ -42,6 +42,12 @@ public class RawEmail {
     @Column(columnDefinition = "text")
     private String note;
 
+    /** PASS | FAIL | NONE: whether the mail provider confirmed the From domain (null for SMS and older emails). */
+    private String senderCheck;
+
+    /** Why an alert was held instead of recorded: UNKNOWN_SENDER | UNVERIFIED_SENDER, else null. */
+    private String hold;
+
     @Column(insertable = false, updatable = false)
     private Instant createdAt;
 }

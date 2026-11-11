@@ -50,4 +50,12 @@ class LogicTest {
         assertThat(Names.containsWord("OLA CABS", "ola")).isTrue();
         assertThat(Names.merchantKey("UPI-Swiggy 1234")).isEqualTo("upi swiggy");
     }
+
+    @Test
+    void referencesMatchAcrossBanksWays() {
+        assertThat(TransactionService.sameRef("531234567890", "531234567890")).isTrue();
+        assertThat(TransactionService.sameRef("UPI531234567890", "0531234567890")).isTrue();
+        assertThat(TransactionService.sameRef("531234567890", "531234567891")).isFalse();
+        assertThat(TransactionService.sameRef("AB12", "ab12")).isTrue();
+    }
 }

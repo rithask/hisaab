@@ -50,12 +50,14 @@ public class EmailProcessor {
     private final SmsLearningService learning;
     private final com.hisaab.service.BalanceService balances;
     private final org.springframework.context.ApplicationEventPublisher events;
+    private final SenderTrust trust;
 
     public EmailProcessor(List<BankEmailParser> parsers, RawEmailRepo emails, AccountRepo accounts,
                           StatementFileRepo statements, StatementStorage storage, TransactionService txns,
                           SmsParser smsParser, SmsLearningService learning, com.hisaab.service.BalanceService balances,
-                          org.springframework.context.ApplicationEventPublisher events) {
+                          org.springframework.context.ApplicationEventPublisher events, SenderTrust trust) {
         this.events = events;
+        this.trust = trust;
         this.smsParser = smsParser;
         this.learning = learning;
         this.balances = balances;
@@ -77,12 +79,19 @@ public class EmailProcessor {
         raw.setSubject(trim(in.subject(), 1000));
         raw.setReceivedAt(in.receivedAt());
         raw.setBodyText(in.text());
+        raw.setSenderCheck(in.senderCheck());
         raw.setStatus(EmailStatus.NEEDS_REVIEW); // provisional, decided below
         emails.save(raw);
 
         EmailContent content = new EmailContent(in.from(), in.subject(), in.receivedAt(), in.text());
         List<IncomingEmail.Attachment> pdfs = in.attachments().stream().filter(IncomingEmail.Attachment::isPdf).toList();
         if (!pdfs.isEmpty() && content.haystack().contains("statement")) {
+            if (SenderTrust.FAIL.equals(in.senderCheck())) {
+                raw.setHold(SenderTrust.UNVERIFIED_SENDER);
+                raw.setNote("Your mail provider couldn't confirm this really came from " + SenderTrust.domainOf(in.from())
+                        + ", so its statement wasn't saved.");
+                return true;
+            }
             saveStatements(raw, content, pdfs);
             return true;
         }
@@ -264,6 +273,7 @@ public class EmailProcessor {
         String payee = in.counterparty() == null || in.counterparty().isBlank() ? null : in.counterparty().trim();
 
         for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
+        txns.unpair(raw);
 
         boolean learnedFormat = learning.learn(text, new SmsLearningService.Truth(in.direction(), in.amount(), account, payee)).isPresent();
 
@@ -336,6 +346,7 @@ public class EmailProcessor {
 
     private void classify(RawEmail raw, EmailContent content) {
         raw.setNote(null);
+        raw.setHold(null);
         for (BankEmailParser parser : parsers) {
             Optional<ParsedTransaction> parsed;
             try {
@@ -350,6 +361,13 @@ public class EmailProcessor {
             if (parsed.isEmpty()) continue;
             ParsedTransaction p = parsed.get();
             raw.setParser(parser.name());
+            SenderTrust.Verdict v = trust.judge(raw.getFromAddress(), raw.getSenderCheck(), p.institution(), bankName(p.institution()));
+            if (!v.ok()) {
+                raw.setStatus(EmailStatus.NEEDS_REVIEW);
+                raw.setHold(v.hold());
+                raw.setNote(v.note());
+                return;
+            }
             Optional<Account> account = findAccount(p);
             if (account.isEmpty()) {
                 raw.setStatus(EmailStatus.NEEDS_REVIEW);
@@ -368,6 +386,35 @@ public class EmailProcessor {
         } else {
             raw.setStatus(EmailStatus.IGNORED);
         }
+    }
+
+    private static String bankName(Institution i) {
+        return switch (i) {
+            case HDFC -> "HDFC Bank";
+            case AXIS -> "Axis Bank";
+            case SBI -> "SBI";
+            case CANARA -> "Canara Bank";
+            case OTHER -> "bank";
+        };
+    }
+
+    /**
+     * I've said alerts from this domain are genuine: remember it and record the emails from it that were held.
+     *
+     * @return how many held emails are now recorded
+     */
+    @Transactional
+    public int trustSender(String domain) {
+        trust.trust(domain);
+        int n = 0;
+        for (RawEmail e : emails.findByStatus(EmailStatus.NEEDS_REVIEW)) {
+            if (!SenderTrust.UNKNOWN_SENDER.equals(e.getHold())) continue;
+            String d = SenderTrust.domainOf(e.getFromAddress());
+            if (d == null || !(d.equals(domain) || d.endsWith("." + domain))) continue;
+            reprocess(e);
+            if (e.getStatus() == EmailStatus.PARSED || e.getStatus() == EmailStatus.DUPLICATE) n++;
+        }
+        return n;
     }
 
     private Optional<Account> findAccount(ParsedTransaction p) {

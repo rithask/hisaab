@@ -76,13 +76,18 @@ public class TransactionService {
         t.setDirection(p.direction());
         t.setOccurredAt(at);
         applyAmount(t, p.amount(), p.currency());
-        if (p.reference() != null
-                && txns.existsByAccountAndReferenceNoAndAmountAndDirection(account, p.reference(), t.getAmount(), p.direction())) {
-            return Optional.empty();
+        if (p.reference() != null) {
+            Optional<Txn> same = txns.findFirstByAccountAndReferenceNoAndAmountAndDirection(account, p.reference(), t.getAmount(), p.direction());
+            if (same.isPresent()) {
+                // the same payment's alert from the other channel: it's now paired and can't absorb another one
+                if (same.get().getSource() != source && same.get().getTwinRawEmail() == null) same.get().setTwinRawEmail(email);
+                return Optional.empty();
+            }
         }
-        Optional<Txn> twin = crossChannelTwin(t, source, p.time() != null);
+        Optional<Txn> twin = crossChannelTwin(t, source, p.time() != null, p.reference(), email);
         if (twin.isPresent()) {
             Txn existing = twin.get();
+            existing.setTwinRawEmail(email);
             if (existing.getCounterparty() == null && p.counterparty() != null) {
                 existing.setCounterparty(aliases.apply(p.counterparty()));
                 existing.setMerchantKey(Names.merchantKey(existing.getCounterparty()));
@@ -105,13 +110,37 @@ public class TransactionService {
         return Optional.of(t);
     }
 
-    /** Most recent match wins; alerts with only a date get a whole-day window, timed ones 20 minutes. */
-    private Optional<Txn> crossChannelTwin(Txn t, TxnSource source, boolean timed) {
+    /**
+     * The same payment's alert from the other channel (its email for an SMS, or the reverse): same account,
+     * direction and amount, close in time (20 minutes, or the whole day when the alert has only a date). A
+     * transaction that already has its other alert is taken, so two equal payments close together stay two.
+     * Different reference numbers mean different payments; one with the same reference is preferred, then the
+     * closest in time.
+     */
+    private Optional<Txn> crossChannelTwin(Txn t, TxnSource source, boolean timed, String reference, RawEmail email) {
         TxnSource other = source == TxnSource.SMS ? TxnSource.EMAIL : TxnSource.SMS;
         java.time.Duration window = timed ? java.time.Duration.ofMinutes(20) : java.time.Duration.ofHours(24);
-        return txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
-                        t.getOccurredAt().minus(window), t.getOccurredAt().plus(window)).stream()
-                .min(Comparator.comparing(x -> java.time.Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs()));
+        List<Txn> candidates = txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
+                t.getOccurredAt().minus(window), t.getOccurredAt().plus(window)).stream()
+                .filter(x -> x.getTwinRawEmail() == null || x.getTwinRawEmail().getId().equals(email.getId()))
+                .filter(x -> reference == null || x.getReferenceNo() == null || sameRef(reference, x.getReferenceNo()))
+                .toList();
+        Comparator<Txn> byGap = Comparator.comparing(x -> java.time.Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
+        Comparator<Txn> sameRefFirst = Comparator.comparing(x -> !(reference != null && x.getReferenceNo() != null));
+        return candidates.stream().min(sameRefFirst.thenComparing(byGap));
+    }
+
+    /** Forget which transaction this alert was matched to (before it's read again, e.g. after a correction). */
+    @Transactional
+    public void unpair(RawEmail email) {
+        for (Txn t : txns.findByTwinRawEmail(email)) t.setTwinRawEmail(null);
+    }
+
+    /** Banks print the same reference with or without leading zeros or a prefix; compare the digits' tail. */
+    static boolean sameRef(String a, String b) {
+        String x = a.replaceAll("\\D", ""), y = b.replaceAll("\\D", "");
+        if (x.length() < 6 || y.length() < 6) return a.equalsIgnoreCase(b);
+        return x.endsWith(y) || y.endsWith(x);
     }
 
     /** A line from a statement I chose to add. Time of day is guessed (noon) when the statement only has a date. */

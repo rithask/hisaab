@@ -61,11 +61,13 @@ public final class Dtos {
     }
 
     public record EmailDto(Long id, com.hisaab.domain.Enums.Channel channel, String fromAddress, String subject,
-                           Instant receivedAt, EmailStatus status, String parser, String note, String bodyText) {
+                           Instant receivedAt, EmailStatus status, String parser, String note, String bodyText,
+                           String hold, String senderDomain) {
         static EmailDto of(RawEmail e, boolean withBody) {
             boolean sms = e.getChannel() == com.hisaab.domain.Enums.Channel.SMS;
             return new EmailDto(e.getId(), e.getChannel(), e.getFromAddress(), e.getSubject(), e.getReceivedAt(), e.getStatus(),
-                    e.getParser(), e.getNote(), withBody || sms ? e.getBodyText() : null);
+                    e.getParser(), e.getNote(), withBody || sms ? e.getBodyText() : null, e.getHold(),
+                    sms ? null : com.hisaab.mail.SenderTrust.domainOf(e.getFromAddress()));
         }
     }
 

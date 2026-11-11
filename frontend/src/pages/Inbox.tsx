@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, UploadSimple, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, ShieldCheck, UploadSimple, Warning } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { api, qs, type Alert, type Email, type EmailStatus, type SmsPreview, type TeachResult } from '../api'
 import { Badge, Button, Card, Chip, cx, Empty, ErrorText, Field, Input, List, Notice, PageHeader, Section, Segmented, Sheet, Page } from '../components/ui'
-import { dateTime, money } from '../format'
+import { count, dateTime, money } from '../format'
 import { useAccounts, useMoneyMutation } from '../hooks'
 import SmsPasteSheet from '../components/SmsPasteSheet'
 
@@ -173,6 +173,7 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
   const e = useQuery({ queryKey: ['email', id], queryFn: () => api<Email>(`/emails/${id}`) })
   const reprocess = useMoneyMutation(() => api<Email>(`/emails/${id}/reprocess`, { method: 'POST' }))
   const ignore = useMoneyMutation(() => api(`/emails/${id}/ignore`, { method: 'POST' }), onDone)
+  const trust = useMoneyMutation(() => api<{ domain: string; recorded: number }>(`/emails/${id}/trust-sender`, { method: 'POST' }))
   const [teaching, setTeaching] = useState(false)
   const [taught, setTaught] = useState<TeachResult | null>(null)
   if (!e.data) return null
@@ -213,9 +214,19 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
           <GraduationCap size={18} /> {e.data.status === 'PARSED' ? 'This was read wrong' : 'Tell me what this is'}
         </Button>
       )}
-      {pending && !teaching && !taught && (
+      {trust.data && (
+        <Notice tone="green">
+          Alerts from {trust.data.domain} are trusted now. {trust.data.recorded > 0 ? `${count(trust.data.recorded)} held email${trust.data.recorded > 1 ? 's were' : ' was'} recorded.` : ''}
+        </Notice>
+      )}
+      {e.data.hold === 'UNKNOWN_SENDER' && e.data.status === 'NEEDS_REVIEW' && !trust.data && (
+        <Button className="w-full" disabled={trust.isPending} onClick={() => trust.mutate(undefined)}>
+          <ShieldCheck size={18} /> Trust {e.data.senderDomain}
+        </Button>
+      )}
+      {pending && !teaching && !taught && !trust.data && (
         <div className="flex gap-2">
-          <Button className="flex-1" onClick={() => reprocess.mutate(undefined)}>
+          <Button variant={e.data.hold === 'UNKNOWN_SENDER' ? 'secondary' : 'primary'} className="flex-1" onClick={() => reprocess.mutate(undefined)}>
             Try again
           </Button>
           {e.data.status !== 'IGNORED' && (

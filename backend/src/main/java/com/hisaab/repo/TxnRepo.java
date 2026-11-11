@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecutor<Txn> {
 
@@ -27,8 +28,8 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
 
     List<Txn> findByMerchantKeyAndSourceIn(String merchantKey, java.util.Collection<com.hisaab.domain.Enums.TxnSource> sources);
 
-    boolean existsByAccountAndReferenceNoAndAmountAndDirection(Account account, String referenceNo,
-                                                               BigDecimal amount, Direction direction);
+    Optional<Txn> findFirstByAccountAndReferenceNoAndAmountAndDirection(Account account, String referenceNo,
+                                                                         BigDecimal amount, Direction direction);
 
     /**
      * The same transaction already recorded through the other channel (SMS vs email). Same account, amount and
@@ -96,4 +97,6 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
             """)
     List<Txn> findSimilar(@Param("key") String merchantKey, @Param("excludeId") Long excludeId,
                           @Param("categoryId") Long categoryId);
+
+    List<Txn> findByTwinRawEmail(com.hisaab.domain.RawEmail email);
 }

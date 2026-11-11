@@ -89,6 +89,17 @@ public class InboxController {
         return EmailDto.of(processor.reprocess(e), false);
     }
 
+    public record TrustResponse(String domain, int recorded) {}
+
+    /** Alerts from this email's domain are genuine: remember that and record the held ones. */
+    @PostMapping("/emails/{id}/trust-sender")
+    public TrustResponse trustSender(@PathVariable Long id) {
+        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Email not found"));
+        String domain = com.hisaab.mail.SenderTrust.domainOf(e.getFromAddress());
+        if (domain == null) throw new IllegalArgumentException("This email has no sender address");
+        return new TrustResponse(domain, processor.trustSender(domain));
+    }
+
     @PostMapping("/emails/{id}/ignore")
     @Transactional
     public EmailDto ignore(@PathVariable Long id) {

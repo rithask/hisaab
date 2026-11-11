@@ -62,6 +62,10 @@ public class Txn {
     @ManyToOne(fetch = FetchType.LAZY)
     private RawEmail rawEmail;
 
+    /** The alert from the other channel that was matched to this one (its email for an SMS, or the reverse). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    private RawEmail twinRawEmail;
+
     /** Movement between my own accounts (incl. card bill payments). Hidden from income/expense. */
     private boolean transfer;
 

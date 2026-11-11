@@ -255,6 +255,9 @@ export interface Email {
   parser?: string
   note?: string
   bodyText?: string
+  /** why an alert was held instead of recorded */
+  hold?: 'UNKNOWN_SENDER' | 'UNVERIFIED_SENDER'
+  senderDomain?: string
 }
 
 export interface Statement {

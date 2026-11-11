@@ -322,8 +322,9 @@ public class MailSyncService {
                 ? ((m.getFrom()[0] instanceof InternetAddress ia) ? ia.getAddress() : m.getFrom()[0].toString())
                 : null;
         Date when = received != null ? received : m.getReceivedDate() != null ? m.getReceivedDate() : m.getSentDate();
+        String[] auth = m.getHeader("Authentication-Results");
         return new IncomingEmail(messageId, from, m.getSubject(), when == null ? Instant.now() : when.toInstant(),
-                text, c.attachments);
+                text, c.attachments, SenderTrust.check(auth == null || auth.length == 0 ? null : auth[0], from));
     }
 
     private static final class Collector {

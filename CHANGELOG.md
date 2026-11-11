@@ -9,6 +9,19 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Fixed
+- Two payments of the same amount close together (two ₹20 teas) are no longer recorded as one. Each alert email
+  is matched with at most one SMS, and the reverse, and alerts with different reference numbers are never treated
+  as the same payment.
+
+### Security
+- An alert email is recorded only when it comes from one of its bank's own domains (including the new `.bank.in`
+  ones) and your mail provider didn't flag it as forged (DMARC/DKIM in its `Authentication-Results` header).
+  Anything else waits in Inbox → Needs review with the reason. Bank statements in emails flagged as forged aren't
+  saved.
+- If your bank sends alerts from a domain the app doesn't know, open one in Needs review and choose
+  **Trust <domain>**. The held emails from it are recorded then.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added
