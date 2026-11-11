@@ -9,7 +9,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/** An SMS format learned from a correction. */
+/** A message format (SMS or bank email) learned from a correction. */
 @Entity
 @Getter
 @Setter
@@ -17,6 +17,9 @@ public class SmsTemplate {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Enumerated(EnumType.STRING)
+    private com.hisaab.domain.Enums.Channel channel = com.hisaab.domain.Enums.Channel.SMS;
 
     @Column(columnDefinition = "text")
     private String skeleton;

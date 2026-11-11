@@ -44,6 +44,7 @@ class SmsLearningServiceTest {
             return t;
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
+        when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
         LearnedExampleRepo examples = mock(LearnedExampleRepo.class);
         when(examples.save(any())).thenAnswer(i -> {
@@ -176,6 +177,15 @@ class SmsLearningServiceTest {
         assertNull(SmsLearningService.span(new int[]{5, 500}, "short text"));
         assertNull(SmsLearningService.span(new int[]{3, 3}, "short text"));
         assertArrayEquals(new int[]{0, 5}, SmsLearningService.span(new int[]{0, 7}, "short. text"));
+    }
+
+    @Test
+    void emailFormatsAreKeptApartFromSmsFormats() {
+        String mail = "Hello, your Axis account XX2286 was charged INR 315.00 at CITY BOOKSHOP today.";
+        learning.teach(com.hisaab.domain.Enums.Channel.EMAIL, mail, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
+        String next = "Hello, your Axis account XX2286 was charged INR 99.00 at RAIL TICKETS today.";
+        assertTrue(learning.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
+        assertEquals("RAIL TICKETS", learning.match(com.hisaab.domain.Enums.Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
     }
 
     @Test

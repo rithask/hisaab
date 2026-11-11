@@ -15,6 +15,9 @@ must do when upgrading (marked **Upgrade:**).
 - Teach a message by tapping it: tap the amount, tap the first and last word of the payee, pick the account. The
   payee is then read from every later message in that format, and you can show it under your own name ("Swiggy
   Instamart" for "SWIGGY*INSTAMART BLR").
+- Bank emails can be taught too, the same way as SMS: open one in the Inbox and choose **Tell me what this is**
+  (or **This was read wrong**). Its format is learned and its sender's domain is trusted from then on. Formats you
+  teach for emails are used before the built-in bank readers, so a correction always wins.
 
 ## [0.3.0] - 2026-11-11
 

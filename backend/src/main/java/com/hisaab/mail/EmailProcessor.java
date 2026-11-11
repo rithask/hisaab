@@ -241,7 +241,7 @@ public class EmailProcessor {
     /** What the parser makes of a stored SMS right now, to pre-fill the correction form. */
     @Transactional(readOnly = true)
     public Preview preview(RawEmail raw) {
-        ParsedTransaction p = learning.match(raw.getBodyText(), raw.getReceivedAt()).map(SmsLearningService.Match::txn)
+        ParsedTransaction p = learning.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(SmsLearningService.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
         List<Txn> existing = txns.forMessage(raw);
@@ -288,13 +288,14 @@ public class EmailProcessor {
     public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts) {}
 
     /**
-     * I say what an SMS really was. The transaction is recorded (replacing a wrong one if it had been parsed),
-     * the wording becomes a learned format, the account link is remembered, and every other message still
-     * waiting for review is tried again with the new knowledge.
+     * I say what an SMS or bank email really was. The transaction is recorded (replacing a wrong one if it had been
+     * parsed), the wording becomes a learned format, the account link is remembered, and every other message still
+     * waiting for review is tried again with the new knowledge. Teaching an email also trusts its sender's domain
+     * (not a free mail domain, and not one the provider flagged as forged), since I've said its alerts are real.
      */
     @Transactional
     public TeachResult teach(RawEmail raw, Teaching in) {
-        if (raw.getChannel() != Channel.SMS) throw new IllegalArgumentException("Only SMS messages can be taught");
+        if (raw.getStatus() == EmailStatus.STATEMENT) throw new IllegalArgumentException("Statements are imported, not taught");
         if (in.direction() == null) throw new IllegalArgumentException("Say whether money went out or came in");
         if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
         Account account = accounts.findById(in.accountId() == null ? -1L : in.accountId())
@@ -310,8 +311,9 @@ public class EmailProcessor {
         for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
         txns.unpair(raw);
 
-        SmsLearningService.LearnResult learned = learning.teach(text,
+        SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text,
                 new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked), raw);
+        if (raw.getChannel() == Channel.EMAIL) trustTaughtSender(raw);
         boolean learnedFormat = learned.template().isPresent();
 
         // If the digits in the text aren't this account's (or there are none), remember what they mean.
@@ -332,22 +334,41 @@ public class EmailProcessor {
                 bal == null || account.isCard() ? null : SmsParser.toAmount(flat.substring(bal[0], bal[1])),
                 account.isCard() && in.direction() == Direction.CREDIT, null);
         Optional<Txn> created = txns.createFromEmail(p, account, raw);
-        raw.setParser("sms-taught");
+        boolean sms = raw.getChannel() == Channel.SMS;
+        raw.setParser(sms ? "sms-taught" : "email-taught");
         raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
         raw.setNote(created.isPresent() ? null : "Already recorded (from the alert email or an earlier SMS).");
-        learning.rememberSender(raw.getSender(), account.getInstitution());
+        raw.setHold(null);
+        if (sms) learning.rememberSender(raw.getSender(), account.getInstitution());
 
         int alsoFixed = 0;
         for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR, EmailStatus.IGNORED)) {
             for (RawEmail other : emails.findByStatus(st)) {
-                if (other.getChannel() != Channel.SMS || other.getId().equals(raw.getId())) continue;
+                if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
                 // Messages I chose to ignore are only revisited when a learned format reads them exactly.
-                if (st == EmailStatus.IGNORED && learning.match(other.getBodyText(), other.getReceivedAt()).isEmpty()) continue;
-                classifySms(other);
+                if (st == EmailStatus.IGNORED && learning.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).isEmpty()) continue;
+                reread(other);
                 if (other.getStatus() == EmailStatus.PARSED) alsoFixed++;
             }
         }
         return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts());
+    }
+
+    /** Reads a stored message again, whichever channel it came from. */
+    private void reread(RawEmail m) {
+        if (m.getChannel() == Channel.SMS) classifySms(m);
+        else classify(m, new EmailContent(m.getFromAddress(), m.getSubject(), m.getReceivedAt(), m.getBodyText()));
+    }
+
+    private static final java.util.Set<String> FREE_MAIL = java.util.Set.of("gmail.com", "googlemail.com", "yahoo.com",
+            "yahoo.co.in", "outlook.com", "hotmail.com", "live.com", "icloud.com", "me.com", "mac.com", "proton.me",
+            "protonmail.com", "rediffmail.com", "zoho.com", "aol.com");
+
+    /** I've said this email is a real alert: its bank's domain may send them (unless it's webmail or flagged). */
+    private void trustTaughtSender(RawEmail raw) {
+        String domain = SenderTrust.domainOf(raw.getFromAddress());
+        if (domain == null || FREE_MAIL.contains(domain) || SenderTrust.FAIL.equals(raw.getSenderCheck())) return;
+        trust.trust(domain);
     }
 
     /** SMS without an account number: use the bank's only account of that kind, if there is exactly one. */
@@ -384,6 +405,27 @@ public class EmailProcessor {
     private void classify(RawEmail raw, EmailContent content) {
         raw.setNote(null);
         raw.setHold(null);
+        // A format I taught for emails comes first: where I've corrected a reading, my answer wins.
+        Optional<SmsLearningService.Match> learned = learning.match(Channel.EMAIL, raw.getBodyText(), raw.getReceivedAt());
+        if (learned.isPresent()) {
+            ParsedTransaction p = learned.get().txn();
+            raw.setParser("email-learned");
+            SenderTrust.Verdict v = trust.judge(raw.getFromAddress(), raw.getSenderCheck(), p.institution(), bankName(p.institution()));
+            if (!v.ok()) {
+                raw.setStatus(EmailStatus.NEEDS_REVIEW);
+                raw.setHold(v.hold());
+                raw.setNote(v.note());
+                return;
+            }
+            Optional<Account> account = smsAccount(p);
+            if (account.isEmpty()) {
+                raw.setStatus(EmailStatus.NEEDS_REVIEW);
+                raw.setNote("Read with a format you taught, but there's no matching account. Open it and pick the account.");
+                return;
+            }
+            raw.setStatus(txns.createFromEmail(p, account.get(), raw).isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
+            return;
+        }
         for (BankEmailParser parser : parsers) {
             Optional<ParsedTransaction> parsed;
             try {

@@ -73,8 +73,14 @@ public class SmsLearningService {
     /** Reads the SMS with a learned format, if one fits its wording exactly. */
     @Transactional
     public Optional<Match> match(String text, Instant receivedAt) {
+        return match(Channel.SMS, text, receivedAt);
+    }
+
+    /** Reads the message with a format learned for its channel, if one fits its wording exactly. */
+    @Transactional
+    public Optional<Match> match(Channel channel, String text, Instant receivedAt) {
         String flat = flat(text);
-        Optional<Read> r = read(templates.findAllByOrderByHitsDescIdAsc(), flat);
+        Optional<Read> r = read(templates.findByChannelOrderByHitsDescIdAsc(channel), flat);
         if (r.isEmpty()) return Optional.empty();
         SmsTemplate t = r.get().template();
         Matcher m = r.get().m();
@@ -162,7 +168,12 @@ public class SmsLearningService {
     /** Turns a corrected SMS into a reusable format (see {@link #teach}). */
     @Transactional
     public Optional<SmsTemplate> learn(String text, Truth truth) {
-        return teach(text, truth, null).template();
+        return teach(Channel.SMS, text, truth, null).template();
+    }
+
+    @Transactional
+    public LearnResult teach(String text, Truth truth, RawEmail source) {
+        return teach(Channel.SMS, text, truth, source);
     }
 
     /**
@@ -171,33 +182,34 @@ public class SmsLearningService {
      * the new format would make any earlier lesson read differently from how I taught it.
      */
     @Transactional
-    public LearnResult teach(String text, Truth truth, RawEmail source) {
+    public LearnResult teach(Channel channel, String text, Truth truth, RawEmail source) {
         String flat = flat(text);
         Optional<SmsTemplate> built = build(flat, truth);
         if (built.isEmpty()) return LearnResult.none();
         SmsTemplate candidate = built.get();
         candidate.setSample(text.strip());
+        candidate.setChannel(channel);
 
         // The safety net: the formats as they'd be after this change must read every other lesson as well as now.
-        List<SmsTemplate> before = templates.findAllByOrderByHitsDescIdAsc();
+        List<SmsTemplate> before = templates.findByChannelOrderByHitsDescIdAsc(channel);
         Optional<SmsTemplate> same = before.stream().filter(t -> t.getSkeleton().equals(candidate.getSkeleton())).findFirst();
         List<SmsTemplate> after = new ArrayList<>(before);
         same.ifPresent(after::remove);
         after.add(candidate);
-        int broken = regressions(before, after, flat);
+        int broken = regressions(channel, before, after, flat);
         if (broken > 0) return new LearnResult(Optional.empty(), broken);
 
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
         SmsTemplate saved = templates.save(t);
-        remember(flat, text, truth, source);
+        remember(channel, flat, text, truth, source);
         return new LearnResult(Optional.of(saved), 0);
     }
 
     /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
-    int regressions(List<SmsTemplate> before, List<SmsTemplate> after, String exceptText) {
+    int regressions(Channel channel, List<SmsTemplate> before, List<SmsTemplate> after, String exceptText) {
         int n = 0;
-        for (LearnedExample e : examples.findByChannel(Channel.SMS)) {
+        for (LearnedExample e : examples.findByChannel(channel)) {
             String f = flat(e.getText());
             if (f.equals(exceptText)) continue;
             if (right(e, read(before, f)) && !right(e, read(after, f))) n++;
@@ -214,13 +226,13 @@ public class SmsLearningService {
     }
 
     /** Keeps the message and its answer as a lesson, replacing any earlier lesson on the same text. */
-    private void remember(String flat, String text, Truth truth, RawEmail source) {
-        for (LearnedExample old : examples.findByChannel(Channel.SMS)) {
+    private void remember(Channel channel, String flat, String text, Truth truth, RawEmail source) {
+        for (LearnedExample old : examples.findByChannel(channel)) {
             if (flat(old.getText()).equals(flat)) examples.delete(old);
         }
         LearnedExample e = new LearnedExample();
         e.setRawEmail(source);
-        e.setChannel(Channel.SMS);
+        e.setChannel(channel);
         e.setText(text.strip());
         e.setDirection(truth.direction());
         e.setAmount(truth.amount().setScale(2, java.math.RoundingMode.HALF_UP));
@@ -241,6 +253,7 @@ public class SmsLearningService {
         to.setDirection(from.getDirection());
         to.setCardPayment(from.isCardPayment());
         to.setSample(from.getSample());
+        to.setChannel(from.getChannel());
     }
 
     /** The format a corrected message implies, checked to read its own source back; not saved. */

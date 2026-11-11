@@ -179,6 +179,7 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
   const [taught, setTaught] = useState<TeachResult | null>(null)
   if (!e.data) return null
   const sms = e.data.channel === 'SMS'
+  const teachable = e.data.status !== 'STATEMENT'
   const pending = e.data.status === 'NEEDS_REVIEW' || e.data.status === 'ERROR' || e.data.status === 'IGNORED'
   return (
     <div className="space-y-4">
@@ -213,8 +214,8 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
           {taught.alsoFixed > 0 ? ` ${taught.alsoFixed} other waiting message${taught.alsoFixed > 1 ? 's were' : ' was'} recorded too.` : ''}
         </Notice>
       )}
-      {sms && teaching && <TeachForm id={id} onDone={(r) => (setTaught(r), setTeaching(false))} />}
-      {sms && !teaching && !taught && (
+      {teachable && teaching && <TeachForm id={id} onDone={(r) => (setTaught(r), setTeaching(false))} />}
+      {teachable && !teaching && !taught && !trust.data && e.data.hold !== 'UNKNOWN_SENDER' && (
         <Button variant={pending ? 'primary' : 'secondary'} className="w-full" onClick={() => setTeaching(true)}>
           <GraduationCap size={18} /> {e.data.status === 'PARSED' ? 'This was read wrong' : 'Tell me what this is'}
         </Button>
@@ -244,7 +245,7 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
       <p className="ink-3 text-xs">
         {sms
           ? 'Correcting an SMS teaches the parser: it remembers the wording and the account, and re-checks everything else waiting for review.'
-          : "If a bank email isn't recognised, share a redacted copy so a parser can be added. Meanwhile you can add the transaction by hand."}
+          : 'Correcting an email teaches the parser its format, so the next alert like it is read automatically. Its sender is trusted from then on.'}
       </p>
     </div>
   )

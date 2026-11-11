@@ -9,5 +9,7 @@ import java.util.Optional;
 public interface SmsTemplateRepo extends JpaRepository<SmsTemplate, Long> {
     List<SmsTemplate> findAllByOrderByHitsDescIdAsc();
 
+    List<SmsTemplate> findByChannelOrderByHitsDescIdAsc(com.hisaab.domain.Enums.Channel channel);
+
     Optional<SmsTemplate> findBySkeleton(String skeleton);
 }
