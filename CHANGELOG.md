@@ -18,6 +18,9 @@ must do when upgrading (marked **Upgrade:**).
 - Bank emails can be taught too, the same way as SMS: open one in the Inbox and choose **Tell me what this is**
   (or **This was read wrong**). Its format is learned and its sender's domain is trusted from then on. Formats you
   teach for emails are used before the built-in bank readers, so a correction always wins.
+- **Not a transaction**: for an offer, payment request or anything else that isn't money moving. The message is
+  ignored, and later ones worded the same are skipped automatically (waiting ones too). It replaces Ignore in the
+  Inbox; a recorded message can be marked too, which removes its transaction.
 
 ## [0.3.0] - 2026-11-11
 

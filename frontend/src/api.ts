@@ -424,7 +424,7 @@ export interface TeachResult {
 }
 
 export interface Learned {
-  formats: { id: number; skeleton: string; sample?: string; institution: string; direction: Direction; hits: number; lastUsedAt?: string }[]
+  formats: { id: number; skeleton: string; sample?: string; institution?: string; direction?: Direction; hits: number; lastUsedAt?: string; channel: 'SMS' | 'EMAIL'; kind: 'TXN' | 'SKIP' }[]
   payees: { id: number; rawKey: string; displayName: string; hits: number }[]
   senders: number
 }

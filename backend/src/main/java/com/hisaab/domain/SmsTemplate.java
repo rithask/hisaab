@@ -21,6 +21,15 @@ public class SmsTemplate {
     @Enumerated(EnumType.STRING)
     private com.hisaab.domain.Enums.Channel channel = com.hisaab.domain.Enums.Channel.SMS;
 
+    public static final String TXN = "TXN", SKIP = "SKIP";
+
+    /** TXN reads a transaction; SKIP means "not a transaction": messages worded like this are skipped. */
+    private String kind = TXN;
+
+    public boolean isSkip() {
+        return SKIP.equals(kind);
+    }
+
     @Column(columnDefinition = "text")
     private String skeleton;
 

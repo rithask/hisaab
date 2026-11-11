@@ -65,10 +65,19 @@ public class SmsLearningService {
 
     // ---- formats --------------------------------------------------------------------------------------------
 
-    public record Match(ParsedTransaction txn, SmsTemplate template) {}
+    /** @param txn what the format read; null when the format says the message isn't a transaction */
+    public record Match(ParsedTransaction txn, SmsTemplate template) {
+        public boolean skip() {
+            return txn == null;
+        }
+    }
 
-    /** What a learned format reads from a message: the fields the safety net compares. */
-    record Read(SmsTemplate template, Direction direction, BigDecimal amount, Institution institution, String payee, Matcher m) {}
+    /** What a learned format reads from a message: the fields the safety net compares (all null for a skip). */
+    record Read(SmsTemplate template, Direction direction, BigDecimal amount, Institution institution, String payee, Matcher m) {
+        boolean skip() {
+            return template.isSkip();
+        }
+    }
 
     /** Reads the SMS with a learned format, if one fits its wording exactly. */
     @Transactional
@@ -83,20 +92,24 @@ public class SmsLearningService {
         Optional<Read> r = read(templates.findByChannelOrderByHitsDescIdAsc(channel), flat);
         if (r.isEmpty()) return Optional.empty();
         SmsTemplate t = r.get().template();
+        t.setHits(t.getHits() + 1);
+        t.setLastUsedAt(Instant.now());
+        if (r.get().skip()) return Optional.of(new Match(null, t));
         Matcher m = r.get().m();
         SmsParser.When w = SmsParser.findWhen(flat, receivedAt);
         ParsedTransaction p = new ParsedTransaction(t.getInstitution(), t.getAccountType(), t.getDirection(), r.get().amount(), "INR",
                 group(t, m, "l4"), w.date(), w.time(), r.get().payee(), group(t, m, "ref"),
                 t.getAccountType() == AccountType.CREDIT_CARD || group(t, m, "bal") == null ? null : SmsParser.toAmount(group(t, m, "bal")),
                 t.isCardPayment(), null);
-        t.setHits(t.getHits() + 1);
-        t.setLastUsedAt(Instant.now());
         return Optional.of(new Match(p, t));
     }
 
     /** The first of these formats (in the order given) that fits the whole message. */
     static Optional<Read> read(List<SmsTemplate> set, String flat) {
-        for (SmsTemplate t : set) {
+        // "not a transaction" formats are checked first, then the ones that read transactions, in the order given
+        List<SmsTemplate> ordered = new ArrayList<>(set.stream().filter(SmsTemplate::isSkip).toList());
+        set.stream().filter(t -> !t.isSkip()).forEach(ordered::add);
+        for (SmsTemplate t : ordered) {
             Matcher m;
             try {
                 m = Pattern.compile(t.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
@@ -105,6 +118,7 @@ public class SmsLearningService {
                 continue;
             }
             if (!m.matches()) continue;
+            if (t.isSkip()) return Optional.of(new Read(t, null, null, null, null, m));
             BigDecimal amount;
             try {
                 amount = SmsParser.toAmount(m.group("amt"));
@@ -195,14 +209,66 @@ public class SmsLearningService {
         Optional<SmsTemplate> same = before.stream().filter(t -> t.getSkeleton().equals(candidate.getSkeleton())).findFirst();
         List<SmsTemplate> after = new ArrayList<>(before);
         same.ifPresent(after::remove);
+        // I now say this wording is a transaction: "not a transaction" formats that cover it go
+        List<SmsTemplate> overruled = before.stream().filter(SmsTemplate::isSkip)
+                .filter(t -> read(List.of(t), flat).isPresent()).toList();
+        after.removeAll(overruled);
         after.add(candidate);
+        int broken = regressions(channel, before, after, flat);
+        if (broken > 0) return new LearnResult(Optional.empty(), broken);
+
+        overruled.forEach(templates::delete);
+        SmsTemplate t = same.orElseGet(SmsTemplate::new);
+        copy(candidate, t);
+        SmsTemplate saved = templates.save(t);
+        remember(channel, flat, text, truth, source);
+        return new LearnResult(Optional.of(saved), 0);
+    }
+
+    /**
+     * "Not a transaction": messages worded like this one are skipped from now on. Digits and month names vary, the
+     * rest of the wording must match. Refused when it would skip a message I taught as a transaction.
+     */
+    @Transactional
+    public LearnResult skip(Channel channel, String text, RawEmail source) {
+        String flat = flat(text);
+        if (flat.isEmpty()) return LearnResult.none();
+        StringBuilder pattern = new StringBuilder("^");
+        StringBuilder skeleton = new StringBuilder("skip: ");
+        literal(flat, pattern, skeleton);
+        pattern.append("$");
+        SmsTemplate candidate = new SmsTemplate();
+        candidate.setChannel(channel);
+        candidate.setKind(SmsTemplate.SKIP);
+        candidate.setSkeleton(skeleton.toString().trim());
+        candidate.setPattern(pattern.toString());
+        candidate.setSample(text.strip());
+
+        List<SmsTemplate> before = templates.findByChannelOrderByHitsDescIdAsc(channel);
+        Optional<SmsTemplate> same = before.stream().filter(t -> t.getSkeleton().equals(candidate.getSkeleton())).findFirst();
+        List<SmsTemplate> after = new ArrayList<>(before);
+        same.ifPresent(after::remove);
+        // a skip is checked before the formats that read transactions
+        after.add(0, candidate);
         int broken = regressions(channel, before, after, flat);
         if (broken > 0) return new LearnResult(Optional.empty(), broken);
 
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
+        t.setKind(SmsTemplate.SKIP);
+        t.setInstitution(null);
+        t.setAccountType(null);
+        t.setDirection(null);
         SmsTemplate saved = templates.save(t);
-        remember(channel, flat, text, truth, source);
+        for (LearnedExample old : examples.findByChannel(channel)) {
+            if (flat(old.getText()).equals(flat)) examples.delete(old);
+        }
+        LearnedExample e = new LearnedExample();
+        e.setRawEmail(source);
+        e.setChannel(channel);
+        e.setText(text.strip());
+        e.setKind(LearnedExample.SKIP);
+        examples.save(e);
         return new LearnResult(Optional.of(saved), 0);
     }
 
@@ -212,13 +278,18 @@ public class SmsLearningService {
         for (LearnedExample e : examples.findByChannel(channel)) {
             String f = flat(e.getText());
             if (f.equals(exceptText)) continue;
-            if (right(e, read(before, f)) && !right(e, read(after, f))) n++;
+            Optional<Read> now = read(after, f);
+            boolean broken = right(e, read(before, f)) && !right(e, now);
+            // never skip a message I said was a transaction, even one no format reads yet
+            boolean hidden = LearnedExample.TXN.equals(e.getKind()) && now.isPresent() && now.get().skip();
+            if (broken || hidden) n++;
         }
         return n;
     }
 
     static boolean right(LearnedExample e, Optional<Read> r) {
-        if (r.isEmpty()) return false;
+        if (LearnedExample.SKIP.equals(e.getKind())) return r.isPresent() && r.get().skip();
+        if (r.isEmpty() || r.get().skip()) return false;
         Read x = r.get();
         return x.direction() == e.getDirection() && x.amount().compareTo(e.getAmount()) == 0
                 && x.institution() == e.getInstitution()
@@ -254,6 +325,7 @@ public class SmsLearningService {
         to.setCardPayment(from.isCardPayment());
         to.setSample(from.getSample());
         to.setChannel(from.getChannel());
+        to.setKind(from.getKind());
     }
 
     /** The format a corrected message implies, checked to read its own source back; not saved. */

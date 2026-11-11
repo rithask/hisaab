@@ -170,10 +170,10 @@ function EmailList({ items, onOpen }: { items: Email[]; onOpen: (id: number) => 
   )
 }
 
-function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
+function EmailView({ id }: { id: number; onDone: () => void }) {
   const e = useQuery({ queryKey: ['email', id], queryFn: () => api<Email>(`/emails/${id}`) })
   const reprocess = useMoneyMutation(() => api<Email>(`/emails/${id}/reprocess`, { method: 'POST' }))
-  const ignore = useMoneyMutation(() => api(`/emails/${id}/ignore`, { method: 'POST' }), onDone)
+  const skip = useMoneyMutation(() => api<{ learned: boolean; conflicts: number; alsoSkipped: number }>(`/emails/${id}/not-a-transaction`, { method: 'POST' }))
   const trust = useMoneyMutation(() => api<{ domain: string; recorded: number }>(`/emails/${id}/trust-sender`, { method: 'POST' }))
   const [teaching, setTeaching] = useState(false)
   const [taught, setTaught] = useState<TeachResult | null>(null)
@@ -220,6 +220,20 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
           <GraduationCap size={18} /> {e.data.status === 'PARSED' ? 'This was read wrong' : 'Tell me what this is'}
         </Button>
       )}
+      {e.data.status === 'PARSED' && !teaching && !taught && !skip.data && (
+        <button className="ink-2 w-full text-center text-sm font-medium" onClick={() => confirm('Remove its transaction and skip messages worded like this?') && skip.mutate(undefined)}>
+          This isn't a transaction
+        </button>
+      )}
+      {skip.data && (
+        <Notice tone={skip.data.learned ? 'green' : 'amber'}>
+          {skip.data.learned
+            ? `Ignored. Messages worded like this are skipped from now on${skip.data.alsoSkipped > 0 ? `, and ${skip.data.alsoSkipped} waiting one${skip.data.alsoSkipped > 1 ? 's were' : ' was'} skipped too` : ''}.`
+            : skip.data.conflicts > 0
+              ? `Ignored, but not learned: you taught ${skip.data.conflicts > 1 ? `${skip.data.conflicts} messages` : 'a message'} worded like this as a transaction.`
+              : 'Ignored.'}
+        </Notice>
+      )}
       {trust.data && (
         <Notice tone="green">
           Alerts from {trust.data.domain} are trusted now. {trust.data.recorded > 0 ? `${count(trust.data.recorded)} held email${trust.data.recorded > 1 ? 's were' : ' was'} recorded.` : ''}
@@ -232,12 +246,12 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
       )}
       {pending && !teaching && !taught && !trust.data && (
         <div className="flex gap-2">
-          <Button variant={e.data.hold === 'UNKNOWN_SENDER' ? 'secondary' : 'primary'} className="flex-1" onClick={() => reprocess.mutate(undefined)}>
+          <Button variant="secondary" className="flex-1" onClick={() => reprocess.mutate(undefined)}>
             Try again
           </Button>
-          {e.data.status !== 'IGNORED' && (
-            <Button variant="secondary" className="flex-1" onClick={() => ignore.mutate(undefined)}>
-              Ignore
+          {e.data.status !== 'IGNORED' && !skip.data && (
+            <Button variant="secondary" className="flex-1" disabled={skip.isPending} onClick={() => skip.mutate(undefined)}>
+              Not a transaction
             </Button>
           )}
         </div>

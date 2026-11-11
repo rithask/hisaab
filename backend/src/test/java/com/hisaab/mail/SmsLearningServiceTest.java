@@ -4,6 +4,7 @@ import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.Institution;
+import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.LearnedExample;
 import com.hisaab.domain.SmsTemplate;
 import com.hisaab.mail.parser.ParsedTransaction;
@@ -45,6 +46,7 @@ class SmsLearningServiceTest {
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
         when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
+        doAnswer(i -> store.remove(i.<SmsTemplate>getArgument(0))).when(repo).delete(any());
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
         LearnedExampleRepo examples = mock(LearnedExampleRepo.class);
         when(examples.save(any())).thenAnswer(i -> {
@@ -186,6 +188,39 @@ class SmsLearningServiceTest {
         String next = "Hello, your Axis account XX2286 was charged INR 99.00 at RAIL TICKETS today.";
         assertTrue(learning.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
         assertEquals("RAIL TICKETS", learning.match(com.hisaab.domain.Enums.Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
+    }
+
+    @Test
+    void notATransactionSkipsMessagesWordedTheSame() {
+        String promo = "Get a pre-approved loan of Rs 5,00,000 at 10.5% on your A/c XX2286. Reply YES by 30-11-26";
+        assertTrue(learning.skip(Channel.SMS, promo, null).template().isPresent());
+        var m = learning.match("Get a pre-approved loan of Rs 2,00,000 at 11.0% on your A/c XX2286. Reply YES by 15-12-26", DEC);
+        assertTrue(m.isPresent() && m.get().skip());
+        assertTrue(learning.match("Get a car loan of Rs 2,00,000 today", DEC).isEmpty(), "different wording isn't skipped");
+    }
+
+    @Test
+    void aSkipThatWouldHideATaughtTransactionIsRefused() {
+        String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
+        learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        // another message worded the same can't be marked "not a transaction": that would hide the one I taught
+        var r = learning.skip(Channel.SMS, "Txn alert: 45.00 INR moved for acct 2286 to RAHUL K", null);
+        assertTrue(r.template().isEmpty(), "the same wording can't be skipped");
+        assertEquals(1, r.conflicts());
+        assertEquals(Direction.DEBIT, read(sms).direction());
+    }
+
+    @Test
+    void teachingATransactionOverrulesASkipForItsWording() {
+        String sms = "Refund of INR 120.00 initiated to acct 2286 for order 5512";
+        learning.skip(Channel.SMS, sms, null);
+        assertTrue(learning.match(sms, DEC).orElseThrow().skip());
+        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
+        // the earlier skip lesson conflicts, so nothing changes until I remove that skip
+        assertTrue(learning.match(sms, DEC).orElseThrow().skip());
+        lessons.removeIf(e -> LearnedExample.SKIP.equals(e.getKind()));
+        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
+        assertEquals(Direction.CREDIT, read(sms).direction());
     }
 
     @Test

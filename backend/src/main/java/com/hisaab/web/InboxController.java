@@ -100,6 +100,16 @@ public class InboxController {
         return new TrustResponse(domain, processor.trustSender(domain));
     }
 
+    public record SkipResponse(EmailDto message, boolean learned, int conflicts, int alsoSkipped) {}
+
+    /** "Not a transaction": ignore it and skip messages worded like it from now on. */
+    @PostMapping("/emails/{id}/not-a-transaction")
+    public SkipResponse notATransaction(@PathVariable Long id) {
+        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found"));
+        EmailProcessor.SkipResult r = processor.notATransaction(e);
+        return new SkipResponse(EmailDto.of(r.message(), false), r.learned(), r.conflicts(), r.alsoSkipped());
+    }
+
     @PostMapping("/emails/{id}/ignore")
     @Transactional
     public EmailDto ignore(@PathVariable Long id) {
@@ -128,7 +138,7 @@ public class InboxController {
     }
 
     public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,
-                              java.time.Instant lastUsedAt) {}
+                              java.time.Instant lastUsedAt, String channel, String kind) {}
 
     public record AliasDto(Long id, String rawKey, String displayName, int hits) {}
 
@@ -139,7 +149,8 @@ public class InboxController {
     public Learned learned() {
         return new Learned(
                 learning.templates().stream().map(t -> new TemplateDto(t.getId(), t.getSkeleton(), t.getSample(),
-                        t.getInstitution().name(), t.getDirection().name(), t.getHits(), t.getLastUsedAt())).toList(),
+                        t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
+                        t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind())).toList(),
                 aliases.all().stream().map(a -> new AliasDto(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
                 learning.senderCount());
     }

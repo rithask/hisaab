@@ -16,7 +16,7 @@ import java.time.Instant;
 @Getter
 @Setter
 public class LearnedExample {
-    public static final String TXN = "TXN";
+    public static final String TXN = "TXN", SKIP = "SKIP";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

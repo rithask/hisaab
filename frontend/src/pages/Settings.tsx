@@ -217,7 +217,7 @@ function LearnedCard() {
       </div>
       {empty ? (
         <p className="ink-2 mt-4 text-sm leading-relaxed">
-          Nothing yet. It learns when you correct an SMS in the Inbox, rename a payee on a transaction, or pick the account for a message it couldn't place.
+          Nothing yet. It learns when you correct a message in the Inbox, mark one as not a transaction, rename a payee on a transaction, or pick the account for a message it couldn't place.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -230,7 +230,8 @@ function LearnedCard() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-mono text-[11px] leading-relaxed">{f.skeleton}</p>
                       <p className="ink-3 mt-1 text-[11px]">
-                        {f.institution} · {f.direction === 'DEBIT' ? 'money out' : 'money in'} · used {f.hits} time{f.hits === 1 ? '' : 's'}
+                        {f.channel === 'EMAIL' ? 'Email · ' : ''}
+                        {f.kind === 'SKIP' ? 'not a transaction' : `${f.institution} · ${f.direction === 'DEBIT' ? 'money out' : 'money in'}`} · used {f.hits} time{f.hits === 1 ? '' : 's'}
                         {f.lastUsedAt ? ` · last ${dateTime(f.lastUsedAt)}` : ''}
                       </p>
                     </div>
