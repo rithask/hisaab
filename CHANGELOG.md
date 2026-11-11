@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
 ### Added
 - A calendar for every date in the app (transaction and payment dates, account "as of", refund due dates, points
   balance date, Activity's date range, importing older emails): a sheet on phones, a dropdown on larger screens,
