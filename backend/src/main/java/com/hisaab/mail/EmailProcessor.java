@@ -51,12 +51,15 @@ public class EmailProcessor {
     private final com.hisaab.service.BalanceService balances;
     private final org.springframework.context.ApplicationEventPublisher events;
     private final SenderTrust trust;
+    private final com.hisaab.service.PayeeAliasService aliases;
 
     public EmailProcessor(List<BankEmailParser> parsers, RawEmailRepo emails, AccountRepo accounts,
                           StatementFileRepo statements, StatementStorage storage, TransactionService txns,
                           SmsParser smsParser, SmsLearningService learning, com.hisaab.service.BalanceService balances,
-                          org.springframework.context.ApplicationEventPublisher events, SenderTrust trust) {
+                          org.springframework.context.ApplicationEventPublisher events, SenderTrust trust,
+                          com.hisaab.service.PayeeAliasService aliases) {
         this.events = events;
+        this.aliases = aliases;
         this.trust = trust;
         this.smsParser = smsParser;
         this.learning = learning;
@@ -240,18 +243,43 @@ public class EmailProcessor {
     public Preview preview(RawEmail raw) {
         ParsedTransaction p = learning.match(raw.getBodyText(), raw.getReceivedAt()).map(SmsLearningService.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
+        String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
         List<Txn> existing = txns.forMessage(raw);
+        Direction direction = p == null ? null : p.direction();
+        java.math.BigDecimal amount = p == null ? null : p.amount();
+        Long accountId = p == null ? null : smsAccount(p).map(Account::getId).orElse(null);
+        String name = p == null ? null : p.counterparty();
         if (!existing.isEmpty()) {
             Txn t = existing.get(0);
-            return new Preview(t.getDirection(), t.getAmount(), t.getAccount().getId(), t.getCounterparty());
+            direction = t.getDirection();
+            amount = t.getAmount();
+            accountId = t.getAccount().getId();
+            name = t.getCounterparty();
         }
-        if (p == null) return new Preview(null, null, null, null);
-        return new Preview(p.direction(), p.amount(), smsAccount(p).map(Account::getId).orElse(null), p.counterparty());
+        // Where those are in the text, so the form can show them marked.
+        int[] amountAt = amount == null ? null : SmsLearningService.findAmount(flat, amount);
+        int[] payeeAt = null;
+        for (String v : java.util.Arrays.asList(p == null ? null : p.counterparty(), name)) {
+            int at = v == null || v.isBlank() ? -1 : flat.toLowerCase(Locale.ROOT).indexOf(v.toLowerCase(Locale.ROOT));
+            if (at >= 0) {
+                payeeAt = new int[]{at, at + v.length()};
+                break;
+            }
+        }
+        return new Preview(direction, amount, accountId, name, flat, amountAt, payeeAt);
     }
 
-    public record Preview(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty) {}
+    /** @param flat the message with whitespace collapsed; {@code amountAt}/{@code payeeAt} are {start, end} in it */
+    public record Preview(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
+                          String flat, int[] amountAt, int[] payeeAt) {}
 
-    public record Teaching(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty) {}
+    /**
+     * @param counterparty the name to show for the payee
+     * @param amountAt     where I marked the amount ({start, end} in the collapsed text), if I did
+     * @param payeeAt      where I marked the payee, if I did
+     */
+    public record Teaching(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
+                           int[] amountAt, int[] payeeAt) {}
 
     /**
      * @param alsoFixed other waiting messages that could be recorded thanks to what was just learned
@@ -273,12 +301,17 @@ public class EmailProcessor {
                 .orElseThrow(() -> new IllegalArgumentException("Pick the account"));
         String text = raw.getBodyText();
         String flat = text.replaceAll("\\s+", " ").trim();
-        String payee = in.counterparty() == null || in.counterparty().isBlank() ? null : in.counterparty().trim();
+        // The payee as the bank writes it (what I marked, else what I typed) and the name I want shown for it.
+        int[] marked = SmsLearningService.span(in.payeeAt(), flat);
+        String name = in.counterparty() == null || in.counterparty().isBlank() ? null : in.counterparty().trim();
+        String payee = marked != null ? com.hisaab.mail.parser.ParseUtil.clean(flat.substring(marked[0], marked[1])) : name;
+        if (payee != null && name != null && !payee.equals(name)) aliases.remember(payee, name);
 
         for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
         txns.unpair(raw);
 
-        SmsLearningService.LearnResult learned = learning.teach(text, new SmsLearningService.Truth(in.direction(), in.amount(), account, payee), raw);
+        SmsLearningService.LearnResult learned = learning.teach(text,
+                new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked), raw);
         boolean learnedFormat = learned.template().isPresent();
 
         // If the digits in the text aren't this account's (or there are none), remember what they mean.

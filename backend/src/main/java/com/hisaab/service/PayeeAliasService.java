@@ -68,6 +68,17 @@ public class PayeeAliasService {
         return n;
     }
 
+    /** Remembers my name for a payee as the bank writes it (e.g. when I mark it in a message and name it). */
+    @Transactional
+    public void remember(String raw, String display) {
+        String key = Names.merchantKey(raw);
+        if (key == null || display == null || display.isBlank() || raw.trim().equals(display.trim())) return;
+        PayeeAlias a = aliases.findByRawKey(key).orElseGet(PayeeAlias::new);
+        a.setRawKey(key);
+        a.setDisplayName(display.trim());
+        aliases.save(a);
+    }
+
     public List<PayeeAlias> all() {
         return aliases.findAllByOrderByHitsDescDisplayNameAsc();
     }

@@ -158,6 +158,27 @@ class SmsLearningServiceTest {
     }
 
     @Test
+    void aMarkedPayeeIsLearnedEvenWhenShownUnderAnotherName() {
+        String sms = "INR 250.00 paid from acct XX2286 at SWIGGY*INSTAMART BLR on 05-11-26. Not you? Call 1860";
+        int at = sms.indexOf("SWIGGY"), end = sms.indexOf(" on 05");
+        // I mark "SWIGGY*INSTAMART BLR" but want it shown as "Swiggy Instamart": typing alone would never find it
+        var r = learning.teach(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("250"), axis, "SWIGGY*INSTAMART BLR",
+                new int[]{sms.indexOf("250.00") - 4, sms.indexOf("250.00") + 6}, new int[]{at, end}), null);
+        assertTrue(r.template().isPresent());
+        var p = read("INR 99.00 paid from acct XX2286 at ZEPTO MARKETPLACE on 12-12-26. Not you? Call 1860");
+        assertEquals("ZEPTO MARKETPLACE", p.counterparty());
+        assertEquals(new BigDecimal("99.00"), p.amount());
+        assertEquals("SWIGGY*INSTAMART BLR", lessons.get(0).getPayee());
+    }
+
+    @Test
+    void marksOutsideTheTextAreIgnored() {
+        assertNull(SmsLearningService.span(new int[]{5, 500}, "short text"));
+        assertNull(SmsLearningService.span(new int[]{3, 3}, "short text"));
+        assertArrayEquals(new int[]{0, 5}, SmsLearningService.span(new int[]{0, 7}, "short. text"));
+    }
+
+    @Test
     void senderIdsAreNormalised() {
         assertEquals("HDFCBK", SmsLearningService.senderKey("VM-HDFCBK-S"));
         assertEquals("AXISBK", SmsLearningService.senderKey("ax-axisbk"));

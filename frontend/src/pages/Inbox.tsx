@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, ShieldCheck, UploadSimple, Warning } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { api, qs, type Alert, type Email, type EmailStatus, type SmsPreview, type TeachResult } from '../api'
-import { Badge, Button, Card, Chip, cx, Empty, ErrorText, Field, Input, List, Notice, PageHeader, Section, Segmented, Sheet, Page } from '../components/ui'
+import { api, qs, type Alert, type Email, type EmailStatus, type TeachResult } from '../api'
+import { Badge, Button, Card, Chip, cx, Empty, ErrorText, List, Notice, PageHeader, Section, Sheet, Page } from '../components/ui'
 import { count, dateTime, money } from '../format'
-import { useAccounts, useMoneyMutation } from '../hooks'
+import { useMoneyMutation } from '../hooks'
 import SmsPasteSheet from '../components/SmsPasteSheet'
+import TeachForm from '../components/TeachForm'
 
 const tone: Record<EmailStatus, 'green' | 'amber' | 'red' | 'neutral' | 'blue'> = {
   PARSED: 'green',
@@ -199,7 +200,7 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
           </div>
         )}
       </div>
-      <pre className="max-h-[45dvh] overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">{e.data.bodyText}</pre>
+      {!teaching && <pre className="max-h-[45dvh] overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">{e.data.bodyText}</pre>}
       {taught && (
         <Notice tone="green">
           {taught.txnId ? 'Recorded.' : 'Already recorded.'}
@@ -249,63 +250,3 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
   )
 }
 
-/** Correct one SMS. The four answers are everything the parser needs to learn the format. */
-function TeachForm({ id, onDone }: { id: number; onDone: (r: TeachResult) => void }) {
-  const accounts = useAccounts()
-  const preview = useQuery({ queryKey: ['sms-preview', id], queryFn: () => api<SmsPreview>(`/emails/${id}/preview`), staleTime: 0 })
-  const [direction, setDirection] = useState<'DEBIT' | 'CREDIT'>('DEBIT')
-  const [amount, setAmount] = useState('')
-  const [accountId, setAccountId] = useState<number | ''>('')
-  const [payee, setPayee] = useState('')
-  // Start from the parser's own best guess, so I only fix what's wrong.
-  useEffect(() => {
-    const p = preview.data
-    if (!p) return
-    if (p.direction) setDirection(p.direction)
-    if (p.amount != null) setAmount(String(p.amount))
-    if (p.accountId != null) setAccountId(p.accountId)
-    if (p.counterparty) setPayee(p.counterparty)
-  }, [preview.data])
-  const teach = useMoneyMutation(() => api<TeachResult>(`/emails/${id}/teach`, { body: { direction, amount: Number(amount), accountId, counterparty: payee } }), onDone)
-  const active = (accounts.data ?? []).filter((a) => !a.archived)
-
-  return (
-    <form
-      className="anim-pop space-y-3 rounded-2xl bg-[var(--surface-2)] p-4"
-      onSubmit={(e) => {
-        e.preventDefault()
-        teach.mutate(undefined)
-      }}
-    >
-      <Segmented<'DEBIT' | 'CREDIT'>
-        value={direction}
-        onChange={setDirection}
-        className="bg-[var(--surface)]"
-        options={[
-          { value: 'DEBIT', label: 'Money out' },
-          { value: 'CREDIT', label: 'Money in' },
-        ]}
-      />
-      <Field label="Amount (₹)">
-        <Input inputMode="decimal" required value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} className="bg-[var(--surface)]" />
-      </Field>
-      <div>
-        <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">Account</span>
-        <div className="flex flex-wrap gap-2">
-          {active.map((a) => (
-            <Chip key={a.id} active={a.id === accountId} onClick={() => setAccountId(a.id)}>
-              {a.name}
-            </Chip>
-          ))}
-        </div>
-      </div>
-      <Field label={direction === 'DEBIT' ? 'Paid to' : 'Received from'} hint="Type it exactly as it appears in the message so it can be picked out next time.">
-        <Input value={payee} onChange={(e) => setPayee(e.target.value)} className="bg-[var(--surface)]" />
-      </Field>
-      <ErrorText error={teach.error} />
-      <Button type="submit" className="w-full" disabled={!Number(amount) || accountId === '' || teach.isPending}>
-        {teach.isPending ? 'Learning…' : 'Save & learn'}
-      </Button>
-    </form>
-  )
-}

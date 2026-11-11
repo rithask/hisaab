@@ -115,8 +115,39 @@ public class SmsLearningService {
         return t.getPattern().contains("(?<" + name + ">") ? m.group(name) : null;
     }
 
-    /** What I said a message really was. */
-    public record Truth(Direction direction, BigDecimal amount, Account account, String counterparty) {}
+    /**
+     * What I said a message really was. {@code amountAt} and {@code payeeAt} are where I marked the amount and the
+     * payee in the message ({start, end} in its whitespace-collapsed text), when I marked them.
+     */
+    public record Truth(Direction direction, BigDecimal amount, Account account, String counterparty, int[] amountAt, int[] payeeAt) {
+        public Truth(Direction direction, BigDecimal amount, Account account, String counterparty) {
+            this(direction, amount, account, counterparty, null, null);
+        }
+    }
+
+    /** A {start, end} span that lies inside the text, or null. */
+    public static int[] span(int[] s, String flat) {
+        if (s == null || s.length != 2 || s[0] < 0 || s[1] > flat.length() || s[0] >= s[1]) return null;
+        // trim spaces and trailing punctuation so the slot lines up with the words
+        int a = s[0], b = s[1];
+        while (a < b && Character.isWhitespace(flat.charAt(a))) a++;
+        while (b > a && (Character.isWhitespace(flat.charAt(b - 1)) || ".,;:".indexOf(flat.charAt(b - 1)) >= 0)) b--;
+        return a < b ? new int[]{a, b} : null;
+    }
+
+    /** The number inside a marked span (the amount slot covers just the digits, not "Rs." around them). */
+    static int[] numberIn(String flat, int[] s, BigDecimal amount) {
+        if (s == null) return null;
+        Matcher m = NUMBER.matcher(flat).region(s[0], s[1]);
+        while (m.find()) {
+            try {
+                if (amount == null || SmsParser.toAmount(m.group()).compareTo(amount) == 0) return new int[]{m.start(), m.end()};
+            } catch (RuntimeException ignored) {
+                // not a number after all
+            }
+        }
+        return null;
+    }
 
     /**
      * @param template  the format learned, if any
@@ -195,7 +226,9 @@ public class SmsLearningService {
         e.setAmount(truth.amount().setScale(2, java.math.RoundingMode.HALF_UP));
         e.setInstitution(truth.account().getInstitution());
         e.setAccountType(truth.account().isCard() ? AccountType.CREDIT_CARD : AccountType.BANK);
-        String payee = truth.counterparty() == null ? null : truth.counterparty().trim();
+        int[] marked = span(truth.payeeAt(), flat);
+        String payee = marked != null ? clean(flat.substring(marked[0], marked[1]))
+                : truth.counterparty() == null ? null : truth.counterparty().trim();
         e.setPayee(payee != null && flat.toLowerCase(Locale.ROOT).contains(payee.toLowerCase(Locale.ROOT)) ? payee : null);
         examples.save(e);
     }
@@ -213,7 +246,8 @@ public class SmsLearningService {
     /** The format a corrected message implies, checked to read its own source back; not saved. */
     private Optional<SmsTemplate> build(String flat, Truth truth) {
         List<int[]> spans = new ArrayList<>(); // {start, end, kind}
-        int[] amt = findAmount(flat, truth.amount());
+        int[] amt = numberIn(flat, span(truth.amountAt(), flat), truth.amount());
+        if (amt == null) amt = findAmount(flat, truth.amount());
         if (amt == null) return Optional.empty();
         spans.add(new int[]{amt[0], amt[1], 0});
 
@@ -223,7 +257,12 @@ public class SmsLearningService {
         if (ref != null) add(spans, ref, 3);
         int[] bal = SmsParser.findBalance(flat);
         if (bal != null) add(spans, bal, 4);
-        if (truth.counterparty() != null && !truth.counterparty().isBlank()) {
+        int[] marked = span(truth.payeeAt(), flat);
+        if (marked != null) {
+            // what I marked wins over the account digits, reference or balance the heuristics thought they saw there
+            spans.removeIf(s -> s[2] != 0 && marked[0] < s[1] && s[0] < marked[1]);
+            add(spans, marked, 1);
+        } else if (truth.counterparty() != null && !truth.counterparty().isBlank()) {
             int at = flat.toLowerCase(Locale.ROOT).indexOf(truth.counterparty().trim().toLowerCase(Locale.ROOT));
             if (at >= 0) add(spans, new int[]{at, at + truth.counterparty().trim().length()}, 1);
         }

@@ -12,6 +12,9 @@ must do when upgrading (marked **Upgrade:**).
 ### Added
 - Teaching has a safety net: every message you correct is kept with its right answer, and a newly learned format
   is refused if it would make any of them read differently. You're told when that happens.
+- Teach a message by tapping it: tap the amount, tap the first and last word of the payee, pick the account. The
+  payee is then read from every later message in that format, and you can show it under your own name ("Swiggy
+  Instamart" for "SWIGGY*INSTAMART BLR").
 
 ## [0.3.0] - 2026-11-11
 

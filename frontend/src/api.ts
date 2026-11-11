@@ -407,6 +407,10 @@ export interface SmsPreview {
   amount?: number
   accountId?: number
   counterparty?: string
+  /** the message with whitespace collapsed; the spans below are [start, end] in it */
+  flat: string
+  amountAt?: number[]
+  payeeAt?: number[]
 }
 
 export interface TeachResult {
