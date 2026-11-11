@@ -120,6 +120,8 @@ export interface Txn {
   linkedTxnId?: number
   linkedAccount?: AccountRef
   sharedAmount?: number
+  /** the app chose the category from what it learned; I haven't confirmed it */
+  categorySuggested?: boolean
 }
 
 export interface Page<T> {

@@ -30,7 +30,7 @@ public final class Dtos {
                          Instant occurredAt, String counterparty, String description, String referenceNo,
                          BigDecimal reportedBalance, CategoryDto category, List<String> tags, String notes,
                          TxnSource source, Long rawEmailId, boolean transfer, Long linkedTxnId,
-                         AccountRef linkedAccount, BigDecimal sharedAmount) {
+                         AccountRef linkedAccount, BigDecimal sharedAmount, boolean categorySuggested) {
         static TxnDto of(Txn t, BigDecimal shared) {
             return new TxnDto(t.getId(), AccountRef.of(t.getAccount()), t.getDirection(), t.getAmount(),
                     t.getOriginalAmount(), t.getOriginalCurrency(), t.isAmountEstimated(), t.getOccurredAt(),
@@ -39,7 +39,8 @@ public final class Dtos {
                     t.getTags().stream().map(Tag::getName).sorted().toList(), t.getNotes(), t.getSource(),
                     t.getRawEmail() == null ? null : t.getRawEmail().getId(), t.isTransfer(),
                     t.getLinkedTxn() == null ? null : t.getLinkedTxn().getId(),
-                    t.getLinkedTxn() == null ? null : AccountRef.of(t.getLinkedTxn().getAccount()), shared);
+                    t.getLinkedTxn() == null ? null : AccountRef.of(t.getLinkedTxn().getAccount()), shared,
+                    t.isCategorySuggested() && t.getCategory() != null);
         }
     }
 

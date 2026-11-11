@@ -152,7 +152,10 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         </div>
       ) : (
         <div>
-          <p className="ink-2 mb-2 px-1 text-[13px] font-medium">Category</p>
+          <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-[13px] font-medium">
+            Category
+            {t.categorySuggested && <span className="ink-3 text-xs font-normal">Suggested from your earlier choices. Tap it to confirm.</span>}
+          </p>
           <div className="grid grid-cols-3 gap-2">
             {options.map((c) => {
               const Icon = categoryIcon(c)

@@ -66,6 +66,9 @@ public class Txn {
     @ManyToOne(fetch = FetchType.LAZY)
     private RawEmail twinRawEmail;
 
+    /** The category was chosen by the app (from what it learned), not set by me. */
+    private boolean categorySuggested;
+
     /** Movement between my own accounts (incl. card bill payments). Hidden from income/expense. */
     private boolean transfer;
 

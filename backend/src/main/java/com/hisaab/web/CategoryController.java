@@ -24,8 +24,11 @@ public class CategoryController {
     private final CategoryRepo categories;
     private final CategoryRuleRepo rules;
     private final TagRepo tags;
+    private final com.hisaab.service.CategorizationService categorizer;
 
-    public CategoryController(CategoryRepo categories, CategoryRuleRepo rules, TagRepo tags) {
+    public CategoryController(CategoryRepo categories, CategoryRuleRepo rules, TagRepo tags,
+                              com.hisaab.service.CategorizationService categorizer) {
+        this.categorizer = categorizer;
         this.categories = categories;
         this.rules = rules;
         this.tags = tags;
@@ -80,19 +83,28 @@ public class CategoryController {
     public RuleDto createRule(@RequestBody RuleInput in) {
         CategoryRule r = new CategoryRule();
         r.setSource(RuleSource.MANUAL);
-        return RuleDto.of(rules.save(apply(r, in)));
+        CategoryRule saved = rules.save(apply(r, in));
+        categorizer.ruleSet(saved);
+        return RuleDto.of(saved);
     }
 
     @PutMapping("/rules/{id}")
     @Transactional
     public RuleDto updateRule(@PathVariable Long id, @RequestBody RuleInput in) {
         CategoryRule r = rules.findById(id).orElseThrow(() -> new NoSuchElementException("Rule not found"));
-        return RuleDto.of(rules.save(apply(r, in)));
+        categorizer.ruleDeleted(r);
+        CategoryRule saved = rules.save(apply(r, in));
+        categorizer.ruleSet(saved);
+        return RuleDto.of(saved);
     }
 
     @DeleteMapping("/rules/{id}")
+    @Transactional
     public void deleteRule(@PathVariable Long id) {
-        rules.deleteById(id);
+        rules.findById(id).ifPresent(r -> {
+            categorizer.ruleDeleted(r);
+            rules.delete(r);
+        });
     }
 
     private CategoryRule apply(CategoryRule r, RuleInput in) {

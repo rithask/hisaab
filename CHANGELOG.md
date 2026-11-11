@@ -35,6 +35,14 @@ must do when upgrading (marked **Upgrade:**).
   direction or account? Fix it**. It's the same tap-to-mark form, the transaction is corrected in place (its
   category, notes, tags and split stay), and the message's format is learned.
 
+- Categories carry over better:
+  - a payee whose name mostly matches one you've filed gets the same category ("KAVERI PROVISIONS" after
+    "KAVERI PROVISIONS STORE"); payments to people (UPI P2P) still need the exact name;
+  - the same UPI ID gets the same category whatever name the bank prints;
+  - each payee keeps a count per category, so the majority wins and one odd purchase doesn't change the rest;
+  - when you use two categories about equally for a payee, the amount picks the one you use for amounts like it.
+- A category the app picked shows as "Suggested from your earlier choices"; tap it to confirm.
+
 ### Fixed
 - Correcting a message that had already been recorded no longer replaces its transaction, so a category, notes,
   tags or split you'd added are kept.

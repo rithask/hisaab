@@ -286,10 +286,12 @@ public class TransactionService {
         }
         if (Boolean.TRUE.equals(u.clearCategory())) {
             t.setCategory(null);
+            t.setCategorySuggested(false);
         } else if (u.categoryId() != null) {
             Category c = categories.findById(u.categoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Unknown category"));
             t.setCategory(c);
+            t.setCategorySuggested(false);
             t.setTransfer(false);
             if (!Boolean.FALSE.equals(u.learn())) similar = categorizer.learn(t, c);
         }
