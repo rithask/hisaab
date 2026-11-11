@@ -27,6 +27,10 @@ must do when upgrading (marked **Upgrade:**).
 - The same kind of message in slightly different wording (a new footer, an extra word) is merged into one
   learned format instead of a near-copy, so wording it hasn't seen yet is read too. A merge is kept only if every
   message you taught still reads the same.
+- Formats are also learned without you: when an SMS is read by the general rules and the reading is confirmed (the
+  balance it prints adds up, or the alert email for the same payment agrees), its wording is learned, so the next
+  one is read exactly. These show as "learned automatically" in Settings and are removed the first time one is
+  corrected; they can never override something you taught.
 
 ### Changed
 - When two learned formats fit a message, the one you taught most recently is used.

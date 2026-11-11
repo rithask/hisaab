@@ -139,7 +139,8 @@ public class InboxController {
     }
 
     public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,
-                              java.time.Instant lastUsedAt, String channel, String kind, int corrections, boolean paused) {}
+                              java.time.Instant lastUsedAt, String channel, String kind, int corrections, boolean paused,
+                              boolean auto) {}
 
     public record AliasDto(Long id, String rawKey, String displayName, int hits) {}
 
@@ -151,7 +152,7 @@ public class InboxController {
         return new Learned(
                 learning.templates().stream().map(t -> new TemplateDto(t.getId(), t.getSkeleton(), t.getSample(),
                         t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
-                        t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused())).toList(),
+                        t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused(), t.isAuto())).toList(),
                 aliases.all().stream().map(a -> new AliasDto(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
                 learning.senderCount());
     }

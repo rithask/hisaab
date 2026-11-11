@@ -130,6 +130,11 @@ public class TransactionService {
         return candidates.stream().min(sameRefFirst.thenComparing(byGap));
     }
 
+    /** Transactions this alert was matched to as the other channel's copy (normally one). */
+    public List<Txn> pairedWith(RawEmail email) {
+        return txns.findByTwinRawEmail(email);
+    }
+
     /** Forget which transaction this alert was matched to (before it's read again, e.g. after a correction). */
     @Transactional
     public void unpair(RawEmail email) {

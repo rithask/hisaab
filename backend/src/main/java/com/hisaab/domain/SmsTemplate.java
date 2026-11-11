@@ -26,6 +26,15 @@ public class SmsTemplate {
     /** TXN reads a transaction; SKIP means "not a transaction": messages worded like this are skipped. */
     private String kind = TXN;
 
+    public static final String TAUGHT = "TAUGHT", AUTO = "AUTO";
+
+    /** TAUGHT by me, or AUTO: learned from a reading confirmed by the balance or by the other alert. */
+    private String origin = TAUGHT;
+
+    public boolean isAuto() {
+        return AUTO.equals(origin);
+    }
+
     public boolean isSkip() {
         return SKIP.equals(kind);
     }

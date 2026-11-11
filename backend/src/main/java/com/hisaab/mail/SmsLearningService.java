@@ -220,8 +220,8 @@ public class SmsLearningService {
                 .filter(t -> read(List.of(t), flat).isPresent()).toList();
         after.removeAll(overruled);
         after.add(candidate);
-        int broken = regressions(channel, before, after, flat);
-        if (broken > 0) return new LearnResult(Optional.empty(), broken);
+        Check check = check(channel, before, after, flat, false);
+        if (check.blocking() > 0) return new LearnResult(Optional.empty(), check.blocking());
 
         // A message of a kind already learned in slightly different wording: one format for both, if that's safe.
         if (same.isEmpty()) {
@@ -230,11 +230,13 @@ public class SmsLearningService {
         }
 
         overruled.forEach(templates::delete);
+        check.apply(examples);
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
-        // taught again in this exact wording: a fresh start
+        // taught again in this exact wording: a fresh start, and it's mine now
         t.setCorrections(0);
         t.setPaused(false);
+        t.setOrigin(SmsTemplate.TAUGHT);
         SmsTemplate saved = templates.save(t);
         remember(channel, flat, text, truth, source);
         return new LearnResult(Optional.of(saved), 0);
@@ -265,11 +267,13 @@ public class SmsLearningService {
         same.ifPresent(after::remove);
         // a skip is checked before the formats that read transactions
         after.add(0, candidate);
-        int broken = regressions(channel, before, after, flat);
-        if (broken > 0) return new LearnResult(Optional.empty(), broken);
+        Check check = check(channel, before, after, flat, false);
+        if (check.blocking() > 0) return new LearnResult(Optional.empty(), check.blocking());
+        check.apply(examples);
 
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
+        t.setOrigin(SmsTemplate.TAUGHT);
         t.setKind(SmsTemplate.SKIP);
         t.setInstitution(null);
         t.setAccountType(null);
@@ -284,6 +288,34 @@ public class SmsLearningService {
         e.setText(text.strip());
         e.setKind(LearnedExample.SKIP);
         examples.save(e);
+        return new LearnResult(Optional.of(saved), 0);
+    }
+
+    /**
+     * Learns a format from a reading the app confirmed on its own (the balance in the message adds up, or the
+     * email and SMS for the same payment agree), so the next message in that wording is read exactly. Marked as
+     * learned automatically; it's removed the first time a reading by it is corrected. Nothing happens when a
+     * learned format already reads the message, or when the safety net would object to any lesson.
+     */
+    @Transactional
+    public LearnResult autoLearn(Channel channel, String text, Truth truth, RawEmail source) {
+        String flat = flat(text);
+        List<SmsTemplate> before = templates.findByChannelOrderByHitsDescIdAsc(channel);
+        if (read(before, flat).isPresent()) return LearnResult.none();
+        Optional<SmsTemplate> built = build(flat, truth);
+        if (built.isEmpty()) return LearnResult.none();
+        SmsTemplate candidate = built.get();
+        candidate.setSample(text.strip());
+        candidate.setChannel(channel);
+        candidate.setOrigin(SmsTemplate.AUTO);
+        if (before.stream().anyMatch(t -> t.getSkeleton().equals(candidate.getSkeleton()))) return LearnResult.none();
+        List<SmsTemplate> after = new ArrayList<>(before);
+        after.add(candidate);
+        if (regressions(channel, before, after, flat, true) > 0) return LearnResult.none();
+        SmsTemplate saved = templates.save(candidate);
+        remember(channel, flat, text, truth, source);
+        examples.findByChannel(channel).stream().filter(e -> flat(e.getText()).equals(flat))
+                .forEach(e -> e.setOrigin(SmsTemplate.AUTO));
         return new LearnResult(Optional.of(saved), 0);
     }
 
@@ -309,6 +341,11 @@ public class SmsLearningService {
             wrong = !right(lessonOf(flat(text), truth), r);
         }
         if (!wrong) return false;
+        if (t.isAuto()) {
+            // learned automatically and now corrected: it goes
+            templates.delete(t);
+            return false;
+        }
         t.setCorrections(t.getCorrections() + 1);
         if (t.getCorrections() >= PAUSE_AFTER && !t.isPaused()) {
             t.setPaused(true);
@@ -369,9 +406,12 @@ public class SmsLearningService {
             after.remove(e);
             after.removeAll(overruled);
             after.add(m);
-            if (regressions(channel, before, after, flat) > 0) continue;
+            Check check = check(channel, before, after, flat, false);
+            if (check.blocking() > 0) continue;
 
             overruled.forEach(templates::delete);
+            check.apply(examples);
+            e.setOrigin(SmsTemplate.TAUGHT);
             e.setSkeleton(m.getSkeleton());
             e.setPattern(m.getPattern());
             e.setParts(m.getParts());
@@ -395,7 +435,28 @@ public class SmsLearningService {
 
     /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
     int regressions(Channel channel, List<SmsTemplate> before, List<SmsTemplate> after, String exceptText) {
+        Check c = check(channel, before, after, exceptText, false);
+        return c.blocking();
+    }
+
+    int regressions(Channel channel, List<SmsTemplate> before, List<SmsTemplate> after, String exceptText, boolean auto) {
+        return check(channel, before, after, exceptText, auto).blocking();
+    }
+
+    /** @param outranked automatic lessons a change I teach would break: dropped if the change is made */
+    record Check(int blocking, List<LearnedExample> outranked) {
+        void apply(LearnedExampleRepo repo) {
+            outranked.forEach(repo::delete);
+        }
+    }
+
+    /**
+     * @param auto the change is learned automatically: then every lesson counts. For a change I teach, only my own
+     *             lessons can block it; automatic lessons it would break are outranked (I know better).
+     */
+    Check check(Channel channel, List<SmsTemplate> before, List<SmsTemplate> after, String exceptText, boolean auto) {
         int n = 0;
+        List<LearnedExample> outranked = new ArrayList<>();
         // a paused format still counts for the lessons it reads: pausing mustn't let a change slip past them
         List<SmsTemplate> was = before.stream().map(SmsLearningService::withoutPause).toList();
         for (LearnedExample e : examples.findByChannel(channel)) {
@@ -405,9 +466,16 @@ public class SmsLearningService {
             boolean broken = right(e, read(was, f)) && !right(e, now);
             // never skip a message I said was a transaction, even one no format reads yet
             boolean hidden = LearnedExample.TXN.equals(e.getKind()) && now.isPresent() && now.get().skip();
-            if (broken || hidden) n++;
+            // something learned automatically may never misread a lesson I taught, even one nothing read before
+            boolean misread = auto && !SmsTemplate.AUTO.equals(e.getOrigin()) && now.isPresent() && !right(e, now);
+            if (!(broken || hidden || misread)) continue;
+            if (!auto && SmsTemplate.AUTO.equals(e.getOrigin())) {
+                outranked.add(e);
+                continue;
+            }
+            n++;
         }
-        return n;
+        return new Check(n, outranked);
     }
 
     static boolean right(LearnedExample e, Optional<Read> r) {

@@ -231,6 +231,7 @@ function LearnedCard() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-mono text-[11px] leading-relaxed">{f.skeleton}</p>
                       <p className="ink-3 mt-1 text-[11px]">
+                        {f.auto ? 'Learned automatically · ' : ''}
                         {f.channel === 'EMAIL' ? 'Email · ' : ''}
                         {f.kind === 'SKIP' ? 'not a transaction' : `${f.institution} · ${f.direction === 'DEBIT' ? 'money out' : 'money in'}`} · used {f.hits} time{f.hits === 1 ? '' : 's'}
                         {f.lastUsedAt ? ` · last ${dateTime(f.lastUsedAt)}` : ''}

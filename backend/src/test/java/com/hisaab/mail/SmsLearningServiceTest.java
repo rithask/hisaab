@@ -289,6 +289,49 @@ class SmsLearningServiceTest {
     }
 
     @Test
+    void aConfirmedReadingIsLearnedAutomaticallyAndMyLessonsOutrankIt() {
+        String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
+        var r = learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
+        assertTrue(r.template().isPresent());
+        assertTrue(store.get(0).isAuto());
+        assertEquals(SmsTemplate.AUTO, lessons.get(0).getOrigin());
+        assertEquals("PRIYA S", read("Txn alert: 75.00 INR moved for acct 2286 to PRIYA S").counterparty());
+        // nothing more to learn once a format reads it
+        assertTrue(learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null).template().isEmpty());
+
+        // I say messages worded like this are money in: the automatic lesson doesn't block me, it's dropped
+        var mine = learning.teach("Txn alert: 50.00 INR moved for acct 2286 to ASHA M", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("50"), axis, "ASHA M"), null);
+        assertTrue(mine.template().isPresent());
+        assertEquals(0, mine.conflicts());
+        assertFalse(store.get(0).isAuto(), "the format is mine now");
+        assertTrue(lessons.stream().noneMatch(e -> SmsTemplate.AUTO.equals(e.getOrigin())));
+        assertEquals(Direction.CREDIT, read(sms).direction());
+    }
+
+    @Test
+    void anAutomaticFormatIsRemovedTheFirstTimeItIsCorrected() {
+        String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
+        learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
+        SmsTemplate auto = store.get(0);
+        learning.corrected(auto, "Txn alert: 40.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("40"), axis, null));
+        assertTrue(store.isEmpty());
+    }
+
+    @Test
+    void automaticLearningNeverBreaksALessonITaught() {
+        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        store.clear(); // the format is gone (say I deleted it) but the lesson remains
+        var r = learning.autoLearn(Channel.SMS, "Txn alert: 80.00 INR moved for acct 2286 to CAFE ONE",
+                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+        assertTrue(r.template().isEmpty(), "it would read my lesson as money in");
+        store.clear();
+        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        var again = learning.autoLearn(Channel.SMS, "Txn alert: 80.00 INR moved for acct 2286 to CAFE ONE",
+                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+        assertTrue(again.template().isEmpty(), "already read by my format");
+    }
+
+    @Test
     void senderIdsAreNormalised() {
         assertEquals("HDFCBK", SmsLearningService.senderKey("VM-HDFCBK-S"));
         assertEquals("AXISBK", SmsLearningService.senderKey("ax-axisbk"));

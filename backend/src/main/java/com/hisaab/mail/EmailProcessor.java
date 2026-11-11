@@ -208,6 +208,7 @@ public class EmailProcessor {
             return new ClassifyResult(p, null);
         }
 
+        boolean balanceAddsUp = balanceDecides(p, account.get());
         ParsedTransaction checked = correctDirectionFromBalance(p, account.get());
         if (checked != p) {
             notes.append("Direction corrected using the balance in the message.");
@@ -219,6 +220,13 @@ public class EmailProcessor {
         if (created.isEmpty()) notes.append("Already recorded (from the alert email or an earlier SMS).");
         else learning.rememberSender(raw.getSender(), account.get().getInstitution());
         raw.setNote(notes.isEmpty() ? null : notes.toString());
+        // Read by the general heuristics and confirmed independently: learn the wording, so the next is read exactly.
+        if ("sms".equals(raw.getParser())) {
+            boolean emailAgrees = created.isEmpty() && txns.pairedWith(raw).stream().anyMatch(t -> t.getSource() == com.hisaab.domain.Enums.TxnSource.EMAIL);
+            if (balanceAddsUp || emailAgrees) {
+                learning.autoLearn(Channel.SMS, raw.getBodyText(), new SmsLearningService.Truth(p.direction(), p.amount(), account.get(), p.counterparty()), raw);
+            }
+        }
         return new ClassifyResult(p, created.orElse(null));
     }
 
@@ -238,6 +246,30 @@ public class EmailProcessor {
      * figure only makes sense with the opposite direction, the direction is flipped. Left alone when the balance
      * agrees, is absent, or fits neither way (e.g. an earlier transaction is missing).
      */
+    /** Whether the balance printed in the message fits exactly one direction (so it confirms the amount and account). */
+    private boolean balanceDecides(ParsedTransaction p, Account account) {
+        if (p.balance() == null || account.isCard() || !"INR".equals(p.currency())) return false;
+        java.math.BigDecimal now = balances.current(account);
+        java.math.BigDecimal tol = new java.math.BigDecimal("0.01");
+        boolean asDebit = now.subtract(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
+        boolean asCredit = now.add(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
+        return asDebit != asCredit;
+    }
+
+    /**
+     * This email was matched to a transaction recorded from an SMS: the two agree on amount, direction and account,
+     * which confirms the SMS reading. If the general heuristics read that SMS, learn its wording automatically.
+     */
+    private void confirmSmsTwins(RawEmail email) {
+        for (Txn t : txns.pairedWith(email)) {
+            RawEmail sms = t.getRawEmail();
+            if (t.getSource() != com.hisaab.domain.Enums.TxnSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
+            SmsParser.Result r = smsParser.parse(sms.getSender(), sms.getBodyText(), sms.getReceivedAt());
+            String payee = r.txn() == null ? null : r.txn().counterparty();
+            learning.autoLearn(Channel.SMS, sms.getBodyText(), new SmsLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms);
+        }
+    }
+
     private ParsedTransaction correctDirectionFromBalance(ParsedTransaction p, Account account) {
         if (p.balance() == null || account.isCard() || !"INR".equals(p.currency())) return p;
         java.math.BigDecimal now = balances.current(account);
@@ -493,6 +525,7 @@ public class EmailProcessor {
                 return;
             }
             raw.setStatus(txns.createFromEmail(p, account.get(), raw).isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
+            if (raw.getStatus() == EmailStatus.DUPLICATE) confirmSmsTwins(raw);
             return;
         }
         for (BankEmailParser parser : parsers) {
@@ -525,6 +558,7 @@ public class EmailProcessor {
             }
             boolean created = txns.createFromEmail(p, account.get(), raw).isPresent();
             raw.setStatus(created ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
+            if (!created) confirmSmsTwins(raw);
             return;
         }
         String hay = content.haystack();
