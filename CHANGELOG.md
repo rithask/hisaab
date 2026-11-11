@@ -31,6 +31,13 @@ must do when upgrading (marked **Upgrade:**).
   balance it prints adds up, or the alert email for the same payment agrees), its wording is learned, so the next
   one is read exactly. These show as "learned automatically" in Settings and are removed the first time one is
   corrected; they can never override something you taught.
+- A transaction from an alert that was read wrong can be fixed from Activity: open it and choose **Wrong amount,
+  direction or account? Fix it**. It's the same tap-to-mark form, the transaction is corrected in place (its
+  category, notes, tags and split stay), and the message's format is learned.
+
+### Fixed
+- Correcting a message that had already been recorded no longer replaces its transaction, so a category, notes,
+  tags or split you'd added are kept.
 
 ### Changed
 - When two learned formats fit a message, the one you taught most recently is used.

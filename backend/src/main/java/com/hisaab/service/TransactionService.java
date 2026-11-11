@@ -130,6 +130,32 @@ public class TransactionService {
         return candidates.stream().min(sameRefFirst.thenComparing(byGap));
     }
 
+    /**
+     * A transaction recorded from an alert that was read wrong, fixed with what the alert really said. What I added
+     * to it (category, notes, tags, split) stays; the category is cleared only if the direction changed so it no
+     * longer fits, and transfer matching runs again when the direction or account changed.
+     */
+    @Transactional
+    public Txn correct(Txn t, ParsedTransaction p, Account account) {
+        boolean moved = t.getDirection() != p.direction() || !t.getAccount().getId().equals(account.getId());
+        if (moved && t.getLinkedTxn() != null) transfers.unlink(t);
+        t.setAccount(account);
+        t.setDirection(p.direction());
+        applyAmount(t, p.amount(), p.currency());
+        if (p.counterparty() != null) {
+            t.setCounterparty(aliases.apply(p.counterparty()));
+            t.setMerchantKey(Names.merchantKey(t.getCounterparty()));
+        }
+        if (p.reference() != null) t.setReferenceNo(p.reference());
+        t.setReportedBalance(p.balance());
+        if (t.getCategory() != null && t.getCategory().getKind() != CategorizationService.kindFor(t.getDirection())) t.setCategory(null);
+        if (moved) transfers.detect(t, p.cardPayment());
+        if (t.getCategory() == null && !t.isTransfer()) categorizer.categorize(t);
+        txns.flush();
+        balances.verifyReportedBalance(t);
+        return t;
+    }
+
     /** Transactions this alert was matched to as the other channel's copy (normally one). */
     public List<Txn> pairedWith(RawEmail email) {
         return txns.findByTwinRawEmail(email);

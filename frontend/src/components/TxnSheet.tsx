@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsLeftRight, Bank, CalendarBlank, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { ArrowsLeftRight, Bank, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, ApiError, type RefundWatch, type Split, type Txn } from '../api'
+import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '../format'
 import { useAccounts, useCategories, useFeature, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DatePicker, DateTimePicker } from './DatePicker'
+import TeachForm from './TeachForm'
 import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
@@ -29,6 +30,15 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(txn.counterparty ?? '')
   const [renamed, setRenamed] = useState<{ to: string; others: number } | null>(null)
+  // Fixing an alert that was read wrong teaches the parser its format
+  const [fixing, setFixing] = useState(false)
+  const [fixed, setFixed] = useState<TeachResult | null>(null)
+  const fromAlert = (t.source === 'EMAIL' || t.source === 'SMS') && !!t.rawEmailId
+  const onFixed = async (r: TeachResult) => {
+    setFixing(false)
+    setFixed(r)
+    setT(await api<Txn>(`/transactions/${r.txnId ?? t.id}`))
+  }
 
   const update = useMoneyMutation(
     (body: Record<string, unknown>) => api<{ txn: Txn; similarCount: number; renamedCount: number }>(`/transactions/${t.id}`, { method: 'PATCH', body }),
@@ -107,6 +117,25 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           {t.reportedBalance != null && <Badge tone="blue">Bal {money(t.reportedBalance)}</Badge>}
         </div>
       </div>
+
+      {fromAlert && !fixed && (
+        <button className="pressable ink-2 mx-auto -mt-2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium" onClick={() => setFixing(true)}>
+          <GraduationCap size={15} /> Wrong amount, direction or account? Fix it
+        </button>
+      )}
+      {fixed && (
+        <p className="anim-pop -mt-2 rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-center text-xs text-[var(--accent)]">
+          Fixed.{' '}
+          {fixed.learnedFormat
+            ? 'Learned from it, so the next message like this is read right.'
+            : fixed.conflicts > 0
+              ? `Not learned as a format: it would change how ${fixed.conflicts} message${fixed.conflicts > 1 ? 's' : ''} you taught earlier ${fixed.conflicts > 1 ? 'are' : 'is'} read.`
+              : ''}
+        </p>
+      )}
+      <Sheet open={fixing} onClose={() => setFixing(false)} title="Fix what it read">
+        {fixing && t.rawEmailId && <TeachForm id={t.rawEmailId} onDone={onFixed} />}
+      </Sheet>
 
       {t.transfer ? (
         <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">

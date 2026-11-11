@@ -354,8 +354,10 @@ public class EmailProcessor {
         String payee = marked != null ? com.hisaab.mail.parser.ParseUtil.clean(flat.substring(marked[0], marked[1])) : name;
         if (payee != null && name != null && !payee.equals(name)) aliases.remember(payee, name);
 
-        for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
-        txns.unpair(raw);
+        // A transaction already recorded from it is fixed in place, so its category, notes, tags and split stay.
+        List<Txn> recorded = txns.forMessage(raw);
+        for (Txn extra : recorded.stream().skip(1).toList()) txns.delete(extra.getId());
+        if (recorded.isEmpty()) txns.unpair(raw);
 
         SmsLearningService.Truth truth = new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked);
         // the format that read it (if one did) was wrong: count that against it before learning the right one
@@ -383,7 +385,8 @@ public class EmailProcessor {
                 "INR", account.getLast4(), w.date(), w.time(), payee, ref == null ? null : flat.substring(ref[0], ref[1]),
                 bal == null || account.isCard() ? null : SmsParser.toAmount(flat.substring(bal[0], bal[1])),
                 account.isCard() && in.direction() == Direction.CREDIT, null);
-        Optional<Txn> created = txns.createFromEmail(p, account, raw);
+        Optional<Txn> created = recorded.isEmpty() ? txns.createFromEmail(p, account, raw)
+                : Optional.of(txns.correct(recorded.get(0), p, account));
         boolean sms = raw.getChannel() == Channel.SMS;
         raw.setParser(sms ? "sms-taught" : "email-taught");
         raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
