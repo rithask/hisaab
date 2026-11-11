@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-11
+
 ### Fixed
 - Two payments of the same amount close together (two ₹20 teas) are no longer recorded as one. Each alert email
   is matched with at most one SMS, and the reverse, and alerts with different reference numbers are never treated
