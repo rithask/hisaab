@@ -253,8 +253,11 @@ public class EmailProcessor {
 
     public record Teaching(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty) {}
 
-    /** @param alsoFixed other waiting messages that could be recorded thanks to what was just learned */
-    public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed) {}
+    /**
+     * @param alsoFixed other waiting messages that could be recorded thanks to what was just learned
+     * @param conflicts when no format was learned because of the safety net: how many earlier lessons it would break
+     */
+    public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts) {}
 
     /**
      * I say what an SMS really was. The transaction is recorded (replacing a wrong one if it had been parsed),
@@ -275,7 +278,8 @@ public class EmailProcessor {
         for (Txn old : txns.forMessage(raw)) txns.delete(old.getId());
         txns.unpair(raw);
 
-        boolean learnedFormat = learning.learn(text, new SmsLearningService.Truth(in.direction(), in.amount(), account, payee)).isPresent();
+        SmsLearningService.LearnResult learned = learning.teach(text, new SmsLearningService.Truth(in.direction(), in.amount(), account, payee), raw);
+        boolean learnedFormat = learned.template().isPresent();
 
         // If the digits in the text aren't this account's (or there are none), remember what they mean.
         int[] l4 = SmsParser.findLast4(flat);
@@ -310,7 +314,7 @@ public class EmailProcessor {
                 if (other.getStatus() == EmailStatus.PARSED) alsoFixed++;
             }
         }
-        return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed);
+        return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts());
     }
 
     /** SMS without an account number: use the bank's only account of that kind, if there is exactly one. */

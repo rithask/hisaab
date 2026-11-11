@@ -9,7 +9,11 @@ import com.hisaab.domain.SmsSender;
 import com.hisaab.domain.SmsTemplate;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.mail.parser.SmsParser;
+import com.hisaab.domain.Enums.Channel;
+import com.hisaab.domain.LearnedExample;
+import com.hisaab.domain.RawEmail;
 import com.hisaab.repo.AccountHintRepo;
+import com.hisaab.repo.LearnedExampleRepo;
 import com.hisaab.repo.SmsSenderRepo;
 import com.hisaab.repo.SmsTemplateRepo;
 import org.slf4j.Logger;
@@ -50,8 +54,10 @@ public class SmsLearningService {
     private final SmsTemplateRepo templates;
     private final AccountHintRepo hints;
     private final SmsSenderRepo senders;
+    private final LearnedExampleRepo examples;
 
-    public SmsLearningService(SmsTemplateRepo templates, AccountHintRepo hints, SmsSenderRepo senders) {
+    public SmsLearningService(SmsTemplateRepo templates, AccountHintRepo hints, SmsSenderRepo senders, LearnedExampleRepo examples) {
+        this.examples = examples;
         this.templates = templates;
         this.hints = hints;
         this.senders = senders;
@@ -61,11 +67,30 @@ public class SmsLearningService {
 
     public record Match(ParsedTransaction txn, SmsTemplate template) {}
 
+    /** What a learned format reads from a message: the fields the safety net compares. */
+    record Read(SmsTemplate template, Direction direction, BigDecimal amount, Institution institution, String payee, Matcher m) {}
+
     /** Reads the SMS with a learned format, if one fits its wording exactly. */
     @Transactional
     public Optional<Match> match(String text, Instant receivedAt) {
         String flat = flat(text);
-        for (SmsTemplate t : templates.findAllByOrderByHitsDescIdAsc()) {
+        Optional<Read> r = read(templates.findAllByOrderByHitsDescIdAsc(), flat);
+        if (r.isEmpty()) return Optional.empty();
+        SmsTemplate t = r.get().template();
+        Matcher m = r.get().m();
+        SmsParser.When w = SmsParser.findWhen(flat, receivedAt);
+        ParsedTransaction p = new ParsedTransaction(t.getInstitution(), t.getAccountType(), t.getDirection(), r.get().amount(), "INR",
+                group(t, m, "l4"), w.date(), w.time(), r.get().payee(), group(t, m, "ref"),
+                t.getAccountType() == AccountType.CREDIT_CARD || group(t, m, "bal") == null ? null : SmsParser.toAmount(group(t, m, "bal")),
+                t.isCardPayment(), null);
+        t.setHits(t.getHits() + 1);
+        t.setLastUsedAt(Instant.now());
+        return Optional.of(new Match(p, t));
+    }
+
+    /** The first of these formats (in the order given) that fits the whole message. */
+    static Optional<Read> read(List<SmsTemplate> set, String flat) {
+        for (SmsTemplate t : set) {
             Matcher m;
             try {
                 m = Pattern.compile(t.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
@@ -74,16 +99,14 @@ public class SmsLearningService {
                 continue;
             }
             if (!m.matches()) continue;
-            BigDecimal amount = SmsParser.toAmount(m.group("amt"));
+            BigDecimal amount;
+            try {
+                amount = SmsParser.toAmount(m.group("amt"));
+            } catch (RuntimeException e) {
+                continue;
+            }
             if (amount.signum() <= 0) continue;
-            SmsParser.When w = SmsParser.findWhen(flat, receivedAt);
-            ParsedTransaction p = new ParsedTransaction(t.getInstitution(), t.getAccountType(), t.getDirection(), amount, "INR",
-                    group(t, m, "l4"), w.date(), w.time(), clean(group(t, m, "payee")), group(t, m, "ref"),
-                    t.getAccountType() == AccountType.CREDIT_CARD || group(t, m, "bal") == null ? null : SmsParser.toAmount(group(t, m, "bal")),
-                    t.isCardPayment(), null);
-            t.setHits(t.getHits() + 1);
-            t.setLastUsedAt(Instant.now());
-            return Optional.of(new Match(p, t));
+            return Optional.of(new Read(t, t.getDirection(), amount, t.getInstitution(), clean(group(t, m, "payee")), m));
         }
         return Optional.empty();
     }
@@ -96,12 +119,99 @@ public class SmsLearningService {
     public record Truth(Direction direction, BigDecimal amount, Account account, String counterparty) {}
 
     /**
-     * Turns a corrected SMS into a reusable format. Returns empty when the amount I gave doesn't appear in the
-     * text, in which case there is nothing reliable to anchor a format on.
+     * @param template  the format learned, if any
+     * @param conflicts when a format was refused by the safety net: how many earlier lessons it would have broken
      */
+    public record LearnResult(Optional<SmsTemplate> template, int conflicts) {
+        static LearnResult none() {
+            return new LearnResult(Optional.empty(), 0);
+        }
+    }
+
+    /** Turns a corrected SMS into a reusable format (see {@link #teach}). */
     @Transactional
     public Optional<SmsTemplate> learn(String text, Truth truth) {
+        return teach(text, truth, null).template();
+    }
+
+    /**
+     * Turns a corrected message into a reusable format, and keeps the message with its answer as a lesson.
+     * Nothing is learned when the amount I gave doesn't appear in the text (nothing reliable to anchor on), or when
+     * the new format would make any earlier lesson read differently from how I taught it.
+     */
+    @Transactional
+    public LearnResult teach(String text, Truth truth, RawEmail source) {
         String flat = flat(text);
+        Optional<SmsTemplate> built = build(flat, truth);
+        if (built.isEmpty()) return LearnResult.none();
+        SmsTemplate candidate = built.get();
+        candidate.setSample(text.strip());
+
+        // The safety net: the formats as they'd be after this change must read every other lesson as well as now.
+        List<SmsTemplate> before = templates.findAllByOrderByHitsDescIdAsc();
+        Optional<SmsTemplate> same = before.stream().filter(t -> t.getSkeleton().equals(candidate.getSkeleton())).findFirst();
+        List<SmsTemplate> after = new ArrayList<>(before);
+        same.ifPresent(after::remove);
+        after.add(candidate);
+        int broken = regressions(before, after, flat);
+        if (broken > 0) return new LearnResult(Optional.empty(), broken);
+
+        SmsTemplate t = same.orElseGet(SmsTemplate::new);
+        copy(candidate, t);
+        SmsTemplate saved = templates.save(t);
+        remember(flat, text, truth, source);
+        return new LearnResult(Optional.of(saved), 0);
+    }
+
+    /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
+    int regressions(List<SmsTemplate> before, List<SmsTemplate> after, String exceptText) {
+        int n = 0;
+        for (LearnedExample e : examples.findByChannel(Channel.SMS)) {
+            String f = flat(e.getText());
+            if (f.equals(exceptText)) continue;
+            if (right(e, read(before, f)) && !right(e, read(after, f))) n++;
+        }
+        return n;
+    }
+
+    static boolean right(LearnedExample e, Optional<Read> r) {
+        if (r.isEmpty()) return false;
+        Read x = r.get();
+        return x.direction() == e.getDirection() && x.amount().compareTo(e.getAmount()) == 0
+                && x.institution() == e.getInstitution()
+                && (e.getPayee() == null || e.getPayee().equalsIgnoreCase(x.payee()));
+    }
+
+    /** Keeps the message and its answer as a lesson, replacing any earlier lesson on the same text. */
+    private void remember(String flat, String text, Truth truth, RawEmail source) {
+        for (LearnedExample old : examples.findByChannel(Channel.SMS)) {
+            if (flat(old.getText()).equals(flat)) examples.delete(old);
+        }
+        LearnedExample e = new LearnedExample();
+        e.setRawEmail(source);
+        e.setChannel(Channel.SMS);
+        e.setText(text.strip());
+        e.setDirection(truth.direction());
+        e.setAmount(truth.amount().setScale(2, java.math.RoundingMode.HALF_UP));
+        e.setInstitution(truth.account().getInstitution());
+        e.setAccountType(truth.account().isCard() ? AccountType.CREDIT_CARD : AccountType.BANK);
+        String payee = truth.counterparty() == null ? null : truth.counterparty().trim();
+        e.setPayee(payee != null && flat.toLowerCase(Locale.ROOT).contains(payee.toLowerCase(Locale.ROOT)) ? payee : null);
+        examples.save(e);
+    }
+
+    private static void copy(SmsTemplate from, SmsTemplate to) {
+        to.setSkeleton(from.getSkeleton());
+        to.setPattern(from.getPattern());
+        to.setInstitution(from.getInstitution());
+        to.setAccountType(from.getAccountType());
+        to.setDirection(from.getDirection());
+        to.setCardPayment(from.isCardPayment());
+        to.setSample(from.getSample());
+    }
+
+    /** The format a corrected message implies, checked to read its own source back; not saved. */
+    private Optional<SmsTemplate> build(String flat, Truth truth) {
         List<int[]> spans = new ArrayList<>(); // {start, end, kind}
         int[] amt = findAmount(flat, truth.amount());
         if (amt == null) return Optional.empty();
@@ -139,20 +249,19 @@ public class SmsLearningService {
         }
         pattern.append("$");
 
-        String key = skeleton.toString().trim();
         Account a = truth.account();
-        SmsTemplate t = templates.findBySkeleton(key).orElseGet(SmsTemplate::new);
-        t.setSkeleton(key);
+        SmsTemplate t = new SmsTemplate();
+        t.setSkeleton(skeleton.toString().trim());
         t.setPattern(pattern.toString());
         t.setInstitution(a.getInstitution());
         t.setAccountType(a.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK);
         t.setDirection(truth.direction());
         t.setCardPayment(a.isCard() && truth.direction() == Direction.CREDIT);
-        t.setSample(text.strip());
+        t.setSample(flat);
         // Sanity check: a format that can't read back its own source would only cause confusion.
         Matcher self = Pattern.compile(t.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
         if (!self.matches() || SmsParser.toAmount(self.group("amt")).compareTo(truth.amount()) != 0) return Optional.empty();
-        return Optional.of(templates.save(t));
+        return Optional.of(t);
     }
 
     private static void add(List<int[]> spans, int[] span, int kind) {

@@ -4,10 +4,12 @@ import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.Institution;
+import com.hisaab.domain.LearnedExample;
 import com.hisaab.domain.SmsTemplate;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.mail.parser.SmsParser;
 import com.hisaab.repo.AccountHintRepo;
+import com.hisaab.repo.LearnedExampleRepo;
 import com.hisaab.repo.SmsSenderRepo;
 import com.hisaab.repo.SmsTemplateRepo;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,12 +24,14 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class SmsLearningServiceTest {
     private static final Instant DEC = Instant.parse("2026-12-12T10:00:00Z");
     private final List<SmsTemplate> store = new ArrayList<>();
+    private final List<LearnedExample> lessons = new ArrayList<>();
     private SmsLearningService learning;
     private Account axis;
 
@@ -41,7 +45,15 @@ class SmsLearningServiceTest {
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
-        learning = new SmsLearningService(repo, mock(AccountHintRepo.class), mock(SmsSenderRepo.class));
+        LearnedExampleRepo examples = mock(LearnedExampleRepo.class);
+        when(examples.save(any())).thenAnswer(i -> {
+            LearnedExample e = i.getArgument(0);
+            if (!lessons.contains(e)) lessons.add(e);
+            return e;
+        });
+        when(examples.findByChannel(any())).thenAnswer(i -> lessons.stream().filter(e -> e.getChannel() == i.getArgument(0)).toList());
+        doAnswer(i -> lessons.remove(i.<LearnedExample>getArgument(0))).when(examples).delete(any());
+        learning = new SmsLearningService(repo, mock(AccountHintRepo.class), mock(SmsSenderRepo.class), examples);
         axis = new Account();
         axis.setInstitution(Institution.AXIS);
         axis.setType(AccountType.BANK);
@@ -119,6 +131,30 @@ class SmsLearningServiceTest {
         learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertEquals(1, store.size());
         assertEquals(Direction.DEBIT, store.get(0).getDirection());
+    }
+
+    @Test
+    void aChangeThatWouldBreakAnEarlierLessonIsRefused() {
+        String out = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
+        learning.learn(out, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        assertEquals(1, lessons.size(), "the corrected message is kept as a lesson");
+
+        // Same wording, but I say this one was money coming in: one format can't be both, so the change is refused
+        var r = learning.teach("Txn alert: 75.00 INR moved for acct 2286 to PRIYA S",
+                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("75"), axis, "PRIYA S"), null);
+        assertTrue(r.template().isEmpty());
+        assertEquals(1, r.conflicts());
+        assertEquals(Direction.DEBIT, read(out).direction(), "the earlier lesson still reads as taught");
+        assertEquals(1, lessons.size());
+    }
+
+    @Test
+    void reteachingTheSameMessageReplacesItsLesson() {
+        String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
+        learning.learn(sms, new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        assertEquals(1, lessons.size());
+        assertEquals(Direction.DEBIT, lessons.get(0).getDirection());
     }
 
     @Test

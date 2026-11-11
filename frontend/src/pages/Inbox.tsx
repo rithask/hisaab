@@ -203,7 +203,11 @@ function EmailView({ id, onDone }: { id: number; onDone: () => void }) {
       {taught && (
         <Notice tone="green">
           {taught.txnId ? 'Recorded.' : 'Already recorded.'}
-          {taught.learnedFormat ? ' Learned this message format, so the next one like it is read automatically.' : ' The amount isn\'t in the text, so no format could be learned from it.'}
+          {taught.learnedFormat
+            ? ' Learned this message format, so the next one like it is read automatically.'
+            : taught.conflicts > 0
+              ? ` Didn't learn this format: it would change how ${taught.conflicts} message${taught.conflicts > 1 ? 's' : ''} you taught earlier ${taught.conflicts > 1 ? 'are' : 'is'} read.`
+              : ' The amount isn\'t in the text, so no format could be learned from it.'}
           {taught.learnedAccount ? ' Remembered which account it belongs to.' : ''}
           {taught.alsoFixed > 0 ? ` ${taught.alsoFixed} other waiting message${taught.alsoFixed > 1 ? 's were' : ' was'} recorded too.` : ''}
         </Notice>

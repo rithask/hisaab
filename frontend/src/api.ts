@@ -415,6 +415,8 @@ export interface TeachResult {
   learnedFormat: boolean
   learnedAccount: boolean
   alsoFixed: number
+  /** no format was learned because it would change how this many earlier lessons are read */
+  conflicts: number
 }
 
 export interface Learned {

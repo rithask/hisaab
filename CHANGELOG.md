@@ -9,6 +9,10 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- Teaching has a safety net: every message you correct is kept with its right answer, and a newly learned format
+  is refused if it would make any of them read differently. You're told when that happens.
+
 ## [0.3.0] - 2026-11-11
 
 ### Fixed
