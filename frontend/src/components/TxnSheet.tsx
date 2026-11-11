@@ -6,6 +6,7 @@ import { api, ApiError, type RefundWatch, type Split, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '../format'
 import { useAccounts, useCategories, useFeature, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
+import { DatePicker, DateTimePicker } from './DatePicker'
 import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
@@ -555,7 +556,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </ChipRow>
       <Fold open={whenMode === 'custom'}>
         <div className="pt-2.5">
-          <Input type="datetime-local" value={when} max={toLocalInput()} onChange={(e) => e.target.value && setWhen(e.target.value)} aria-label="Date and time" />
+          <DateTimePicker value={when} max={toLocalInput()} onChange={setWhen} />
         </div>
       </Fold>
 
@@ -698,7 +699,7 @@ function RefundWatcher({ txnId }: { txnId: number }) {
       ) : (
         <>
           <Field label="Expect the money back by">
-            <Input type="date" value={by} min={today} onChange={(e) => setBy(e.target.value)} />
+            <DatePicker value={by} min={today} onChange={setBy} label="Expect the money back by" />
           </Field>
           <ErrorText error={start.error} />
           <div className="mt-3 flex gap-2">

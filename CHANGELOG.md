@@ -9,6 +9,18 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- A calendar for every date in the app (transaction and payment dates, account "as of", refund due dates, points
+  balance date, Activity's date range, importing older emails): a sheet on phones, a dropdown on larger screens,
+  with a year view for going far back. Importing older emails also has shortcuts for 1, 3, 6 and 12 months ago.
+- Importing older emails shows a progress bar (emails looked at, how many were new) and can be stopped.
+
+### Fixed
+- Importing older emails runs on the server: leaving Settings, or reloading, no longer resets the button while
+  the import is still going.
+- Importing older emails (and the regular mail check) fetches messages in batches, so large imports finish much
+  faster.
+
 ## [0.1.0] - 2026-11-11
 
 First release, for trying the app in production.

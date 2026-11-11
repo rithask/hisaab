@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CreditCard, Gift, Plus, Trash } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type CardRewards, type RewardCycle, type RewardProgram, type RewardRule } from '../api'
+import { DatePicker } from '../components/DatePicker'
 import { Button, Card, cx, Empty, ErrorText, FeatureGate, Field, Input, List, Meter, Page, PageHeader, PageSkeleton, Section, Segmented, Select, Sheet } from '../components/ui'
 import { count, money0, moneyAuto, shortDate, ymd } from '../format'
 import { useCategories, useFeature, useMoneyMutation } from '../hooks'
@@ -233,7 +234,7 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
               <Input inputMode="numeric" value={balance} onChange={(e) => setBalance(clean(e.target.value))} />
             </Field>
             <Field label="As of">
-              <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} disabled={!balance} />
+              <DatePicker value={asOf} onChange={setAsOf} max={ymd()} disabled={!balance} label="As of" short />
             </Field>
           </div>
         </>

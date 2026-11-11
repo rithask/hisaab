@@ -241,7 +241,6 @@ select:disabled {
   }
 }
 
-input[type="date"],
-input[type="datetime-local"] {
+input[type="time"] {
   min-height: 2.75rem;
 }

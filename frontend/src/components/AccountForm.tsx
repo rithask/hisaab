@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api, type Account, type AccountType, type Institution } from '../api'
 import { fromLocalInput, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
+import { DateTimePicker } from './DatePicker'
 import { Button, ErrorText, Field, Input, Segmented, Select } from './ui'
 
 /** Create or edit a bank account / credit card / cash wallet, starting from today's figures. */
@@ -84,7 +85,7 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
         <Input required inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" />
       </Field>
       <Field label="As of" hint="Transactions before this moment are ignored for the balance.">
-        <Input type="datetime-local" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+        <DateTimePicker value={openingDate} onChange={setOpeningDate} label="As of" />
       </Field>
       {isCard && (
         <>

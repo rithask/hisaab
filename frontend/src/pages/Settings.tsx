@@ -1,24 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChatText, CloudArrowUp, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, Key, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { api, type BackupStatus, type Feature, type Learned, type Settings as S, type TokenStatus } from '../api'
+import { api, type BackupStatus, type Feature, type Learned, type MailImport, type Settings as S, type TokenStatus } from '../api'
+import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
 import { isIos, useInstall } from '../pwa'
-import { Badge, Button, Card, ErrorText, Field, Input, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
-import { dateTime } from '../format'
+import { Badge, Button, Card, Chip, ErrorText, Field, Input, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
+import { count, dateTime, shortDate, ymd } from '../format'
 import { useMoneyMutation } from '../hooks'
 
 export default function Settings() {
   const s = useQuery({ queryKey: ['settings'], queryFn: () => api<S>('/settings') })
   const [owner, setOwner] = useState('')
-  const [since, setSince] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   useEffect(() => setOwner(s.data?.ownerName ?? ''), [s.data?.ownerName])
   const homeOpt = useMoneyMutation((v: boolean) => api('/settings', { method: 'PUT', body: { showInvestmentsOnHome: v } }))
   const save = useMoneyMutation(() => api('/settings', { method: 'PUT', body: { ownerName: owner } }), () => setMsg('Saved.'))
-  const importOld = useMoneyMutation(() => api<{ fetched: number; processed: number; error?: string }>('/mail/import', { body: { since } }), (r) =>
-    setMsg(r.error ? `Import failed: ${r.error}` : `Imported ${r.processed} new of ${r.fetched} emails.`),
-  )
   const mail = s.data?.mail
 
   return (
@@ -69,23 +66,13 @@ export default function Settings() {
 
       <SmsForwarding />
 
-      <Section title="Import older emails">
-        <Card className="space-y-4 p-5">
-          <p className="ink-2 text-sm">Only mail that arrives after setup is read automatically. Pick a start date to pull in older alerts. Balances only count transactions after each account's “as of” date.</p>
-          <Field label="Since">
-            <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
-          </Field>
-          <Button variant="secondary" disabled={!since || importOld.isPending || !mail?.configured} onClick={() => importOld.mutate(undefined)}>
-            {importOld.isPending ? 'Importing…' : 'Import'}
-          </Button>
-        </Card>
-      </Section>
+      <ImportOlderMail configured={!!mail?.configured} />
       {msg && (
         <div className="mt-3">
           <Notice>{msg}</Notice>
         </div>
       )}
-      <ErrorText error={save.error ?? importOld.error} />
+      <ErrorText error={save.error} />
       <AppVersion />
     </Page>
   )
@@ -432,6 +419,99 @@ function InstallCard() {
             </li>
           </ol>
         )}
+      </Card>
+    </Section>
+  )
+}
+
+/** The same day n months ago (clamped to the month's length), as yyyy-mm-dd. */
+const monthsAgo = (n: number) => {
+  const [y, m, d] = ymd().split('-').map(Number)
+  const last = new Date(Date.UTC(y, m - 1 - n + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m - 1 - n, Math.min(d, last))).toISOString().slice(0, 10)
+}
+
+/**
+ * Pull in older alerts from the mailbox. The import runs on the server, so its progress comes from there: leaving
+ * the page (or reloading) and coming back shows where it really is, and the button stays busy until it's done.
+ */
+function ImportOlderMail({ configured }: { configured: boolean }) {
+  const qc = useQueryClient()
+  const [since, setSince] = useState('')
+  const status = useQuery({
+    queryKey: ['mail-import'],
+    queryFn: () => api<MailImport>('/mail/import'),
+    // check every second while it runs; otherwise only when the page opens
+    refetchInterval: (q) => (q.state.data?.state === 'CONNECTING' || q.state.data?.state === 'RUNNING' ? 1000 : false),
+  })
+  const s = status.data
+  const running = s?.state === 'CONNECTING' || s?.state === 'RUNNING'
+  const start = useMoneyMutation((d: string) => api<MailImport>('/mail/import', { body: { since: d } }), (r) => qc.setQueryData(['mail-import'], r))
+  const cancel = useMoneyMutation(() => api<MailImport>('/mail/import/cancel', { method: 'POST' }), (r) => qc.setQueryData(['mail-import'], r))
+
+  // When an import finishes, what it added should show everywhere (inbox, transactions, totals).
+  const finishedAt = s?.finishedAt
+  useEffect(() => {
+    if (finishedAt) qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' && q.queryKey[0] !== 'mail-import' })
+  }, [finishedAt, qc])
+
+  const pct = s?.total ? (s.done / s.total) * 100 : 0
+  return (
+    <Section title="Import older emails">
+      <Card className="space-y-4 p-5">
+        <p className="ink-2 text-sm">Only mail that arrives after setup is read automatically. Pick a start date to pull in older alerts. Balances only count transactions after each account's “as of” date.</p>
+        <div>
+          <p className="ink-2 mb-1.5 px-1 text-[13px] font-medium">Since</p>
+          <DatePicker label="Import emails since" value={running ? (s?.since ?? since) : since} max={ymd()} disabled={running} onChange={setSince} />
+          {!running && (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {[
+                [1, '1 month ago'],
+                [3, '3 months ago'],
+                [6, '6 months ago'],
+                [12, '1 year ago'],
+              ].map(([n, text]) => {
+                const d = monthsAgo(n as number)
+                return (
+                  <Chip key={d} active={since === d} onClick={() => setSince(d)}>
+                    {text}
+                  </Chip>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {running && s && (
+          <div role="status" aria-live="polite">
+            <Meter pct={pct} />
+            <div className="mt-1.5 flex justify-between gap-3 text-[13px]">
+              <span className="ink-2">
+                {s.state === 'CONNECTING' ? 'Signing in and finding emails…' : `${count(s.done)} of ${count(s.total ?? 0)} emails`}
+              </span>
+              <span className="ink-2 tabular">{s.state === 'RUNNING' ? `${count(s.added)} new · ${Math.floor(pct)}%` : ''}</span>
+            </div>
+          </div>
+        )}
+        {!running && s && s.finishedAt && (
+          <p className={'text-[13px] ' + (s.state === 'FAILED' ? 'text-[var(--negative)]' : 'ink-2')}>
+            {s.state === 'FAILED'
+              ? `The import since ${shortDate(s.since!)} stopped: ${s.error}`
+              : `${s.state === 'CANCELLED' ? 'Stopped' : 'Finished'} ${dateTime(s.finishedAt)}: ${count(s.added)} new of ${count(s.done)} emails since ${shortDate(s.since!)}${s.state === 'CANCELLED' ? ` (${count((s.total ?? 0) - s.done)} not looked at)` : ''}.`}
+          </p>
+        )}
+        <ErrorText error={start.error ?? cancel.error} />
+
+        <div className="flex gap-2">
+          <Button variant="secondary" disabled={!since || running || start.isPending || !configured} onClick={() => start.mutate(since)}>
+            {running ? 'Importing…' : 'Import'}
+          </Button>
+          {running && (
+            <Button variant="secondary" disabled={cancel.isPending} onClick={() => cancel.mutate(undefined)}>
+              Stop
+            </Button>
+          )}
+        </div>
       </Card>
     </Section>
   )

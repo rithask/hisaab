@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api, qs, type Page as Paged, type Txn } from '../api'
 import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
+import { DatePicker } from '../components/DatePicker'
 import { Button, Chip, Empty, Field, Input, List, PillSelect, Segmented, Sheet, Skeleton, Page, Rise } from '../components/ui'
 import { dateLabel, dayKey, money, money0, ymd, zonedInstant } from '../format'
 import { useAccounts, useCategories, useFeature } from '../hooks'
@@ -267,10 +268,10 @@ function AdvancedFilters({ params, onApply }: { params: URLSearchParams; onApply
         </div>
         <div className="mt-3 flex gap-2">
           <Field label="From">
-            <Input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+            <DatePicker value={from} max={to || undefined} onChange={setFrom} label="From" placeholder="Any" short clearable />
           </Field>
           <Field label="To">
-            <Input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+            <DatePicker value={to} min={from || undefined} onChange={setTo} label="To" placeholder="Any" short clearable />
           </Field>
         </div>
       </div>

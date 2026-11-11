@@ -168,10 +168,20 @@ public class InboxController {
 
     public record ImportRequest(LocalDate since) {}
 
+    /** Starts importing older mail in the background; poll GET /mail/import for progress. */
     @PostMapping("/mail/import")
-    public MailSyncService.SyncResult importSince(@RequestBody ImportRequest req) {
-        if (req.since() == null) throw new IllegalArgumentException("Pick a start date");
-        return mail.importSince(req.since());
+    public MailSyncService.ImportStatus startImport(@RequestBody ImportRequest req) {
+        return mail.startImport(req.since());
+    }
+
+    @GetMapping("/mail/import")
+    public MailSyncService.ImportStatus importStatus() {
+        return mail.importStatus();
+    }
+
+    @PostMapping("/mail/import/cancel")
+    public MailSyncService.ImportStatus cancelImport() {
+        return mail.cancelImport();
     }
 
     // ---- alerts ------------------------------------------------------------------------------------------

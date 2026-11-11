@@ -19,6 +19,9 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -35,6 +38,15 @@ public class MailSyncService {
     private final EmailProcessor processor;
     private final ReentrantLock lock = new ReentrantLock();
 
+    /** Older-mail imports run one at a time on their own thread; their progress is kept here for the app to show. */
+    private final ExecutorService importer = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "mail-import");
+        t.setDaemon(true);
+        return t;
+    });
+    private final AtomicBoolean cancelImport = new AtomicBoolean();
+    private volatile ImportStatus importStatus = ImportStatus.IDLE;
+
     public MailSyncService(AppProperties props, SettingsService settings, EmailProcessor processor) {
         this.cfg = props.mail();
         this.settings = settings;
@@ -42,6 +54,31 @@ public class MailSyncService {
     }
 
     public record SyncResult(int fetched, int processed, String error) {}
+
+    /**
+     * Where an older-mail import has got to.
+     *
+     * @param state IDLE, CONNECTING (signing in and searching), RUNNING, DONE, CANCELLED or FAILED
+     * @param total emails found since the date (known once the search finishes)
+     * @param done  emails looked at so far
+     * @param added of those, how many were new
+     */
+    public record ImportStatus(String state, LocalDate since, Integer total, int done, int added, Instant startedAt,
+                               Instant finishedAt, String error) {
+        static final ImportStatus IDLE = new ImportStatus("IDLE", null, null, 0, 0, null, null, null);
+
+        public boolean active() {
+            return state.equals("CONNECTING") || state.equals("RUNNING");
+        }
+
+        ImportStatus progress(int done, int added) {
+            return new ImportStatus(state, since, total, done, added, startedAt, null, null);
+        }
+
+        ImportStatus finish(String state, String error) {
+            return new ImportStatus(state, since, total, done, added, startedAt, Instant.now(), error);
+        }
+    }
 
     public boolean configured() {
         return cfg != null && cfg.configured();
@@ -67,31 +104,70 @@ public class MailSyncService {
             }
             long last = Long.parseLong(storedLast);
             if (next - 1 <= last) return new SyncResult(0, 0, null);
-            Message[] msgs = folder.getMessagesByUID(last + 1, UIDFolder.MAXUID);
-            int processed = 0, fetched = 0;
-            for (Message m : msgs) {
-                long uid = folder.getUID(m);
-                if (uid <= last) continue; // IMAP returns the newest message for an empty range
-                fetched++;
-                if (handle(m, validity, uid)) processed++;
+            long[] uids = uidsOf(folder, folder.getMessagesByUID(last + 1, UIDFolder.MAXUID));
+            int[] counts = new int[2];                                          // fetched, processed
+            fetchInBatches(folder, uids, validity, (uid, added) -> {
+                if (uid <= last) return true;                                   // IMAP returns the newest message for an empty range
+                counts[0]++;
+                if (added) counts[1]++;
                 settings.set(SettingsService.IMAP_LAST_UID, String.valueOf(uid));
-            }
-            return new SyncResult(fetched, processed, null);
+                return true;
+            });
+            return new SyncResult(counts[0], counts[1], null);
         });
     }
 
-    /** One-off import of older mail (optional). Duplicates are skipped by Message-ID. */
-    public SyncResult importSince(LocalDate since) {
-        return withFolder(folder -> {
+    public ImportStatus importStatus() {
+        return importStatus;
+    }
+
+    /**
+     * Starts a one-off import of older mail in the background and returns straight away; follow it with
+     * {@link #importStatus()}. Emails already seen are skipped (by Message-ID). Only one import runs at a time.
+     */
+    public synchronized ImportStatus startImport(LocalDate since) {
+        if (!configured()) throw new IllegalStateException("The mailbox isn't set up (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
+        if (since == null) throw new IllegalArgumentException("Pick a start date");
+        if (since.isAfter(LocalDate.now(com.hisaab.service.Money.ZONE))) throw new IllegalArgumentException("Pick a date that isn't in the future");
+        if (importStatus.active()) throw new IllegalStateException("An import is already running");
+        cancelImport.set(false);
+        importStatus = new ImportStatus("CONNECTING", since, null, 0, 0, Instant.now(), null, null);
+        importer.submit(() -> runImport(since));
+        return importStatus;
+    }
+
+    /** Stops a running import after the email it's on. What was imported so far stays. */
+    public ImportStatus cancelImport() {
+        if (importStatus.active()) cancelImport.set(true);
+        return importStatus;
+    }
+
+    private void runImport(LocalDate since) {
+        SyncResult r = withFolder(folder -> {
             Date d = Date.from(since.atStartOfDay(com.hisaab.service.Money.ZONE).toInstant());
-            Message[] msgs = ((Folder) folder).search(new ReceivedDateTerm(ComparisonTerm.GE, d));
+            long[] uids = uidsOf(folder, ((Folder) folder).search(new ReceivedDateTerm(ComparisonTerm.GE, d)));
             long validity = folder.getUIDValidity();
-            int processed = 0;
-            for (Message m : msgs) {
-                if (handle(m, validity, folder.getUID(m))) processed++;
-            }
-            return new SyncResult(msgs.length, processed, null);
-        });
+            ImportStatus s = importStatus;
+            importStatus = new ImportStatus("RUNNING", since, uids.length, 0, 0, s.startedAt(), null, null);
+            int[] counts = new int[2];                                          // done, added
+            fetchInBatches(folder, uids, validity, (uid, added) -> {
+                counts[0]++;
+                if (added) counts[1]++;
+                importStatus = importStatus.progress(counts[0], counts[1]);
+                return !cancelImport.get();
+            });
+            return new SyncResult(uids.length, counts[1], null);
+        }, true);
+        ImportStatus s = importStatus;
+        if (r.error() != null) importStatus = s.finish("FAILED", r.error());
+        else importStatus = s.finish(cancelImport.get() && s.done() < (s.total() == null ? 0 : s.total()) ? "CANCELLED" : "DONE", null);
+        log.info("Mail import since {}: {} of {} looked at, {} new ({})", since, s.done(), s.total(), s.added(), importStatus.state());
+    }
+
+    @jakarta.annotation.PreDestroy
+    void stopImporter() {
+        cancelImport.set(true);
+        importer.shutdownNow();
     }
 
     /** Process an .eml file uploaded by hand (testing, or importing an old alert). */
@@ -105,8 +181,14 @@ public class MailSyncService {
     }
 
     private SyncResult withFolder(FolderWork work) {
+        return withFolder(work, false);
+    }
+
+    /** @param wait wait for a sync that's already running (imports), rather than giving up (the scheduled sync) */
+    private SyncResult withFolder(FolderWork work, boolean wait) {
         if (!configured()) return new SyncResult(0, 0, "Mailbox is not configured (set MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
-        if (!lock.tryLock()) return new SyncResult(0, 0, "A sync is already running");
+        if (wait) lock.lock();
+        else if (!lock.tryLock()) return new SyncResult(0, 0, "A sync is already running");
         Store store = null;
         try {
             Properties p = new Properties();
@@ -145,10 +227,65 @@ public class MailSyncService {
         }
     }
 
-    private boolean handle(Message m, long validity, long uid) {
+    /** Per message: called with its UID and whether it was new; return false to stop. */
+    private interface EachMessage {
+        boolean accept(long uid, boolean added);
+    }
+
+    /** Emails fetched per IMAP request. Bounded so a big import never holds more than one batch in memory. */
+    static final int BATCH = 50;
+    private static final Session PARSE = Session.getInstance(new Properties());
+
+    /** The UIDs of these messages, in mailbox order, fetched in one request. */
+    private static long[] uidsOf(UIDFolder folder, Message[] msgs) throws MessagingException {
+        FetchProfile fp = new FetchProfile();
+        fp.add(UIDFolder.FetchProfileItem.UID);
+        ((Folder) folder).fetch(msgs, fp);
+        long[] uids = new long[msgs.length];
+        for (int i = 0; i < msgs.length; i++) uids[i] = folder.getUID(msgs[i]);
+        return uids;
+    }
+
+    /**
+     * Fetches whole messages BATCH at a time with one standard request each
+     * ({@code UID FETCH <uids> (UID INTERNALDATE BODY.PEEK[])}; PEEK leaves them unread) and processes them in order.
+     * Reading a message part by part instead costs several round trips per email, which makes big imports crawl.
+     */
+    private void fetchInBatches(UIDFolder folder, long[] uids, long validity, EachMessage each) throws MessagingException {
+        org.eclipse.angus.mail.imap.IMAPFolder imap = (org.eclipse.angus.mail.imap.IMAPFolder) folder;
+        for (int i = 0; i < uids.length; i += BATCH) {
+            long[] part = Arrays.copyOfRange(uids, i, Math.min(uids.length, i + BATCH));
+            StringBuilder set = new StringBuilder();
+            for (long u : part) set.append(set.isEmpty() ? "" : ",").append(u);
+            Map<Long, org.eclipse.angus.mail.imap.protocol.FetchResponse> got = new HashMap<>();
+            imap.doCommand(p -> {
+                org.eclipse.angus.mail.iap.Response[] r = p.command("UID FETCH " + set + " (UID INTERNALDATE BODY.PEEK[])", null);
+                for (org.eclipse.angus.mail.iap.Response x : r) {
+                    if (x instanceof org.eclipse.angus.mail.imap.protocol.FetchResponse fr) {
+                        var u = fr.getItem(org.eclipse.angus.mail.imap.protocol.UID.class);
+                        if (u != null) got.put(u.uid, fr);
+                    }
+                }
+                p.notifyResponseHandlers(r);
+                p.handleResult(r[r.length - 1]);
+                return null;
+            });
+            for (long uid : part) {
+                var fr = got.get(uid);
+                boolean added = fr != null && handle(fr, validity, uid);
+                if (!each.accept(uid, added)) return;
+            }
+        }
+    }
+
+    private boolean handle(org.eclipse.angus.mail.imap.protocol.FetchResponse fr, long validity, long uid) {
         IncomingEmail in;
         try {
-            in = toIncoming(m, validity, uid);
+            var body = fr.getItem(org.eclipse.angus.mail.imap.protocol.BODY.class);
+            var date = fr.getItem(org.eclipse.angus.mail.imap.protocol.INTERNALDATE.class);
+            if (body == null) return false;
+            Message m = new jakarta.mail.internet.MimeMessage(PARSE, body.getByteArrayInputStream());
+            in = toIncoming(m, validity, uid, date == null ? null : date.getDate());
         } catch (Exception e) {
             log.warn("Could not read message uid={}: {}", uid, e.toString());
             return false;
@@ -169,6 +306,11 @@ public class MailSyncService {
     // ---- MIME handling -----------------------------------------------------------------------------------
 
     public static IncomingEmail toIncoming(Message m, long validity, long uid) throws Exception {
+        return toIncoming(m, validity, uid, null);
+    }
+
+    /** @param received when the mailbox received it (IMAP INTERNALDATE), if known; else the message's own dates */
+    static IncomingEmail toIncoming(Message m, long validity, long uid, Date received) throws Exception {
         String[] ids = m.getHeader("Message-ID");
         String messageId = ids != null && ids.length > 0 ? ids[0].trim() : null;
         Collector c = new Collector();
@@ -179,7 +321,7 @@ public class MailSyncService {
         String from = m.getFrom() != null && m.getFrom().length > 0
                 ? ((m.getFrom()[0] instanceof InternetAddress ia) ? ia.getAddress() : m.getFrom()[0].toString())
                 : null;
-        Date when = m.getReceivedDate() != null ? m.getReceivedDate() : m.getSentDate();
+        Date when = received != null ? received : m.getReceivedDate() != null ? m.getReceivedDate() : m.getSentDate();
         return new IncomingEmail(messageId, from, m.getSubject(), when == null ? Instant.now() : when.toInstant(),
                 text, c.attachments);
     }

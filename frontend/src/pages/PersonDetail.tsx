@@ -6,6 +6,7 @@ import { api, type Person, type Settlement, type Txn } from '../api'
 import { Avatar, Badge, Button, Card, ErrorText, Field, IconButton, Input, List, Meter, PageHeader, PageSkeleton, Section, Sheet, Page, BigMoney } from '../components/ui'
 import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
+import { DateTimePicker } from '../components/DatePicker'
 import { PersonSheet } from './People'
 
 interface Detail {
@@ -120,7 +121,7 @@ function PaymentForm({ onClose, person }: { onClose: () => void; person: Person 
         <Input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
       <Field label="When">
-        <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+        <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />
       </Field>
       <Field label="Note">
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cash, GPay…" />

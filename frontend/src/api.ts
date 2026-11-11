@@ -354,6 +354,18 @@ export interface YearReview {
   partial: boolean
 }
 
+/** An older-mail import running on the server (see GET /mail/import). */
+export interface MailImport {
+  state: 'IDLE' | 'CONNECTING' | 'RUNNING' | 'DONE' | 'CANCELLED' | 'FAILED'
+  since?: string
+  total?: number
+  done: number
+  added: number
+  startedAt?: string
+  finishedAt?: string
+  error?: string
+}
+
 export interface BackupStatus {
   enabled: boolean
   dir: string

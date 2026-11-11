@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import {
   useEffect,
   useId,
+  useRef,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -210,6 +211,8 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 // ---- Sheet ----------------------------------------------------------------------------------------
 
+const openSheets: object[] = []
+
 /**
  * Bottom sheet on phones, centred dialog on wider screens. Springs up in 250ms; on a phone it can be
  * dragged down by its header to dismiss.
@@ -218,17 +221,23 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   const drag = useDragControls()
   const wide = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
 
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const me = {}
+    openSheets.push(me)
+    // Escape closes only the top sheet (a date picker can open over another sheet)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && openSheets[openSheets.length - 1] === me && closeRef.current()
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
+      openSheets.splice(openSheets.indexOf(me), 1)
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [open, onClose])
+  }, [open])
 
   return createPortal(
     <AnimatePresence>
