@@ -299,7 +299,7 @@ public class EmailProcessor {
      * @param conflicts when no format was learned because of the safety net: how many earlier lessons it would break
      */
     public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
-                              boolean pausedFormat) {}
+                              boolean pausedFormat, boolean mergedFormat) {}
 
     /**
      * I say what an SMS or bank email really was. The transaction is recorded (replacing a wrong one if it had been
@@ -370,7 +370,7 @@ public class EmailProcessor {
             }
         }
         return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts(),
-                paused && readBy.isPaused());
+                paused && readBy.isPaused(), learned.merged());
     }
 
     static final String NOT_A_TXN_NOTE = "Not a transaction: worded like a message you marked as not one.";

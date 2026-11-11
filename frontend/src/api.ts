@@ -423,6 +423,8 @@ export interface TeachResult {
   conflicts: number
   /** the format that had read it was paused: it has now been corrected too often */
   pausedFormat: boolean
+  /** the format was folded into one it already knew for this kind of message */
+  mergedFormat: boolean
 }
 
 export interface Learned {

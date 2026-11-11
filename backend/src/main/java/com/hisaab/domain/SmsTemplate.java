@@ -36,6 +36,10 @@ public class SmsTemplate {
     @Column(columnDefinition = "text")
     private String pattern;
 
+    /** The format word by word (see FormatShape), for merging; null for formats learned before that existed. */
+    @Column(columnDefinition = "text")
+    private String parts;
+
     @Enumerated(EnumType.STRING)
     private Institution institution;
 

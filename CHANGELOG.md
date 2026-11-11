@@ -24,6 +24,9 @@ must do when upgrading (marked **Upgrade:**).
 - A learned format that keeps reading messages wrong stops being used: after two corrections it's paused and its
   messages wait in Needs review. Settings → What it has learned shows how often each format was corrected, and
   paused ones can be resumed.
+- The same kind of message in slightly different wording (a new footer, an extra word) is merged into one
+  learned format instead of a near-copy, so wording it hasn't seen yet is read too. A merge is kept only if every
+  message you taught still reads the same.
 
 ### Changed
 - When two learned formats fit a message, the one you taught most recently is used.

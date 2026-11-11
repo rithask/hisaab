@@ -205,7 +205,9 @@ function EmailView({ id }: { id: number; onDone: () => void }) {
       {taught && (
         <Notice tone="green">
           {taught.txnId ? 'Recorded.' : 'Already recorded.'}
-          {taught.learnedFormat
+          {taught.learnedFormat && taught.mergedFormat
+            ? ' Merged it with a format it already knew for this kind of message, so wording that differs between them is read too.'
+            : taught.learnedFormat
             ? ' Learned this message format, so the next one like it is read automatically.'
             : taught.conflicts > 0
               ? ` Didn't learn this format: it would change how ${taught.conflicts} message${taught.conflicts > 1 ? 's' : ''} you taught earlier ${taught.conflicts > 1 ? 'are' : 'is'} read.`

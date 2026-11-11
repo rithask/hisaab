@@ -252,6 +252,43 @@ class SmsLearningServiceTest {
     }
 
     @Test
+    void theSameKindOfMessageInSlightlyDifferentWordingBecomesOneFormat() {
+        learning.learn("INR 500.00 debited from A/c XX2286 on 05-11-26 to SHOP ONE. UPI Ref 531234567890. Not you? Call 18001035577 -Axis Bank",
+                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
+        var r = learning.teach("INR 120.00 debited from A/c XX2286 on 06-11-26 to CAFE BLUE. UPI Ref 600000000001. Not you? SMS BLOCK 2286 to 919951860002 -Axis Bank",
+                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("120"), axis, "CAFE BLUE"), null);
+        assertTrue(r.merged(), "merged into the first format");
+        assertEquals(1, store.size());
+        assertEquals(2, lessons.size());
+        // a third footer it has never seen is read too, payee and all
+        var p = read("INR 75.50 debited from A/c XX2286 on 07-11-26 to METRO CARD. UPI Ref 600000000002. Not you? Call 1860 500 5555 -Axis Bank");
+        assertEquals(new BigDecimal("75.50"), p.amount());
+        assertEquals("METRO CARD", p.counterparty());
+        // both lessons still read as taught
+        assertEquals("SHOP ONE", read("INR 500.00 debited from A/c XX2286 on 05-11-26 to SHOP ONE. UPI Ref 531234567890. Not you? Call 18001035577 -Axis Bank").counterparty());
+    }
+
+    @Test
+    void differentKindsOfMessageAreNotMerged() {
+        learning.learn("INR 500.00 debited from A/c XX2286 on 05-11-26 to SHOP ONE. UPI Ref 531234567890 -Axis Bank",
+                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
+        var r = learning.teach("INR 500.00 credited to A/c XX2286 on 05-11-26 from SHOP ONE. UPI Ref 531234567890 -Axis Bank",
+                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("500"), axis, "SHOP ONE"), null);
+        assertFalse(r.merged(), "money in and money out stay separate formats");
+        assertEquals(2, store.size());
+    }
+
+    @Test
+    void formatsAreMergedOnlyWhenTheirSlotsLineUp() {
+        var a = new FormatShape(java.util.List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
+                new FormatShape.Token("debited", "d", false), new FormatShape.Token("to", "t", false), new FormatShape.Token("<PAYEE>", "p", false)), false);
+        var b = new FormatShape(java.util.List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
+                new FormatShape.Token("debited", "d", false), new FormatShape.Token("to", "t", false), new FormatShape.Token("<L4>", "l", false)), false);
+        assertTrue(FormatShape.merge(a, b).isEmpty());
+        assertTrue(FormatShape.merge(a, a).isPresent());
+    }
+
+    @Test
     void senderIdsAreNormalised() {
         assertEquals("HDFCBK", SmsLearningService.senderKey("VM-HDFCBK-S"));
         assertEquals("AXISBK", SmsLearningService.senderKey("ax-axisbk"));

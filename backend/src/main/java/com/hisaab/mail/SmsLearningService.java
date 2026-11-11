@@ -175,7 +175,11 @@ public class SmsLearningService {
      * @param template  the format learned, if any
      * @param conflicts when a format was refused by the safety net: how many earlier lessons it would have broken
      */
-    public record LearnResult(Optional<SmsTemplate> template, int conflicts) {
+    public record LearnResult(Optional<SmsTemplate> template, int conflicts, boolean merged) {
+        LearnResult(Optional<SmsTemplate> template, int conflicts) {
+            this(template, conflicts, false);
+        }
+
         static LearnResult none() {
             return new LearnResult(Optional.empty(), 0);
         }
@@ -219,6 +223,12 @@ public class SmsLearningService {
         int broken = regressions(channel, before, after, flat);
         if (broken > 0) return new LearnResult(Optional.empty(), broken);
 
+        // A message of a kind already learned in slightly different wording: one format for both, if that's safe.
+        if (same.isEmpty()) {
+            Optional<LearnResult> merged = mergeInto(channel, before, overruled, candidate, flat, text, truth, source);
+            if (merged.isPresent()) return merged.get();
+        }
+
         overruled.forEach(templates::delete);
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
         copy(candidate, t);
@@ -238,15 +248,15 @@ public class SmsLearningService {
     public LearnResult skip(Channel channel, String text, RawEmail source) {
         String flat = flat(text);
         if (flat.isEmpty()) return LearnResult.none();
-        StringBuilder pattern = new StringBuilder("^");
-        StringBuilder skeleton = new StringBuilder("skip: ");
-        literal(flat, pattern, skeleton);
-        pattern.append("$");
+        FormatShape.Builder shape = new FormatShape.Builder();
+        literal(flat, shape);
+        FormatShape f = shape.done();
         SmsTemplate candidate = new SmsTemplate();
         candidate.setChannel(channel);
         candidate.setKind(SmsTemplate.SKIP);
-        candidate.setSkeleton(skeleton.toString().trim());
-        candidate.setPattern(pattern.toString());
+        candidate.setSkeleton("skip: " + f.skeleton());
+        candidate.setPattern(f.pattern());
+        candidate.setParts(f.encode());
         candidate.setSample(text.strip());
 
         List<SmsTemplate> before = templates.findByChannelOrderByHitsDescIdAsc(channel);
@@ -296,13 +306,7 @@ public class SmsLearningService {
         if (truth == null) {
             wrong = r.isEmpty() || !r.get().skip();
         } else {
-            LearnedExample e = new LearnedExample();
-            e.setDirection(truth.direction());
-            e.setAmount(truth.amount());
-            e.setInstitution(truth.account().getInstitution());
-            int[] marked = span(truth.payeeAt(), flat(text));
-            e.setPayee(marked != null ? clean(flat(text).substring(marked[0], marked[1])) : null);
-            wrong = !right(e, r);
+            wrong = !right(lessonOf(flat(text), truth), r);
         }
         if (!wrong) return false;
         t.setCorrections(t.getCorrections() + 1);
@@ -337,6 +341,56 @@ public class SmsLearningService {
             t.setPaused(false);
             t.setCorrections(0);
         });
+    }
+
+    /**
+     * Tries to fold a new format into an existing one for the same kind of message (same bank, account type and
+     * direction) whose wording mostly matches: the words that differ become "any words". Kept only if the merged
+     * format reads this message as taught and every lesson as before (the safety net).
+     */
+    private Optional<LearnResult> mergeInto(Channel channel, List<SmsTemplate> before, List<SmsTemplate> overruled,
+                                            SmsTemplate candidate, String flat, String text, Truth truth, RawEmail source) {
+        Optional<FormatShape> mine = FormatShape.decode(candidate.getParts());
+        if (mine.isEmpty()) return Optional.empty();
+        LearnedExample lesson = lessonOf(flat, truth);
+        for (SmsTemplate e : before) {
+            if (e.isSkip() || e.isPaused() || e.getInstitution() != candidate.getInstitution()
+                    || e.getAccountType() != candidate.getAccountType() || e.getDirection() != candidate.getDirection()
+                    || e.isCardPayment() != candidate.isCardPayment()) continue;
+            Optional<FormatShape> both = FormatShape.decode(e.getParts()).flatMap(theirs -> FormatShape.merge(theirs, mine.get()));
+            if (both.isEmpty()) continue;
+            SmsTemplate m = new SmsTemplate();
+            copy(e, m);
+            m.setId(e.getId());
+            shape(m, both.get());
+            if (before.stream().anyMatch(x -> x != e && x.getSkeleton().equals(m.getSkeleton()))) continue;
+            if (!right(lesson, read(List.of(m), flat))) continue;
+            List<SmsTemplate> after = new ArrayList<>(before);
+            after.remove(e);
+            after.removeAll(overruled);
+            after.add(m);
+            if (regressions(channel, before, after, flat) > 0) continue;
+
+            overruled.forEach(templates::delete);
+            e.setSkeleton(m.getSkeleton());
+            e.setPattern(m.getPattern());
+            e.setParts(m.getParts());
+            SmsTemplate saved = templates.save(e);
+            remember(channel, flat, text, truth, source);
+            return Optional.of(new LearnResult(Optional.of(saved), 0, true));
+        }
+        return Optional.empty();
+    }
+
+    /** The lesson a correction makes, for checking a reading against it. */
+    private static LearnedExample lessonOf(String flat, Truth truth) {
+        LearnedExample e = new LearnedExample();
+        e.setDirection(truth.direction());
+        e.setAmount(truth.amount());
+        e.setInstitution(truth.account().getInstitution());
+        int[] marked = span(truth.payeeAt(), flat);
+        e.setPayee(marked != null ? clean(flat.substring(marked[0], marked[1])) : null);
+        return e;
     }
 
     /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
@@ -388,6 +442,7 @@ public class SmsLearningService {
     private static void copy(SmsTemplate from, SmsTemplate to) {
         to.setSkeleton(from.getSkeleton());
         to.setPattern(from.getPattern());
+        to.setParts(from.getParts());
         to.setInstitution(from.getInstitution());
         to.setAccountType(from.getAccountType());
         to.setDirection(from.getDirection());
@@ -422,30 +477,27 @@ public class SmsLearningService {
         }
         spans.sort(Comparator.comparingInt(s -> s[0]));
 
-        StringBuilder pattern = new StringBuilder("^");
-        StringBuilder skeleton = new StringBuilder();
+        FormatShape.Builder shape = new FormatShape.Builder();
         int pos = 0;
         for (int i = 0; i <= spans.size(); i++) {
             int end = i < spans.size() ? spans.get(i)[0] : flat.length();
-            literal(flat.substring(pos, end), pattern, skeleton);
+            literal(flat.substring(pos, end), shape);
             if (i == spans.size()) break;
             int[] s = spans.get(i);
-            boolean last = s[1] >= flat.length();
             switch (s[2]) {
-                case 0 -> slot(pattern, skeleton, "(?<amt>" + NUM + ")", "<AMT>");
-                case 1 -> slot(pattern, skeleton, last ? "(?<payee>.+)" : "(?<payee>.+?)", "<PAYEE>");
-                case 2 -> slot(pattern, skeleton, "(?<l4>\\d{4})", "<L4>");
-                case 3 -> slot(pattern, skeleton, "(?<ref>[A-Za-z0-9]+)", "<REF>");
-                default -> slot(pattern, skeleton, "(?<bal>" + NUM + ")", "<BAL>");
+                case 0 -> shape.piece("<AMT>", "(?<amt>" + NUM + ")");
+                case 1 -> shape.piece("<PAYEE>", "(?<payee>.+?)");
+                case 2 -> shape.piece("<L4>", "(?<l4>\\d{4})");
+                case 3 -> shape.piece("<REF>", "(?<ref>[A-Za-z0-9]+)");
+                default -> shape.piece("<BAL>", "(?<bal>" + NUM + ")");
             }
             pos = s[1];
         }
-        pattern.append("$");
+        FormatShape f = shape.done();
 
         Account a = truth.account();
         SmsTemplate t = new SmsTemplate();
-        t.setSkeleton(skeleton.toString().trim());
-        t.setPattern(pattern.toString());
+        shape(t, f);
         t.setInstitution(a.getInstitution());
         t.setAccountType(a.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK);
         t.setDirection(truth.direction());
@@ -462,39 +514,38 @@ public class SmsLearningService {
         spans.add(new int[]{span[0], span[1], kind});
     }
 
-    private static void slot(StringBuilder pattern, StringBuilder skeleton, String rx, String label) {
-        pattern.append(rx);
-        skeleton.append(label);
+    private static void shape(SmsTemplate t, FormatShape f) {
+        t.setSkeleton(f.skeleton());
+        t.setPattern(f.pattern());
+        t.setParts(f.encode());
     }
 
     /**
      * Fixed wording between slots. Words are matched literally; anything containing a digit (dates, times, phone
      * numbers) and month/day names become wildcards, because they change from message to message.
      */
-    private static void literal(String chunk, StringBuilder pattern, StringBuilder skeleton) {
+    private static void literal(String chunk, FormatShape.Builder shape) {
         Matcher m = Pattern.compile("\\s+|\\S+").matcher(chunk);
         while (m.find()) {
             String tok = m.group();
             if (tok.isBlank()) {
-                pattern.append("\\s+");
-                skeleton.append(' ');
+                shape.space();
             } else if (MONTH.matcher(tok).matches()) {
-                pattern.append("\\S+");
-                skeleton.append('#');
+                shape.piece("#", "\\S+");
             } else if (tok.chars().anyMatch(Character::isDigit)) {
                 // Keep the token's shape (UPI/P2M/<digits>/, dd-mm-yy, hh:mm:ss) but let the digits vary, so a
                 // wildcard can never swallow part of a neighbouring slot.
                 Matcher part = Pattern.compile("[0-9][0-9,.]*|[A-Za-z]+|[^0-9A-Za-z]+").matcher(tok);
+                StringBuilder rx = new StringBuilder();
                 while (part.find()) {
                     String g = part.group();
-                    if (Character.isDigit(g.charAt(0))) pattern.append("[0-9][0-9,.]*");
-                    else if (MONTH.matcher(g).matches()) pattern.append("[A-Za-z]+");
-                    else pattern.append(Pattern.quote(g));
+                    if (Character.isDigit(g.charAt(0))) rx.append("[0-9][0-9,.]*");
+                    else if (MONTH.matcher(g).matches()) rx.append("[A-Za-z]+");
+                    else rx.append(Pattern.quote(g));
                 }
-                skeleton.append('#');
+                shape.piece("#", rx.toString());
             } else {
-                pattern.append(Pattern.quote(tok));
-                skeleton.append(tok.toLowerCase(Locale.ROOT));
+                shape.piece(tok.toLowerCase(Locale.ROOT), Pattern.quote(tok));
             }
         }
     }
