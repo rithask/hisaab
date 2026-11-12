@@ -74,7 +74,7 @@ export default function Home() {
   if (d.counts.statementsToReview) todo.push({ to: '/import', icon: FileText, text: `Review ${d.counts.statementsToReview} statement${d.counts.statementsToReview > 1 ? 's' : ''} before importing` })
   if (d.counts.statementsLocked) todo.push({ to: '/statements', icon: LockKey, text: `${d.counts.statementsLocked} statement${d.counts.statementsLocked > 1 ? 's need their' : ' needs its'} password` })
   if (f?.backups && backup.data && (backup.data.lastError || backup.data.stale) && (backup.data.lastError || backup.data.lastOk))
-    todo.push({ to: '/settings', icon: CloudWarning, text: backup.data.lastError ? "Backups are failing. Check Settings" : 'No backup in the last 2 days', urgent: true })
+    todo.push({ to: '/settings/data', icon: CloudWarning, text: backup.data.lastError ? "Backups are failing. Check Settings" : 'No backup in the last 2 days', urgent: true })
   for (const b of (f?.budgets ? (budgets.data ?? []) : []).filter((x) => x.status === 'OVER')) todo.push({ to: '/budgets', icon: Target, text: `Over budget on ${b.name}`, urgent: true })
   const odd = f?.unusual ? (unusual.data?.items ?? []) : []
   if (odd.length)

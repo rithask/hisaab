@@ -10,6 +10,8 @@ must do when upgrading (marked **Upgrade:**).
 ## [Unreleased]
 
 ### Changed
+- Settings is split into sections (General, Features, Mail & SMS, Teaching, Security, Import & backups), each
+  on its own page. On a wide screen the list of sections stays on the left. Sign out is also under Security.
 - The refresh button on Invest spins while prices are updating.
 
 ## [0.4.0] - 2026-11-11

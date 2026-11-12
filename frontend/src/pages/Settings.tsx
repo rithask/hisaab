@@ -1,26 +1,95 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChatText, CloudArrowUp, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, Key, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
-import { api, type BackupStatus, type Feature, type Learned, type MailImport, type Settings as S, type TokenStatus } from '../api'
+import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, Key, LockSimple, SignOut, SlidersHorizontal, ToggleRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Link, Navigate, useParams } from 'react-router-dom'
+import { api, type BackupStatus, type Feature, type Learned, type MailImport, type TokenStatus } from '../api'
 import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
 import { isIos, useInstall } from '../pwa'
-import { Badge, Button, Card, Chip, ErrorText, Field, Input, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
+import { Badge, Button, Card, Chip, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
 import { count, dateTime, shortDate, ymd } from '../format'
-import { useMoneyMutation } from '../hooks'
+import { useMoneyMutation, useSettings, useSignOut } from '../hooks'
 
+type SectionKey = 'general' | 'features' | 'mail' | 'teaching' | 'security' | 'data'
+
+const SECTIONS: { key: SectionKey; label: string; icon: PhIcon; hint: string }[] = [
+  { key: 'general', label: 'General', icon: SlidersHorizontal, hint: 'Your name, Home, install the app' },
+  { key: 'features', label: 'Features', icon: ToggleRight, hint: 'Turn optional parts of the app on or off' },
+  { key: 'mail', label: 'Mail & SMS', icon: Envelope, hint: 'Alerts mailbox, forwarding bank SMS' },
+  { key: 'teaching', label: 'Teaching', icon: GraduationCap, hint: 'What it learned from your corrections' },
+  { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, signing out' },
+  { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups' },
+]
+
+/**
+ * Settings is a menu of sections. On phones the menu and each section are separate pages
+ * (/settings, /settings/mail, …); on wide screens the menu stays on the left and the section shows beside it.
+ */
 export default function Settings() {
-  const s = useQuery({ queryKey: ['settings'], queryFn: () => api<S>('/settings') })
+  const { section } = useParams()
+  const current = SECTIONS.find((x) => x.key === section)
+  if (section && !current) return <Navigate to="/settings" replace />
+  const shown = current ?? SECTIONS[0]
+  return (
+    <Page key={section ?? ''}>
+      <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <div className={cx(section && 'hidden lg:block')}>
+          <PageHeader back title="Settings" />
+          <SectionMenu active={shown.key} />
+          <AppVersion />
+        </div>
+        <div className={cx(!section && 'hidden lg:block', '[&>section:first-child]:mt-0')}>
+          <PageHeader back title={shown.label} />
+          {shown.key === 'general' && <GeneralSection />}
+          {shown.key === 'features' && <FeaturesCard />}
+          {shown.key === 'mail' && <MailSection />}
+          {shown.key === 'teaching' && <LearnedCard />}
+          {shown.key === 'security' && <SecuritySection />}
+          {shown.key === 'data' && <DataSection />}
+        </div>
+      </div>
+    </Page>
+  )
+}
+
+/** The list of sections, with a badge where something needs attention (mailbox not set up, backups failing). */
+function SectionMenu({ active }: { active: SectionKey }) {
+  const s = useSettings()
+  const backupsOn = s.data?.features?.backups !== false
+  const backups = useQuery({ queryKey: ['backups'], queryFn: () => api<BackupStatus>('/backups'), enabled: !!s.data && backupsOn })
+  const b = backups.data
+  const badge: Partial<Record<SectionKey, ReactNode>> = {
+    mail: s.data && !s.data.mail.configured ? <Badge tone="amber">not set up</Badge> : null,
+    data: b && backupFailing(b) ? <Badge tone="red">failing</Badge> : null,
+  }
+  return (
+    <List>
+      {SECTIONS.map(({ key, icon: Icon, label, hint }) => (
+        <Link key={key} to={`/settings/${key}`} aria-current={key === active ? 'page' : undefined} className="row flex items-center gap-3.5 px-4 py-3.5 lg:aria-[current=page]:bg-[var(--surface-2)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+            <Icon size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium">{label}</span>
+            <span className="ink-2 block truncate text-[12.5px]">{hint}</span>
+          </span>
+          {badge[key]}
+          <CaretRight size={16} className="ink-3 shrink-0" />
+        </Link>
+      ))}
+    </List>
+  )
+}
+
+function GeneralSection() {
+  const s = useSettings()
   const [owner, setOwner] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   useEffect(() => setOwner(s.data?.ownerName ?? ''), [s.data?.ownerName])
   const homeOpt = useMoneyMutation((v: boolean) => api('/settings', { method: 'PUT', body: { showInvestmentsOnHome: v } }))
   const save = useMoneyMutation(() => api('/settings', { method: 'PUT', body: { ownerName: owner } }), () => setMsg('Saved.'))
-  const mail = s.data?.mail
-
   return (
-    <Page>
-      <PageHeader back title="Settings" />
+    <>
       <Card className="space-y-4 p-5">
         <Field label="Your name, as banks show it" hint="Used to spot transfers to yourself, e.g. UPI to ARJUN RAVI K">
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
@@ -28,6 +97,8 @@ export default function Settings() {
         <Button onClick={() => save.mutate(undefined)} disabled={save.isPending}>
           Save
         </Button>
+        {msg && <Notice>{msg}</Notice>}
+        <ErrorText error={save.error} />
       </Card>
 
       <Section title="Home">
@@ -38,10 +109,14 @@ export default function Settings() {
       </Section>
 
       <InstallCard />
-      <FeaturesCard features={s.data?.features} />
-      {s.data?.features?.backups !== false && <BackupsCard />}
-      <PocketIdCard />
+    </>
+  )
+}
 
+function MailSection() {
+  const mail = useSettings().data?.mail
+  return (
+    <>
       <Section title="Mailbox">
         <Card className="p-5">
           <div className="flex items-center gap-3">
@@ -63,20 +138,37 @@ export default function Settings() {
           )}
         </Card>
       </Section>
-
       <SmsForwarding />
-
-      <ImportOlderMail configured={!!mail?.configured} />
-      {msg && (
-        <div className="mt-3">
-          <Notice>{msg}</Notice>
-        </div>
-      )}
-      <ErrorText error={save.error} />
-      <AppVersion />
-    </Page>
+    </>
   )
 }
+
+function SecuritySection() {
+  const signOut = useSignOut()
+  return (
+    <>
+      <PocketIdCard />
+      <Section title="This device">
+        <button className="pressable surface flex h-12 w-full items-center justify-center gap-2 rounded-[20px] text-[15px] font-semibold text-[var(--negative)]" onClick={signOut}>
+          <SignOut size={17} /> Sign out
+        </button>
+      </Section>
+      <p className="ink-3 mt-3 px-1 text-[12.5px]">The SMS forwarding token is managed in Mail &amp; SMS.</p>
+    </>
+  )
+}
+
+function DataSection() {
+  const s = useSettings()
+  return (
+    <>
+      <ImportOlderMail configured={!!s.data?.mail.configured} />
+      {s.data?.features?.backups !== false && <BackupsCard />}
+    </>
+  )
+}
+
+const backupFailing = (b: BackupStatus) => !!b.lastError && (!b.lastOk || (b.lastErrorAt ?? '') > b.lastOk)
 
 /** API token + setup guide for forwarding bank SMS from the phone. */
 function SmsForwarding() {
@@ -190,7 +282,6 @@ function SmsForwarding() {
           Payments that also arrive by email are recorded once. You can also paste an SMS by hand from <b>Inbox → Paste SMS</b>. Your phone needs to reach this server (e.g. over Tailscale or your public URL).
         </p>
       </Card>
-      <LearnedCard />
     </Section>
   )
 }
@@ -204,7 +295,7 @@ function LearnedCard() {
   const l = learned.data
   const empty = !l || (l.formats.length === 0 && l.payees.length === 0)
   return (
-    <Card className="mt-3 p-5">
+    <Card className="p-5">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
           <GraduationCap size={20} />
@@ -294,10 +385,11 @@ const FEATURES: { key: Feature; name: string; hint: string }[] = [
 ]
 
 /** Switch optional features off: they disappear from the app and their background jobs stop. */
-function FeaturesCard({ features }: { features?: Record<Feature, boolean> }) {
+function FeaturesCard() {
+  const features = useSettings().data?.features
   const set = useMoneyMutation((change: Partial<Record<Feature, boolean>>) => api('/settings', { method: 'PUT', body: { features: change } }))
   return (
-    <Section title="Features">
+    <>
       <Card className="divide-y divide-[var(--line)] p-0">
         {FEATURES.map((f) => (
           <div key={f.key} className="px-4 py-2.5">
@@ -315,7 +407,7 @@ function FeaturesCard({ features }: { features?: Record<Feature, boolean> }) {
         ))}
       </Card>
       <p className="ink-3 mt-2 px-1 text-[12.5px]">Turning a feature off hides it everywhere and stops any background work for it. Nothing is deleted.</p>
-    </Section>
+    </>
   )
 }
 
@@ -323,7 +415,7 @@ function BackupsCard() {
   const q = useQuery({ queryKey: ['backups'], queryFn: () => api<BackupStatus>('/backups') })
   const run = useMoneyMutation(() => api('/backups', { method: 'POST' }))
   const b = q.data
-  const failing = !!b?.lastError && (!b.lastOk || (b.lastErrorAt ?? '') > b.lastOk)
+  const failing = !!b && backupFailing(b)
   return (
     <Section title="Backups">
       <Card className="p-4">

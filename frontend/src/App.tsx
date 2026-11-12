@@ -65,6 +65,7 @@ export default function App() {
           <Route path="import/:id" element={<ImportStatement />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="settings/:section" element={<Settings />} />
           <Route path="setup" element={<Setup />} />
         </Route>
       </Routes>

@@ -1,9 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Bank, CalendarCheck, Gift, Repeat, ShieldWarning, CaretRight, ChartBar, FileText, GearSix, SignOut, Sparkle, Tag, Target, Tray, TrendUp, UploadSimple, type Icon as PhIcon } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { api, type Feature, type Settings as S } from '../api'
-import { clearSavedData } from '../pwa'
-import { SIGNED_OUT_KEY } from './Login'
+import { useSignOut } from '../hooks'
 import { Avatar, Badge, List, PageHeader, Page, Rise } from '../components/ui'
 
 type Item = { to: string; icon: PhIcon; label: string; hint: string; feature?: Feature }
@@ -27,12 +26,12 @@ const groups: Item[][] = [
     { to: '/inbox', icon: Tray, label: 'Inbox & alerts', hint: 'Emails needing review, mismatches' },
     { to: '/import', icon: UploadSimple, label: 'Import a statement', hint: 'Add or complete transactions from a PDF' },
     { to: '/statements', icon: FileText, label: 'Statements', hint: 'Saved PDF statements' },
-    { to: '/settings', icon: GearSix, label: 'Settings', hint: 'Your name, mailbox sync' },
+    { to: '/settings', icon: GearSix, label: 'Settings', hint: 'Mail & SMS, teaching, backups, security' },
   ],
 ]
 
 export default function More() {
-  const qc = useQueryClient()
+  const signOut = useSignOut()
   const s = useQuery({ queryKey: ['settings'], queryFn: () => api<S>('/settings') })
   return (
     <Page>
@@ -64,19 +63,7 @@ export default function More() {
       ))}
       <button
         className="pressable surface mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[20px] text-[15px] font-semibold text-[var(--negative)]"
-        onClick={async () => {
-          await api('/auth/logout', { method: 'POST' }).catch(() => undefined)
-          await clearSavedData()
-          try {
-            sessionStorage.setItem(SIGNED_OUT_KEY, '1') // don't bounce straight back to the identity provider
-          } catch {
-            // storage unavailable
-          }
-          // Mark signed out first so the app switches to the sign-in screen, then drop everything else.
-          // (qc.clear() would also remove the "me" query the app is watching, so the switch never happened.)
-          qc.setQueryData(['me'], null)
-          qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
-        }}
+        onClick={signOut}
       >
         <SignOut size={17} /> Sign out
       </button>

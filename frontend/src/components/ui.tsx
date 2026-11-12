@@ -443,7 +443,7 @@ export function FeatureGate({ on, name, children }: { on: boolean | undefined; n
     return (
       <Page>
         <PageHeader back title={name} />
-        <Empty title={`${name} is turned off`} action={<Button variant="secondary" onClick={() => nav('/settings')}>Open Settings</Button>}>
+        <Empty title={`${name} is turned off`} action={<Button variant="secondary" onClick={() => nav('/settings/features')}>Open Settings</Button>}>
           Switch it on under Settings → Features.
         </Empty>
       </Page>
