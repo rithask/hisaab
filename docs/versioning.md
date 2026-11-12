@@ -73,7 +73,7 @@ Choose what the server follows with `APP_VERSION` in `.env`:
 5. **Upgrade the server:**
    ```sh
    # in the folder with compose.yaml and .env
-   # 1. Settings → Backups → Back up now (or wait for tonight's backup)
+   # 1. Settings → Import & backups → Back up now (or wait for tonight's backup)
    # 2. set APP_VERSION=1.5.0 in .env
    docker compose pull && docker compose up -d
    ```
@@ -104,7 +104,7 @@ as `APP_IMAGE:APP_VERSION`.
 The database container's major version (`POSTGRES_VERSION`) can't simply be changed: a newer PostgreSQL won't
 open an older one's data folder. To move from 17 to 18:
 
-1. Take a backup (Settings → Backups → Back up now) and download it.
+1. Take a backup (Settings → Import & backups → Back up now) and download it.
 2. `docker compose down`, then `mv data/db data/db-17` (keep it until the new one works).
 3. Set `POSTGRES_VERSION=18` and change the db volume line in `compose.yaml` to `./data/db:/var/lib/postgresql`
    (PostgreSQL 18 images keep their data in a versioned subfolder).

@@ -35,7 +35,7 @@ export default function Home() {
   if (!dash.data) return <PageSkeleton />
   const d = dash.data
   const t = d.totals
-  // Settings → Home: investments can be left out of Home entirely (they stay on the Invest tab).
+  // Settings → General: investments can be left out of Home entirely (they stay on the Invest tab).
   const showInvest = settings.data?.showInvestmentsOnHome ?? true
 
   const header = (

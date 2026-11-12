@@ -58,7 +58,7 @@ Create a dedicated mailbox, then add a rule in your main inbox that auto-forward
 - **iCloud:** appleid.apple.com → App-Specific Passwords → `MAIL_HOST=imap.mail.me.com`.
 
 The first sync only bookmarks the mailbox; from then on every new email is processed once (read-only, nothing is deleted).
-Older mail can be pulled in from Settings → Import older emails.
+Older mail can be pulled in from Settings → Import & backups → Import older emails.
 
 ## Supported bank emails
 
@@ -79,7 +79,7 @@ cd backend && ./mvnw test
 
 ## Bank SMS
 
-For alerts that only arrive as text messages, generate an API token in **Settings → SMS forwarding** and have the phone POST each bank SMS:
+For alerts that only arrive as text messages, generate an API token in **Settings → Mail & SMS** and have the phone POST each bank SMS:
 
 ```
 curl -X POST https://<host>/api/ingest/sms \
@@ -103,7 +103,7 @@ No AI is involved; it learns from evidence.
 - **Self-correction.** When an SMS prints the balance, the arithmetic decides the direction: if the balance only fits the opposite direction, it is flipped and the message is annotated.
 - **Senders.** Sender ids of parsed messages are remembered, so a text that doesn't name its bank is still attributed.
 
-Review or remove anything learned under **Settings → SMS forwarding → What it has learned**.
+Review or remove anything learned under **Settings → Teaching**.
 
 ## Statement import
 
@@ -152,7 +152,7 @@ docker compose up -d --build     # the app fixes the folder's ownership when it 
 
 (Use the `POSTGRES_USER`/`POSTGRES_DB` from your `.env` if you changed them.)
 
-**Upgrading:** take a backup (Settings → Backups → *Back up now*), set the new `APP_VERSION` in `.env`, then `docker compose pull && docker compose up -d`. Database migrations run automatically on start. Versions, image tags and rollback are explained in [docs/versioning.md](docs/versioning.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
+**Upgrading:** take a backup (Settings → Import & backups → *Back up now*), set the new `APP_VERSION` in `.env`, then `docker compose pull && docker compose up -d`. Database migrations run automatically on start. Versions, image tags and rollback are explained in [docs/versioning.md](docs/versioning.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 **Backups** run every night at 3:30 (`BACKUP_CRON`) while *Automatic backups* is on in Settings → Features. Each one is a single zip with the whole database (`database.sql`) and the saved statements, plus a `RESTORE.txt` with the steps to restore it. The newest `BACKUP_KEEP` (14) are kept. Settings shows the last backup, lets you back up now and download one, and Home warns when backups fail or are more than two days old. Set `BACKUP_PATH` to a host folder (e.g. on a NAS) and copy it somewhere else too: a backup on the same disk doesn't protect against that disk failing.
 
@@ -162,7 +162,7 @@ docker compose up -d --build     # the app fixes the folder's ownership when it 
 
 Open the app's address in the phone's browser and sign in.
 - **iPhone / iPad (Safari):** tap Share, then *Add to Home Screen*.
-- **Android (Chrome):** Settings → *App* → *Install* (or the browser menu → *Install app*).
+- **Android (Chrome):** Settings → *General* → *Install* (or the browser menu → *Install app*).
 
 The installed app opens full screen, starts instantly, and when there's no connection it shows what it last loaded (with an "Offline" note; changes need a connection). Long-press the icon for *Add transaction* and *Activity*. On Android it also appears in the share menu: share a bank SMS to Money and it opens in *Paste SMS*. Data saved for offline use is cleared when you sign out. Installing needs HTTPS (the Caddy setup above provides it).
 
@@ -186,7 +186,7 @@ The app uses the authorization-code flow with PKCE, asks for the `openid profile
 
 The sign-in page goes straight to Pocket ID (`OIDC_AUTO_REDIRECT=true`). It doesn't after you sign out or when a sign-in fails, and `https://<app>/?password` shows the password form anyway. Set `PASSWORD_LOGIN=false` to hide password sign-in. That only takes effect while OIDC is configured, so you can't lock yourself out, and `APP_PASSWORD` can then be left empty. The SMS forwarding token is unaffected.
 
-**Linking.** The first time you sign in with Pocket ID, the app asks whether to link that Pocket ID account to your Hisaab account, and asks for the app password to confirm. After that, only the linked Pocket ID account (same issuer and subject) can sign in; any other account is turned away until you unlink in Settings → Pocket ID. With `PASSWORD_LOGIN=false` there's no password to check, so the first account Pocket ID lets through is the one that gets linked: restrict the client in Pocket ID before turning password sign-in off.
+**Linking.** The first time you sign in with Pocket ID, the app asks whether to link that Pocket ID account to your Hisaab account, and asks for the app password to confirm. After that, only the linked Pocket ID account (same issuer and subject) can sign in; any other account is turned away until you unlink in Settings → Security. With `PASSWORD_LOGIN=false` there's no password to check, so the first account Pocket ID lets through is the one that gets linked: restrict the client in Pocket ID before turning password sign-in off.
 
 Pocket ID is looked up the first time someone signs in, so the app starts even if Pocket ID is down. Sign-ins, failures and sign-outs are logged under `com.hisaab.security`.
 
