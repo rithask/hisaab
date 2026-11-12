@@ -9,6 +9,9 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Changed
+- The refresh button on Invest spins while prices are updating.
+
 ## [0.4.0] - 2026-11-11
 
 ### Added

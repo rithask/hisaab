@@ -35,7 +35,7 @@ export default function Invest() {
     <Page>
       <PageHeader
         title="Investments"
-        action={<IconButton icon={ArrowsClockwise} label={refresh.isPending ? 'Refreshing…' : 'Refresh prices'} onClick={() => refresh.mutate(undefined)} disabled={refresh.isPending} className={cx(refresh.isPending && 'opacity-50')} />}
+        action={<IconButton icon={ArrowsClockwise} label={refresh.isPending ? 'Refreshing…' : 'Refresh prices'} onClick={() => refresh.mutate(undefined)} disabled={refresh.isPending} spinning={refresh.isPending} />}
       />
 
       <Card className="p-5">

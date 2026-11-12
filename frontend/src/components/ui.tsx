@@ -113,10 +113,10 @@ export function Button({
   )
 }
 
-export function IconButton({ icon: Icon, label, className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: PhIcon; label: string }) {
+export function IconButton({ icon: Icon, label, className, spinning, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: PhIcon; label: string; spinning?: boolean }) {
   return (
     <button {...p} aria-label={label} title={label} className={cx('pressable flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]', className)}>
-      <Icon size={19} />
+      <Icon size={19} className={cx(spinning && 'motion-safe:animate-spin')} />
     </button>
   )
 }
