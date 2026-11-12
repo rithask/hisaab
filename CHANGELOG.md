@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
 ### Changed
 - Settings is split into sections (General, Features, Mail & SMS, Teaching, Security, Import & backups), each
   on its own page. On a wide screen the list of sections stays on the left. Sign out is also under Security.
