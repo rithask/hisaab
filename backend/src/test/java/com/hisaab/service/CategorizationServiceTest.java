@@ -130,4 +130,59 @@ class CategorizationServiceTest {
         assertThat(CategorizationService.toPerson(txn("X", "1", "UPI/P2M/1/X"))).isFalse();
         assertThat(CategorizationService.vpaOf(txn("Ravi", "1", "UPI/P2A/1/ravi.k@okaxis"))).isEqualTo("ravi.k@okaxis");
     }
+
+    // ---- payments without a payee: remembered by the wording of their message -----------------------------
+
+    private static Txn fromMessage(String text, Long formatId, String amount) {
+        Txn t = txn(null, amount, null);
+        com.hisaab.domain.RawEmail m = new com.hisaab.domain.RawEmail();
+        m.setBodyText(text);
+        if (formatId != null) {
+            com.hisaab.domain.SmsTemplate f = new com.hisaab.domain.SmsTemplate();
+            f.setId(formatId);
+            m.setTemplate(f);
+        }
+        t.setRawEmail(m);
+        return t;
+    }
+
+    @Test
+    void aPaymentWithNoPayeeIsRememberedByItsWording() {
+        Category cash = cat(5, "Cash", CategoryKind.EXPENSE);
+        Txn atm = fromMessage("Rs.2000.00 withdrawn at ATM from A/c XX1234 on 03-Nov-26 10:15 am. Avl bal Rs 5,000", null, "2000");
+        assertThat(cats.learnsByWording(atm)).isTrue();
+        cats.learn(atm, cash);
+
+        Txn next = fromMessage("Rs.500.00 withdrawn at ATM from A/c XX1234 on 11-Dec-26 7:02 pm. Avl bal Rs 4,500", null, "500");
+        assertThat(suggested(next)).isEqualTo(cash);
+        assertThat(next.isCategorySuggested()).isTrue();
+        Txn other = fromMessage("Rs.500.00 debited for annual card fee on A/c XX1234 on 11-Dec-26", null, "500");
+        assertThat(suggested(other)).isNull();
+    }
+
+    @Test
+    void theLearnedFormatCarriesTheCategoryAcrossWordingItMerged() {
+        Category charges = cat(6, "Bank charges", CategoryKind.EXPENSE);
+        cats.learn(fromMessage("Rs 118 debited from A/c XX1234 towards SMS charges", 7L, "118"), charges);
+        // different words, but read by the same learned format
+        assertThat(suggested(fromMessage("Rs 59 debited from A/c XX1234 towards debit card fee", 7L, "59"))).isEqualTo(charges);
+    }
+
+    @Test
+    void wordingOnlyCountsWhenThereIsNoPayee() {
+        Category cash = cat(5, "Cash", CategoryKind.EXPENSE);
+        cats.learn(fromMessage("Rs 100 paid via UPI on 03-Nov-26", 9L, "100"), cash);
+        Txn named = fromMessage("Rs 100 paid via UPI on 04-Nov-26", 9L, "100");
+        named.setCounterparty("ZOMATO");
+        named.setMerchantKey(Names.merchantKey("ZOMATO"));
+        assertThat(cats.learnsByWording(named)).isFalse();
+        assertThat(suggested(named)).isNull();
+    }
+
+    @Test
+    void wordingDropsWhatChangesBetweenMessages() {
+        assertThat(CategorizationService.wording("Rs.2,000.00 withdrawn at ATM on 03-Nov-26 10:15 AM, Ref 123456."))
+                .isEqualTo("# withdrawn at atm on # ref #");
+        assertThat(CategorizationService.wording("Rs 500 on 03 Nov")).isNull();
+    }
 }

@@ -413,6 +413,8 @@ export interface SmsPreview {
   flat: string
   amountAt?: number[]
   payeeAt?: number[]
+  /** the category I already chose for its transaction */
+  categoryId?: number
 }
 
 export interface TeachResult {
@@ -427,6 +429,10 @@ export interface TeachResult {
   pausedFormat: boolean
   /** the format was folded into one it already knew for this kind of message */
   mergedFormat: boolean
+  /** the category I picked while teaching */
+  category?: string
+  /** that category was remembered for messages worded like this, as it has no payee */
+  categoryByWording: boolean
 }
 
 export interface Learned {

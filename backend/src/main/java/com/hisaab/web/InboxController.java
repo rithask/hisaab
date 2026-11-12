@@ -127,7 +127,7 @@ public class InboxController {
     }
 
     public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
-                                boolean pausedFormat, boolean mergedFormat) {}
+                                boolean pausedFormat, boolean mergedFormat, String category, boolean categoryByWording) {}
 
     /** Correct an SMS; the parser learns its format and account from the correction. */
     @PostMapping("/emails/{id}/teach")
@@ -135,7 +135,7 @@ public class InboxController {
         RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found"));
         EmailProcessor.TeachResult r = processor.teach(e, in);
         return new TeachResponse(EmailDto.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
-                r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat(), r.mergedFormat());
+                r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat(), r.mergedFormat(), r.category(), r.categoryByWording());
     }
 
     public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,

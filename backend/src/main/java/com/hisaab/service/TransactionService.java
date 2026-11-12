@@ -253,14 +253,18 @@ public class TransactionService {
     public record TxnUpdate(Long categoryId, Boolean clearCategory, List<String> tags, String notes, String counterparty,
                             Boolean transfer, BigDecimal amount, Instant occurredAt, Boolean learn) {}
 
-    /** @param renamedCount other transactions renamed because a payee rename was learned */
-    public record UpdateResult(Txn txn, int similarCount, int renamedCount) {}
+    /**
+     * @param renamedCount   other transactions renamed because a payee rename was learned
+     * @param learnedWording the category was remembered for messages worded like this one (it has no payee)
+     */
+    public record UpdateResult(Txn txn, int similarCount, int renamedCount, boolean learnedWording) {}
 
     @Transactional
     public UpdateResult update(Long id, TxnUpdate u) {
         Txn t = get(id);
         int similar = 0;
         int renamed = 0;
+        boolean learnedWording = false;
         if (u.counterparty() != null) {
             String old = t.getCounterparty();
             t.setCounterparty(blankToNull(u.counterparty()));
@@ -293,9 +297,12 @@ public class TransactionService {
             t.setCategory(c);
             t.setCategorySuggested(false);
             t.setTransfer(false);
-            if (!Boolean.FALSE.equals(u.learn())) similar = categorizer.learn(t, c);
+            if (!Boolean.FALSE.equals(u.learn())) {
+                similar = categorizer.learn(t, c);
+                learnedWording = categorizer.learnsByWording(t);
+            }
         }
-        return new UpdateResult(t, similar, renamed);
+        return new UpdateResult(t, similar, renamed, learnedWording);
     }
 
     @Transactional

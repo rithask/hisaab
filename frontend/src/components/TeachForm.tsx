@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { api, type SmsPreview, type TeachResult } from '../api'
-import { useAccounts, useMoneyMutation } from '../hooks'
+import { useAccounts, useCategories, useMoneyMutation } from '../hooks'
 import { Button, Chip, cx, ErrorText, Field, Input, Segmented } from './ui'
 
 type Mark = 'amount' | 'payee'
@@ -19,10 +19,12 @@ const numberIn = (s: string) => s.match(/\d[\d,]*(?:\.\d{1,2})?/)?.[0].replace(/
 /**
  * Correct one message by marking it: tap the amount, tap the first and last word of the payee, pick the account
  * and direction. Marking tells the parser exactly where each part sits, so the next message in this format is
- * read right, including its payee. The payee can be shown under a nicer name.
+ * read right, including its payee. The payee can be shown under a nicer name. A category can be picked too: it's
+ * learned for the payee, or, when the message has no payee, for messages worded like this one.
  */
 export default function TeachForm({ id, onDone }: { id: number; onDone: (r: TeachResult) => void }) {
   const accounts = useAccounts()
+  const cats = useCategories()
   const preview = useQuery({ queryKey: ['sms-preview', id], queryFn: () => api<SmsPreview>(`/emails/${id}/preview`), staleTime: 0 })
   const [direction, setDirection] = useState<'DEBIT' | 'CREDIT'>('DEBIT')
   const [amount, setAmount] = useState('')
@@ -32,6 +34,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
   const [payeeWords, setPayeeWords] = useState<[number, number] | null>(null)
   const [name, setName] = useState('')
   const [nameEdited, setNameEdited] = useState(false)
+  const [categoryId, setCategoryId] = useState<number | null>(null)
 
   const toks = useMemo<Tok[]>(() => [...(preview.data?.flat ?? '').matchAll(/\S+/g)].map((m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length })), [preview.data?.flat])
   const marked = payeeWords ? toks.slice(payeeWords[0], payeeWords[1] + 1).map((t) => t.text).join(' ').replace(/[.,;:]+$/, '') : ''
@@ -43,6 +46,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
     if (p.direction) setDirection(p.direction)
     if (p.amount != null) setAmount(String(p.amount))
     if (p.accountId != null) setAccountId(p.accountId)
+    setCategoryId(p.categoryId ?? null)
     setAmountWord(wordsOf(toks, p.amountAt)?.[0] ?? null)
     const w = wordsOf(toks, p.payeeAt)
     setPayeeWords(w)
@@ -81,11 +85,17 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
           counterparty: name.trim() || marked || undefined,
           amountAt: amountWord != null ? [toks[amountWord].start, toks[amountWord].end] : undefined,
           payeeAt: payeeWords ? [toks[payeeWords[0]].start, toks[payeeWords[1]].end] : undefined,
+          // only a new choice is sent, so teaching again doesn't count the same choice twice
+          categoryId: category && category.id !== preview.data?.categoryId ? category.id : undefined,
         },
       }),
     onDone,
   )
   const active = (accounts.data ?? []).filter((a) => !a.archived)
+  const kind = direction === 'DEBIT' ? 'EXPENSE' : 'INCOME'
+  const kindCats = (cats.data ?? []).filter((c) => c.kind === kind)
+  // a category of the other kind no longer fits once the direction changes
+  const category = kindCats.find((c) => c.id === categoryId)
   if (!preview.data) return null
 
   return (
@@ -167,6 +177,19 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
             </Chip>
           ))}
         </div>
+      </div>
+      <div>
+        <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">Category (optional)</span>
+        <div className="flex flex-wrap gap-2">
+          {kindCats.map((c) => (
+            <Chip key={c.id} active={c.id === category?.id} onClick={() => setCategoryId(c.id === category?.id ? null : c.id)}>
+              {c.name}
+            </Chip>
+          ))}
+        </div>
+        {!payeeWords && !name.trim() && (
+          <p className="ink-2 mt-1.5 px-1 text-xs">No payee in this message? That's fine. Pick a category and messages worded like it will get it.</p>
+        )}
       </div>
       <ErrorText error={teach.error} />
       <Button type="submit" className="w-full" disabled={!Number(amount) || accountId === '' || teach.isPending}>

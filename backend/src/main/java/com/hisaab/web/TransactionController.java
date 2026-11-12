@@ -90,13 +90,13 @@ public class TransactionController {
         return dto(service.createManual(req, accounts.get(req.accountId())));
     }
 
-    public record UpdateResponse(TxnDto txn, int similarCount, int renamedCount) {}
+    public record UpdateResponse(TxnDto txn, int similarCount, int renamedCount, boolean learnedWording) {}
 
     @PatchMapping("/{id}")
     @Transactional
     public UpdateResponse update(@PathVariable Long id, @RequestBody TxnUpdate u) {
         var r = service.update(id, u);
-        return new UpdateResponse(dto(r.txn()), r.similarCount(), r.renamedCount());
+        return new UpdateResponse(dto(r.txn()), r.similarCount(), r.renamedCount(), r.learnedWording());
     }
 
     @DeleteMapping("/{id}")

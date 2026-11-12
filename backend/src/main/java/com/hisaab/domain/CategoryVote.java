@@ -7,12 +7,15 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** How often I've put a payee (or UPI ID) in a category, and for what amounts. */
+/**
+ * How often I've put a payee (or UPI ID) in a category, and for what amounts. For payments without a payee, the
+ * key is the wording of their message instead: a learned format's id (FORMAT) or a hash of its words (WORDING).
+ */
 @Entity
 @Getter
 @Setter
 public class CategoryVote {
-    public static final String MERCHANT = "MERCHANT", VPA = "VPA";
+    public static final String MERCHANT = "MERCHANT", VPA = "VPA", FORMAT = "FORMAT", WORDING = "WORDING";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -9,6 +9,12 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- Pick a category while teaching a message, instead of opening the transaction again afterwards.
+- Payments whose message has no payee name (an ATM withdrawal, interest, a bank charge) now learn their category
+  too. Choose one once, while teaching or on the transaction, and later messages worded the same way get it. A
+  payment with a payee is still categorised by its payee.
+
 ## [0.5.0] - 2026-11-12
 
 ### Changed

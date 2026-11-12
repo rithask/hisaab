@@ -52,12 +52,14 @@ public class EmailProcessor {
     private final org.springframework.context.ApplicationEventPublisher events;
     private final SenderTrust trust;
     private final com.hisaab.service.PayeeAliasService aliases;
+    private final com.hisaab.repo.CategoryRepo categories;
 
     public EmailProcessor(List<BankEmailParser> parsers, RawEmailRepo emails, AccountRepo accounts,
                           StatementFileRepo statements, StatementStorage storage, TransactionService txns,
                           SmsParser smsParser, SmsLearningService learning, com.hisaab.service.BalanceService balances,
                           org.springframework.context.ApplicationEventPublisher events, SenderTrust trust,
-                          com.hisaab.service.PayeeAliasService aliases) {
+                          com.hisaab.service.PayeeAliasService aliases, com.hisaab.repo.CategoryRepo categories) {
+        this.categories = categories;
         this.events = events;
         this.aliases = aliases;
         this.trust = trust;
@@ -224,7 +226,8 @@ public class EmailProcessor {
         if ("sms".equals(raw.getParser())) {
             boolean emailAgrees = created.isEmpty() && txns.pairedWith(raw).stream().anyMatch(t -> t.getSource() == com.hisaab.domain.Enums.TxnSource.EMAIL);
             if (balanceAddsUp || emailAgrees) {
-                learning.autoLearn(Channel.SMS, raw.getBodyText(), new SmsLearningService.Truth(p.direction(), p.amount(), account.get(), p.counterparty()), raw);
+                learning.autoLearn(Channel.SMS, raw.getBodyText(), new SmsLearningService.Truth(p.direction(), p.amount(), account.get(), p.counterparty()), raw)
+                        .template().ifPresent(raw::setTemplate);
             }
         }
         return new ClassifyResult(p, created.orElse(null));
@@ -266,7 +269,8 @@ public class EmailProcessor {
             if (t.getSource() != com.hisaab.domain.Enums.TxnSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
             SmsParser.Result r = smsParser.parse(sms.getSender(), sms.getBodyText(), sms.getReceivedAt());
             String payee = r.txn() == null ? null : r.txn().counterparty();
-            learning.autoLearn(Channel.SMS, sms.getBodyText(), new SmsLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms);
+            learning.autoLearn(Channel.SMS, sms.getBodyText(), new SmsLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms)
+                    .template().ifPresent(sms::setTemplate);
         }
     }
 
@@ -294,8 +298,10 @@ public class EmailProcessor {
         java.math.BigDecimal amount = p == null ? null : p.amount();
         Long accountId = p == null ? null : smsAccount(p).map(Account::getId).orElse(null);
         String name = p == null ? null : p.counterparty();
+        Long categoryId = null;
         if (!existing.isEmpty()) {
             Txn t = existing.get(0);
+            categoryId = t.getCategory() == null || t.isCategorySuggested() ? null : t.getCategory().getId();
             direction = t.getDirection();
             amount = t.getAmount();
             accountId = t.getAccount().getId();
@@ -311,27 +317,34 @@ public class EmailProcessor {
                 break;
             }
         }
-        return new Preview(direction, amount, accountId, name, flat, amountAt, payeeAt);
+        return new Preview(direction, amount, accountId, name, flat, amountAt, payeeAt, categoryId);
     }
 
-    /** @param flat the message with whitespace collapsed; {@code amountAt}/{@code payeeAt} are {start, end} in it */
+    /**
+     * @param flat       the message with whitespace collapsed; {@code amountAt}/{@code payeeAt} are {start, end} in it
+     * @param categoryId the category I already chose for its transaction, if any
+     */
     public record Preview(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
-                          String flat, int[] amountAt, int[] payeeAt) {}
+                          String flat, int[] amountAt, int[] payeeAt, Long categoryId) {}
 
     /**
      * @param counterparty the name to show for the payee
      * @param amountAt     where I marked the amount ({start, end} in the collapsed text), if I did
      * @param payeeAt      where I marked the payee, if I did
+     * @param categoryId   the category it belongs in, if I picked one (learned for its payee, or for its wording
+     *                     when it has no payee)
      */
     public record Teaching(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
-                           int[] amountAt, int[] payeeAt) {}
+                           int[] amountAt, int[] payeeAt, Long categoryId) {}
 
     /**
      * @param alsoFixed other waiting messages that could be recorded thanks to what was just learned
      * @param conflicts when no format was learned because of the safety net: how many earlier lessons it would break
+     * @param category  the category I picked, if any
+     * @param categoryByWording that category was remembered for messages worded like this (it has no payee)
      */
     public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
-                              boolean pausedFormat, boolean mergedFormat) {}
+                              boolean pausedFormat, boolean mergedFormat, String category, boolean categoryByWording) {}
 
     /**
      * I say what an SMS or bank email really was. The transaction is recorded (replacing a wrong one if it had been
@@ -346,6 +359,12 @@ public class EmailProcessor {
         if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
         Account account = accounts.findById(in.accountId() == null ? -1L : in.accountId())
                 .orElseThrow(() -> new IllegalArgumentException("Pick the account"));
+        com.hisaab.domain.Category category = in.categoryId() == null ? null : categories.findById(in.categoryId())
+                .orElseThrow(() -> new IllegalArgumentException("Unknown category"));
+        if (category != null && category.getKind() != com.hisaab.service.CategorizationService.kindFor(in.direction())) {
+            throw new IllegalArgumentException(in.direction() == Direction.DEBIT ? "Pick a spending category for money going out"
+                    : "Pick an income category for money coming in");
+        }
         String text = raw.getBodyText();
         String flat = text.replaceAll("\\s+", " ").trim();
         // The payee as the bank writes it (what I marked, else what I typed) and the name I want shown for it.
@@ -364,7 +383,8 @@ public class EmailProcessor {
         com.hisaab.domain.SmsTemplate readBy = raw.getTemplate();
         boolean paused = learning.corrected(readBy, text, truth);
         SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text, truth, raw);
-        raw.setTemplate(null);
+        // read by the format just learned from now on (it's what a category is remembered for when there's no payee)
+        raw.setTemplate(learned.template().orElse(null));
         if (raw.getChannel() == Channel.EMAIL) trustTaughtSender(raw);
         boolean learnedFormat = learned.template().isPresent();
 
@@ -394,6 +414,15 @@ public class EmailProcessor {
         raw.setHold(null);
         if (sms) learning.rememberSender(raw.getSender(), account.getInstitution());
 
+        // The category I picked, set and learned before the waiting messages are read again, so they get it too.
+        // When this one was already recorded from the other channel, it goes on that transaction.
+        Optional<Txn> target = created.isPresent() ? created : txns.pairedWith(raw).stream().findFirst();
+        boolean byWording = false;
+        if (category != null && target.isPresent()) {
+            byWording = txns.update(target.get().getId(), new com.hisaab.service.TransactionService.TxnUpdate(
+                    category.getId(), null, null, null, null, null, null, null, true)).learnedWording();
+        }
+
         int alsoFixed = 0;
         for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR, EmailStatus.IGNORED)) {
             for (RawEmail other : emails.findByStatus(st)) {
@@ -405,7 +434,7 @@ public class EmailProcessor {
             }
         }
         return new TeachResult(raw, created.orElse(null), learnedFormat, learnedAccount, alsoFixed, learned.conflicts(),
-                paused && readBy.isPaused(), learned.merged());
+                paused && readBy.isPaused(), learned.merged(), category != null && target.isPresent() ? category.getName() : null, byWording);
     }
 
     static final String NOT_A_TXN_NOTE = "Not a transaction: worded like a message you marked as not one.";

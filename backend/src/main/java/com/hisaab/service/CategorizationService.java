@@ -3,6 +3,8 @@ package com.hisaab.service;
 import com.hisaab.domain.Category;
 import com.hisaab.domain.CategoryRule;
 import com.hisaab.domain.CategoryVote;
+import com.hisaab.domain.RawEmail;
+import com.hisaab.domain.SmsTemplate;
 import com.hisaab.domain.Enums.CategoryKind;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.RuleMatch;
@@ -27,6 +29,8 @@ import java.util.regex.Pattern;
  *       bank prints);</li>
  *   <li>a payee whose words mostly match a learned one ("swiggy instamart blr" after "swiggy instamart"); never
  *       for payments to people (UPI P2P/P2A), where similar names are different people;</li>
+ *   <li>for a payment with no payee name or UPI ID (an ATM withdrawal, interest, a bank charge): the wording of
+ *       the message it came from, i.e. the learned format that read it, else its words with the numbers taken out;</li>
  *   <li>the keyword rules.</li>
  * </ol>
  * Each payee keeps a count per category, so the majority decides and one odd purchase doesn't flip it. When I've
@@ -46,7 +50,7 @@ public class CategorizationService {
         this.votes = votes;
     }
 
-    static CategoryKind kindFor(Direction d) {
+    public static CategoryKind kindFor(Direction d) {
         return d == Direction.DEBIT ? CategoryKind.EXPENSE : CategoryKind.INCOME;
     }
 
@@ -83,6 +87,12 @@ public class CategorizationService {
         if (t.getMerchantKey() != null && !toPerson(t)) {
             Optional<Category> c = similar(t.getMerchantKey(), kind, t.getAmount());
             if (c.isPresent()) return c;
+        }
+        if (nameless(t)) {
+            for (String[] k : wordingKeys(t)) {
+                Optional<Category> c = choose(fitting(votes.findByKeyTypeAndKey(k[0], k[1]), kind), t.getAmount());
+                if (c.isPresent()) return c;
+            }
         }
         String text = (t.getCounterparty() == null ? "" : t.getCounterparty()) + " "
                 + (t.getDescription() == null ? "" : t.getDescription());
@@ -196,6 +206,7 @@ public class CategorizationService {
         if (category == null) return 0;
         String vpa = vpaOf(t);
         if (vpa != null) vote(CategoryVote.VPA, vpa, category, t.getAmount());
+        if (nameless(t)) for (String[] k : wordingKeys(t)) vote(k[0], k[1], category, t.getAmount());
         if (t.getMerchantKey() == null) return 0;
         vote(CategoryVote.MERCHANT, t.getMerchantKey(), category, t.getAmount());
         // The learned rule stays as the visible record (Settings → Categories), showing the current choice.
@@ -213,6 +224,68 @@ public class CategorizationService {
             rules.save(rule);
         }
         return similar(t, category).size();
+    }
+
+    /** Whether choosing a category for this transaction is remembered for the wording of its message. */
+    public boolean learnsByWording(Txn t) {
+        return nameless(t) && !wordingKeys(t).isEmpty();
+    }
+
+    /** No payee name and no UPI ID: nothing but the message's wording to recognise it by. */
+    static boolean nameless(Txn t) {
+        return t.getMerchantKey() == null && vpaOf(t) == null;
+    }
+
+    /**
+     * What identifies the wording of the messages this transaction came from (its own alert, then the other
+     * channel's copy), most exact first: the learned format that read it, then its words with numbers removed.
+     */
+    static List<String[]> wordingKeys(Txn t) {
+        List<String[]> out = new ArrayList<>();
+        for (RawEmail m : new RawEmail[]{t.getRawEmail(), t.getTwinRawEmail()}) {
+            if (m == null) continue;
+            SmsTemplate f = m.getTemplate();
+            if (f != null && f.getId() != null && !f.isSkip()) out.add(new String[]{CategoryVote.FORMAT, f.getId().toString()});
+            String w = wording(m.getBodyText());
+            if (w != null) out.add(new String[]{CategoryVote.WORDING, sha256(w)});
+        }
+        return out;
+    }
+
+    private static final Pattern CALENDAR_WORD = Pattern.compile(
+            "(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september"
+                    + "|october|november|december|mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday"
+                    + "|sunday|am|pm|ist)");
+
+    /**
+     * A message's words with what changes from one message to the next (amounts, dates, times, account digits,
+     * references) replaced by "#", or null when too little is left to recognise it by.
+     */
+    static String wording(String text) {
+        if (text == null) return null;
+        List<String> words = new ArrayList<>();
+        int real = 0;
+        for (String raw : text.toLowerCase(Locale.ROOT).split("\\s+")) {
+            String w = raw.replaceAll("^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$", "");
+            if (w.isEmpty()) continue;
+            boolean varies = w.chars().anyMatch(Character::isDigit) || CALENDAR_WORD.matcher(w).matches();
+            if (varies) {
+                if (words.isEmpty() || !words.getLast().equals("#")) words.add("#");
+            } else {
+                words.add(w);
+                real++;
+            }
+        }
+        return real < 3 ? null : String.join(" ", words);
+    }
+
+    private static String sha256(String s) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private void vote(String type, String key, Category c, BigDecimal amount) {

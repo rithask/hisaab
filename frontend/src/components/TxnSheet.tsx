@@ -25,7 +25,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const [tags, setTags] = useState(txn.tags.join(', '))
   const [similar, setSimilar] = useState(0)
   // What the last category choice taught the app, shown under the category grid.
-  const [learned, setLearned] = useState<{ payee?: string; category: string; applied?: number } | null>(null)
+  const [learned, setLearned] = useState<{ payee?: string; byWording?: boolean; category: string; applied?: number } | null>(null)
   const [showEmail, setShowEmail] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(txn.counterparty ?? '')
@@ -41,11 +41,11 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   }
 
   const update = useMoneyMutation(
-    (body: Record<string, unknown>) => api<{ txn: Txn; similarCount: number; renamedCount: number }>(`/transactions/${t.id}`, { method: 'PATCH', body }),
+    (body: Record<string, unknown>) => api<{ txn: Txn; similarCount: number; renamedCount: number; learnedWording: boolean }>(`/transactions/${t.id}`, { method: 'PATCH', body }),
     (r, body) => {
       setT(r.txn)
       setSimilar(r.similarCount)
-      if (typeof body.categoryId === 'number' && r.txn.category) setLearned({ payee: r.txn.counterparty ?? undefined, category: r.txn.category.name })
+      if (typeof body.categoryId === 'number' && r.txn.category) setLearned({ payee: r.txn.counterparty ?? undefined, byWording: r.learnedWording, category: r.txn.category.name })
       if (typeof body.counterparty === 'string') {
         setRenaming(false)
         // Alerts teach the parser; hand-entered transactions are just renamed.
@@ -181,6 +181,10 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
                 <p>
                   Learned: future payments {t.direction === 'CREDIT' ? 'from' : 'to'} <b>{learned.payee}</b> will be <b>{learned.category}</b>.
                   {learned.applied != null && ` ${learned.applied} earlier one${learned.applied === 1 ? ' was' : 's were'} updated too.`}
+                </p>
+              ) : learned.byWording ? (
+                <p>
+                  Learned: messages worded like this one will be <b>{learned.category}</b>.
                 </p>
               ) : (
                 <p>Saved. This one has no payee name, so the app can't recognise it next time. Tap the name at the top to add one.</p>
