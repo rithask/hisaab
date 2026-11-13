@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-13
+
 ### Added
 - API tokens, in Settings → Security. Each token has a name, does one job, and stays within the limits you set:
   - **Send SMS**: what the SMS token did. Each phone can now have its own, and you can revoke one without the other.
