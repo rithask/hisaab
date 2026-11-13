@@ -5,6 +5,8 @@ import com.hisaab.domain.ApiToken.Job;
 import com.hisaab.repo.AccountRepo;
 import com.hisaab.repo.ApiTokenRepo;
 import com.hisaab.repo.CategoryRepo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ import java.util.*;
  */
 @Service
 public class ApiTokenService {
+    private static final Logger log = LoggerFactory.getLogger(ApiTokenService.class);
     private static final String PREFIX = "hisaab_";
 
     private final ApiTokenRepo tokens;
@@ -66,7 +69,9 @@ public class ApiTokenService {
         String token = PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         t.setTokenHash(sha256(token));
         t.setHint(token.substring(token.length() - 4));
-        return new Created(token, view(tokens.save(t)));
+        ApiToken saved = tokens.save(t);
+        log.info("API token created id={} name=\"{}\" job={} hint=…{}", saved.getId(), forLog(saved.getName()), saved.getJob(), saved.getHint());
+        return new Created(token, view(saved));
     }
 
     /** Changes a token's name or limits; its job stays (make a new token for another job). */
@@ -74,6 +79,7 @@ public class ApiTokenService {
     public TokenView update(Long id, TokenInput in) {
         ApiToken t = active(id);
         apply(t, in);
+        log.info("API token changed id={} name=\"{}\" job={}", t.getId(), forLog(t.getName()), t.getJob());
         return view(t);
     }
 
@@ -81,6 +87,12 @@ public class ApiTokenService {
     public void revoke(Long id) {
         ApiToken t = active(id);
         t.setRevokedAt(Instant.now());
+        log.info("API token revoked id={} name=\"{}\" job={}", t.getId(), forLog(t.getName()), t.getJob());
+    }
+
+    /** A name as it goes in the log: one line, no control characters. */
+    private static String forLog(String s) {
+        return s == null ? "" : s.replaceAll("\\p{Cntrl}", " ");
     }
 
     /** The active token presented, if it's one of mine; notes when it was used. */

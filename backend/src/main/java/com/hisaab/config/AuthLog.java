@@ -43,8 +43,27 @@ public final class AuthLog {
         log.warn("API LOCKED OUT ip={} for 15 minutes after repeated invalid tokens", req.getRemoteAddr());
     }
 
+    /**
+     * One line per API request that presented a valid token: info when it worked, warn when it was refused (4xx,
+     * with the reason the client was given), error when it failed on our side (5xx).
+     */
     public static void tokenUsed(HttpServletRequest req, String token, int status) {
-        log.info("API token used token=\"{}\" {} {} status={} ip={}", clean(token, 64), req.getMethod(), clean(req.getRequestURI(), 100), status, req.getRemoteAddr());
+        String line = "API token used token=\"{}\" {} {} status={} ip={} reason=\"{}\"";
+        Object[] args = {clean(token, 64), req.getMethod(), clean(req.getRequestURI(), 100), status, req.getRemoteAddr(), reason(req)};
+        if (status >= 500) log.error(line, args);
+        else if (status >= 400) log.warn(line, args);
+        else log.info(line.substring(0, line.indexOf(" reason")), args);
+    }
+
+    /** An API request refused before any token was checked: none sent, or too many requests. */
+    public static void apiRefused(HttpServletRequest req, int status) {
+        log.warn("API request REFUSED {} {} status={} ip={} agent=\"{}\" reason=\"{}\"", req.getMethod(),
+                clean(req.getRequestURI(), 100), status, req.getRemoteAddr(), agent(req), reason(req));
+    }
+
+    private static String reason(HttpServletRequest req) {
+        Object r = req.getAttribute(ApiTokenFilter.ERROR);
+        return clean(r == null ? null : r.toString(), 200);
     }
 
     /** Printable, single-line, length-capped: a username can't forge extra log lines. */

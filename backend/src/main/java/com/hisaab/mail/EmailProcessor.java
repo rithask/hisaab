@@ -669,6 +669,7 @@ public class EmailProcessor {
                 statements.save(f);
                 events.publishEvent(new com.hisaab.statement.StatementSaved(f.getId()));
             } catch (Exception e) {
+                log.warn("Couldn't save statement {} from email {}: {}", a.fileName(), raw.getId(), e.toString());
                 note.append("Failed to save ").append(a.fileName()).append(": ").append(e.getMessage()).append('\n');
             }
         }

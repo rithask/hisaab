@@ -34,6 +34,8 @@ public class ApiTokenFilter extends OncePerRequestFilter {
     public static final String API_PREFIX = "/api/v1/";
     /** Request attribute holding the {@link ApiToken} that authenticated a Data API request. */
     public static final String TOKEN = "hisaab.apiToken";
+    /** Request attribute holding the reason a Data API request was refused or failed, for the log. */
+    public static final String ERROR = "hisaab.apiError";
 
     private static final int MAX_PER_MINUTE = 60;
     private static final int MAX_FAILURES = 10;
@@ -84,9 +86,11 @@ public class ApiTokenFilter extends OncePerRequestFilter {
             reject(req, res, 429, "Too Many Requests", "Too many invalid tokens. Try again later.");
             return;
         }
-        if (record(hits, client, now, Duration.ofMinutes(1)) > MAX_PER_MINUTE) {
+        int hitsThisMinute = record(hits, client, now, Duration.ofMinutes(1));
+        if (hitsThisMinute > MAX_PER_MINUTE) {
             res.setHeader("Retry-After", "60");
             reject(req, res, 429, "Too Many Requests", "Too many requests. Slow down.");
+            if (hitsThisMinute == MAX_PER_MINUTE + 1) AuthLog.apiRefused(req, 429); // once, not for every extra request
             return;
         }
 
@@ -94,6 +98,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
         if (presented == null) {
             res.setHeader("WWW-Authenticate", "Bearer realm=\"hisaab\"");
             reject(req, res, 401, "Unauthorized", "Send an API token as Authorization: Bearer <token>.");
+            AuthLog.apiRefused(req, 401);
             return;
         }
         ApiToken token = tokens.authenticate(presented).orElse(null);
@@ -108,18 +113,19 @@ public class ApiTokenFilter extends OncePerRequestFilter {
         Set<Job> allowed = jobsFor(req.getMethod(), req.getRequestURI());
         if (allowed.isEmpty()) {
             reject(req, res, 404, "Not Found", "There's no such endpoint. See docs/api.md.");
+            AuthLog.tokenUsed(req, token.getName(), 404);
             return;
         }
         if (!allowed.contains(token.getJob())) {
-            AuthLog.tokenUsed(req, token.getName(), 403);
             res.setHeader("WWW-Authenticate", "Bearer realm=\"hisaab\", error=\"insufficient_scope\"");
             reject(req, res, 403, "Forbidden", "This token can only " + does(token.getJob()) + ".");
+            AuthLog.tokenUsed(req, token.getName(), 403);
             return;
         }
         // SMS forwarding is part of the app itself; everything else is the optional Data API
         if (token.getJob() != Job.SEND_SMS && !features.on(FeatureService.Feature.DATA_API)) {
-            AuthLog.tokenUsed(req, token.getName(), 403);
             reject(req, res, 403, "Forbidden", "The Data API is turned off in Settings.");
+            AuthLog.tokenUsed(req, token.getName(), 403);
             return;
         }
 
@@ -129,10 +135,15 @@ public class ApiTokenFilter extends OncePerRequestFilter {
         ctx.setAuthentication(auth);
         SecurityContextHolder.setContext(ctx);
         req.setAttribute(TOKEN, token);
+        int status = 500; // what the server answers if something below throws
         try {
             chain.doFilter(req, res);
+            status = res.getStatus();
+        } catch (IOException | ServletException | RuntimeException e) {
+            if (req.getAttribute(ERROR) == null) req.setAttribute(ERROR, e.toString());
+            throw e;
         } finally {
-            AuthLog.tokenUsed(req, token.getName(), res.getStatus());
+            AuthLog.tokenUsed(req, token.getName(), status);
         }
     }
 
@@ -175,6 +186,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
     }
 
     private static void reject(HttpServletRequest req, HttpServletResponse res, int status, String title, String detail) throws IOException {
+        req.setAttribute(ERROR, detail);
         res.setStatus(status);
         res.setCharacterEncoding("UTF-8");
         res.setContentType("application/problem+json");

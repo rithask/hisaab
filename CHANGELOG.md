@@ -9,6 +9,16 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Changed
+- Clearer logs. Every failed Data API request is logged at warn with the reason the app was given (a request
+  without a token and a hit rate limit too), and a server failure at error with its stack trace. Creating,
+  changing and revoking API tokens is logged. A failed backup is logged at error. Saving or reading a statement
+  PDF that fails, and requests refused by a database constraint, are logged with the real cause.
+
+### Fixed
+- A Data API request that failed on the server was logged as successful, and its answer now is a problem detail
+  like the API's other errors.
+
 ## [0.8.0] - 2026-11-13
 
 ### Added

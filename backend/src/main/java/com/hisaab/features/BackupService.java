@@ -102,7 +102,7 @@ public class BackupService {
             Files.deleteIfExists(tmp);
             settings.set("backup.lastError", e.getMessage() == null ? e.toString() : e.getMessage());
             settings.set("backup.lastErrorAt", Instant.now().toString());
-            log.warn("Backup failed: {}", e.toString());
+            log.error("Backup failed: {}", e.toString());
             throw e;
         }
     }

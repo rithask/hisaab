@@ -60,6 +60,7 @@ public class StatementAutoImport {
             f.setImportStatus("UNSUPPORTED");
             f.setImportNote(ex.getMessage());
         } catch (java.io.IOException ex) {
+            log.warn("Saved statement {} ({}) couldn't be read: {}", fileId, f.getStoredPath(), ex.toString());
             f.setImportStatus("ERROR");
             f.setImportNote("The saved file couldn't be read: " + ex.getMessage());
         }
