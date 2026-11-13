@@ -141,7 +141,8 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
     if (!moneyIn && categories && cats.data) setCategories((c) => (c ? c.filter((id) => id === 'none' || cats.data!.find((x) => String(x.id) === id)?.kind !== 'INCOME') : c))
   }, [moneyIn]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const body = { name, job, categories: usesCategories(job) ? categories : null, accounts: usesAccounts(job) ? accountIds : null, moneyIn, includeNotes: notes }
+  const cleanCats = job === 'ADD_TRANSACTIONS' && categories ? categories.filter((c) => c !== 'none') : categories
+  const body = { name, job, categories: usesCategories(job) ? (cleanCats?.length ? cleanCats : null) : null, accounts: usesAccounts(job) ? accountIds : null, moneyIn, includeNotes: notes }
   const save = useMoneyMutation(
     async (): Promise<string | null> => (token ? (await api<ApiToken>(`/tokens/${token.id}`, { method: 'PUT', body }), null) : (await api<{ token: string }>('/tokens', { body })).token),
     (made) => (made ? setFresh(made) : onDone()),
@@ -217,7 +218,8 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
           label={job === 'ADD_TRANSACTIONS' ? 'Categories it may use' : 'Categories'}
           value={categories}
           onChange={setCategories}
-          options={[...kindCats.map((c) => ({ value: String(c.id), label: c.name })), { value: 'none', label: 'Uncategorised' }]}
+          // adding without a category is always allowed, so "Uncategorised" only means something for reading
+          options={[...kindCats.map((c) => ({ value: String(c.id), label: c.name })), ...(job === 'ADD_TRANSACTIONS' ? [] : [{ value: 'none', label: 'Uncategorised' }])]}
         />
       )}
       {usesAccounts(job) && (
