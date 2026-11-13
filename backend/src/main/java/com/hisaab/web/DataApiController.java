@@ -28,11 +28,12 @@ public class DataApiController {
     public org.springframework.http.ResponseEntity<DataApi.Page<DataApi.Transaction>> transactions(HttpServletRequest req,
                                                           @RequestParam(required = false) String date,
                                                           @RequestParam(required = false) String since,
+                                                          @RequestParam(name = "updated_since", required = false) String updatedSince,
                                                           @RequestParam(required = false) String category,
                                                           @RequestParam(required = false) String account,
                                                           @RequestParam(required = false) Integer limit,
                                                           @RequestParam(required = false) String cursor) {
-        DataApi.Page<DataApi.Transaction> page = api.transactions(token(req), date, since, category, account, limit, cursor);
+        DataApi.Page<DataApi.Transaction> page = api.transactions(token(req), date, since, updatedSince, category, account, limit, cursor);
         var res = org.springframework.http.ResponseEntity.ok();
         if (page.nextCursor() != null) {
             String next = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequest()

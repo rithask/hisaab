@@ -71,12 +71,23 @@ recorded once.
 |---|---|
 | `date` | `2026-11-12`: transactions on that day |
 | `since` | `2026-11-01`: from that day until now |
+| `updated_since` | `2026-11-13T08:30:00Z` (RFC 3339): created or changed at or after that time |
 | `category` | optional: a category id or name (`fuel`), or `uncategorised` |
 | `account` | optional: an account id |
 | `limit` | 1–200, default 50 |
-| `cursor` | `next_cursor` from the previous page |
+| `cursor` | `next_cursor` from the previous page (send the same other parameters) |
 
-Send `date` or `since`, not both. With neither you get the last 30 days. Oldest first.
+Send `date` or `since`, not both. With neither (and no `updated_since`) you get the last 30 days. Oldest first.
+
+**Polling for changes.** With `updated_since`, the list holds transactions created or changed at or after that
+time, in the order they changed, with no 30-day window, so an edit to an old transaction comes through too. It
+combines with `date`, `since`, `category` and `account`. To poll, send the newest `updated_at` you've seen as
+the next `updated_since`. The time is inclusive and `updated_at` is to the second, so you can get back
+transactions you already have: match them by `id`.
+
+A change is: anything about the transaction (amount, payee, category, notes, account, time…), or adding or removing
+a tag. Renaming its category or account doesn't count. A transaction that's deleted, or that leaves the token's
+limits (e.g. moved out of Fuel), just stops appearing; the API doesn't say it's gone.
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" "https://money.example.com/api/v1/transactions?since=2026-11-01&category=fuel"
@@ -95,7 +106,9 @@ curl -H "Authorization: Bearer $TOKEN" "https://money.example.com/api/v1/transac
       "category": { "id": "5", "name": "Fuel" },
       "account": { "id": "3", "name": "HDFC card", "type": "credit_card", "last4": "4321" },
       "notes": "Full tank",
-      "tags": ["car"]
+      "tags": ["car"],
+      "created_at": "2026-11-12T13:45:10+05:30",
+      "updated_at": "2026-11-12T18:02:41+05:30"
     }
   ],
   "has_more": false,
@@ -108,6 +121,7 @@ curl -H "Authorization: Bearer $TOKEN" "https://money.example.com/api/v1/transac
 - `original_amount`: what was charged in a foreign currency, when it was; otherwise `null`.
 - `account.type`: `bank`, `credit_card` or `cash`.
 - `notes` and `tags` are `null` and `[]` when the token was made without them.
+- `created_at`: when Hisaab recorded it; `updated_at`: when it last changed.
 
 ### `GET /api/v1/transactions/{id}`
 

@@ -48,8 +48,11 @@ class DataApiServiceTest {
 
     @Test
     void cursorsRoundTripAndBadOnesAreRefused() {
-        var c = new DataApiService.Cursor(Instant.parse("2026-11-12T08:14:00Z"), 812);
+        var c = new DataApiService.Cursor(false, Instant.parse("2026-11-12T08:14:00Z"), 812);
         assertThat(DataApiService.Cursor.decode(c.encode())).isEqualTo(c);
+        // an updated_since list keeps the database's microseconds, so no change is skipped between pages
+        var u = new DataApiService.Cursor(true, Instant.parse("2026-11-12T08:14:00.123456Z"), 812);
+        assertThat(DataApiService.Cursor.decode(u.encode())).isEqualTo(u);
         assertThatThrownBy(() -> DataApiService.Cursor.decode("zzz")).isInstanceOf(IllegalArgumentException.class);
     }
 

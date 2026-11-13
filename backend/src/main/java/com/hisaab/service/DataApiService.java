@@ -64,6 +64,9 @@ public class DataApiService {
     private final AccountService accountViews;
     private final com.hisaab.repo.ApiTokenRepo tokens;
     private final com.hisaab.mail.EmailProcessor processor;
+    /** To read back what the database set (created_at, updated_at) on a transaction just recorded. */
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager em;
 
     public DataApiService(TxnRepo txns, CategoryRepo categories, AccountRepo accounts, NamedParameterJdbcTemplate jdbc,
                           TransactionService transactions, AccountService accountViews, com.hisaab.repo.ApiTokenRepo tokens,
@@ -85,20 +88,30 @@ public class DataApiService {
 
     /**
      * Transactions on {@code date}, or from {@code since} until now (days in my time zone), oldest first.
-     * Neither: the last {@value #DEFAULT_DAYS} days.
+     * Neither: the last {@value #DEFAULT_DAYS} days. With {@code updatedSince} (an RFC 3339 time): those created or
+     * changed at or after it, in the order they changed, and no default window.
      */
     @Transactional(readOnly = true)
-    public DataApi.Page<DataApi.Transaction> transactions(ApiToken token, String date, String since, String category,
-                                                          String account, Integer limit, String cursor) {
+    public DataApi.Page<DataApi.Transaction> transactions(ApiToken token, String date, String since, String updatedSince,
+                                                          String category, String account, Integer limit, String cursor) {
         if (date != null && since != null) throw new IllegalArgumentException("Send either date or since, not both.");
-        Instant from, to = null;
+        Instant changed = null;
+        if (updatedSince != null) {
+            try {
+                changed = OffsetDateTime.parse(updatedSince.trim()).toInstant();
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException("updated_since must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
+            }
+        }
+        boolean byChange = changed != null;
+        Instant from = null, to = null;
         if (date != null) {
             LocalDate d = day(date, "date");
             from = d.atStartOfDay(Money.ZONE).toInstant();
             to = d.plusDays(1).atStartOfDay(Money.ZONE).toInstant();
         } else if (since != null) {
             from = day(since, "since").atStartOfDay(Money.ZONE).toInstant();
-        } else {
+        } else if (!byChange) {
             from = LocalDate.now(Money.ZONE).minusDays(DEFAULT_DAYS).atStartOfDay(Money.ZONE).toInstant();
         }
         int n = limit == null ? 50 : limit;
@@ -106,24 +119,31 @@ public class DataApiService {
         CategoryAsk cat = category == null ? null : askCategory(token, category);
         Long acct = account == null ? null : askAccount(token, account);
         Cursor after = cursor == null ? null : Cursor.decode(cursor);
+        if (after != null && after.byChange() != byChange) {
+            throw new IllegalArgumentException("That cursor belongs to a list in another order. Send the same parameters as for the first page.");
+        }
+        // the order the list is in, and what the cursor moves along
+        String key = byChange ? "updatedAt" : "occurredAt";
 
-        Instant start = from, end = to;
+        Instant start = from, end = to, changedFrom = changed;
         Specification<Txn> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>(limits(token, root, cb));
-            ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), start));
+            if (start != null) ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), start));
             if (end != null) ps.add(cb.lessThan(root.get("occurredAt"), end));
+            if (changedFrom != null) ps.add(cb.greaterThanOrEqualTo(root.get("updatedAt"), changedFrom));
             if (cat != null) ps.add(cat.uncategorised() ? cb.isNull(root.get("category")) : cb.equal(root.join("category", JoinType.LEFT).get("id"), cat.id()));
             if (acct != null) ps.add(cb.equal(root.get("account").get("id"), acct));
             if (after != null) {
-                ps.add(cb.or(cb.greaterThan(root.get("occurredAt"), after.at()),
-                        cb.and(cb.equal(root.get("occurredAt"), after.at()), cb.greaterThan(root.get("id"), after.id()))));
+                ps.add(cb.or(cb.greaterThan(root.get(key), after.at()),
+                        cb.and(cb.equal(root.get(key), after.at()), cb.greaterThan(root.get("id"), after.id()))));
             }
             return cb.and(ps.toArray(Predicate[]::new));
         };
-        List<Txn> rows = txns.findAll(spec, PageRequest.of(0, n + 1, Sort.by("occurredAt", "id"))).getContent();
+        List<Txn> rows = txns.findAll(spec, PageRequest.of(0, n + 1, Sort.by(key, "id"))).getContent();
         boolean more = rows.size() > n;
         List<Txn> page = more ? rows.subList(0, n) : rows;
-        String next = more ? new Cursor(page.getLast().getOccurredAt(), page.getLast().getId()).encode() : null;
+        Txn last = more ? page.getLast() : null;
+        String next = last == null ? null : new Cursor(byChange, byChange ? last.getUpdatedAt() : last.getOccurredAt(), last.getId()).encode();
         return new DataApi.Page<>(page.stream().map(t -> transaction(token, t)).toList(), more, next);
     }
 
@@ -206,7 +226,8 @@ public class DataApiService {
                 t.getCategory() == null ? null : new DataApi.CategoryRef(t.getCategory().getId().toString(), t.getCategory().getName()),
                 account(t.getAccount()),
                 notes ? t.getNotes() : null,
-                notes ? t.getTags().stream().map(Tag::getName).sorted().toList() : List.of());
+                notes ? t.getTags().stream().map(Tag::getName).sorted().toList() : List.of(),
+                time(t.getCreatedAt()), time(t.getUpdatedAt()));
     }
 
     static DataApi.AccountRef account(Account a) {
@@ -233,16 +254,20 @@ public class DataApiService {
         return s.length() > 40 ? s.substring(0, 40) + "…" : s;
     }
 
-    /** Where a page ended: the last transaction's time and id (the list is in that order). Opaque to apps. */
-    record Cursor(Instant at, long id) {
+    /**
+     * Where a page ended: the last transaction's time (when it happened, or when it changed for an updated_since
+     * list) and id, the order the list is in. Opaque to apps.
+     */
+    record Cursor(boolean byChange, Instant at, long id) {
         String encode() {
-            return Base64.getUrlEncoder().withoutPadding().encodeToString((at + "|" + id).getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(((byChange ? "u" : "o") + "|" + at + "|" + id).getBytes(StandardCharsets.UTF_8));
         }
 
         static Cursor decode(String s) {
             try {
                 String[] p = new String(Base64.getUrlDecoder().decode(s), StandardCharsets.UTF_8).split("\\|");
-                return new Cursor(Instant.parse(p[0]), Long.parseLong(p[1]));
+                if (!p[0].equals("u") && !p[0].equals("o")) throw new IllegalArgumentException();
+                return new Cursor(p[0].equals("u"), Instant.parse(p[1]), Long.parseLong(p[2]));
             } catch (RuntimeException e) {
                 throw new IllegalArgumentException("That cursor isn't valid. Use next_cursor from the previous page.");
             }
@@ -432,6 +457,7 @@ public class DataApiService {
         t.setRequestKey(key);
         t.setRequestHash(key == null ? null : fingerprint);
         txns.flush();
+        em.refresh(t);
         return new Added(transaction(token, t), false);
     }
 
@@ -476,6 +502,10 @@ public class DataApiService {
         com.hisaab.mail.EmailProcessor.SmsOutcome o = processor.processSms(sender, in.text(), at);
         if (o.alreadySeen()) return new DataApi.SmsReceived("duplicate", "Already received this SMS", null);
         Txn t = o.txn();
+        if (t != null) {
+            txns.flush();
+            em.refresh(t);
+        }
         return new DataApi.SmsReceived(o.message().getStatus().name().toLowerCase(Locale.ROOT),
                 t != null ? com.hisaab.mail.EmailProcessor.summary(t) : o.message().getNote(),
                 t == null ? null : transaction(token, t));

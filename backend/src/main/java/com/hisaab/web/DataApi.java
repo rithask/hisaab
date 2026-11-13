@@ -30,11 +30,13 @@ public final class DataApi {
     /**
      * @param amount          the whole payment, in rupees (as on the bank's statement, before any split)
      * @param originalAmount  what was charged in a foreign currency, when it was; otherwise null
+     * @param updatedAt       when it was last changed (a new tag counts; renaming its category or account doesn't)
      */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Transaction(String id, String direction, String occurredAt, Amount amount, Amount originalAmount,
-                              String payee, CategoryRef category, AccountRef account, String notes, List<String> tags) {}
+                              String payee, CategoryRef category, AccountRef account, String notes, List<String> tags,
+                              String createdAt, String updatedAt) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     @JsonInclude(JsonInclude.Include.ALWAYS)

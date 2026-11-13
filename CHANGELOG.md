@@ -9,6 +9,12 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- Data API: `updated_since` on `GET /api/v1/transactions` returns transactions created or changed since a time,
+  including edits to old ones, so an app can poll for what's new or changed. Transactions now carry `created_at` and
+  `updated_at`. **Upgrade:** take a backup first; this release adds a database column, so going back to 0.7.0
+  means restoring it.
+
 ## [0.7.0] - 2026-11-13
 
 ### Added

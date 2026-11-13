@@ -92,6 +92,10 @@ public class Txn {
     @Column(insertable = false, updatable = false)
     private Instant createdAt;
 
+    /** When it last changed; set by the database (V11), never by the app. */
+    @Column(insertable = false, updatable = false)
+    private Instant updatedAt;
+
     public boolean isDebit() {
         return direction == Direction.DEBIT;
     }
