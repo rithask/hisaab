@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-13
+
 ### Added
 - Data API: `updated_since` on `GET /api/v1/transactions` returns transactions created or changed since a time,
   including edits to old ones, so an app can poll for what's new or changed. Transactions now carry `created_at` and
