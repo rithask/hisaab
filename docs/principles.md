@@ -25,11 +25,13 @@ counted in the time zone set with `TZ` (section 3.3).
 4. **Nothing is deleted without asking.** Destructive actions confirm first. Turning a feature off hides it; it
    doesn't delete its data.
 5. **Every optional feature has a switch.** Bills, budgets, net worth, year in review, advanced search,
-   subscription watch, unusual activity and rewards (and backups) can each be turned off in Settings → Features. A feature that's off is hidden from every screen,
+   subscription watch, unusual activity and rewards (and backups) can each be turned off in Settings → Features;
+   the Data API, which lets other apps in, starts off and waits to be turned on. A feature that's off is hidden from every screen,
    its endpoints refuse requests, and its background jobs don't run. New optional features follow the same
    pattern (section 3.6).
 6. **Private by default.** Personal data stays on the user's server. No analytics or third-party calls apart
-   from the price feeds for investments, which can be turned off with `PRICES_ENABLED=false`.
+   from the price feeds for investments, which can be turned off with `PRICES_ENABLED=false`. Other apps get
+   data only through tokens the owner creates, limited to what the owner chose.
 
 ## 2. Design principles (UI)
 
@@ -68,7 +70,7 @@ phone / browser ──HTTPS──▶ Caddy (VPS) ──Tailscale──▶ app co
                                                        │  Spring Boot API (/api/**)
                                                        │  + the built React app (static files)
 IMAP mailboxes ◀──poll── MailSyncService               │  host folders ./data/{db,files,backups}
-phone SMS shortcut ──POST /api/ingest/sms (token)──────┘
+phone SMS shortcut ──POST /api/v1/sms (token)──────────┘
 ```
 
 - **One deployable.** A single Docker image holds the API and the built frontend; Spring serves both. There's
@@ -87,7 +89,7 @@ phone SMS shortcut ──POST /api/ingest/sms (token)──────┘
 | `mail`, `mail/parser` | IMAP sync, email processing, bank email parsers, `SmsParser`, SMS learning | One parser per bank and format, behind `BankEmailParser`. |
 | `statement` | PDF text extraction and statement parsers, the review-then-import flow | One parser per bank and card, behind `StatementParser`. |
 | `domain`, `repo` | JPA entities and Spring Data repositories | Entities only change through services. |
-| `config` | Security, OIDC, sign-in logging, the ingest token filter, SPA routing, `AppProperties` | |
+| `config` | Security, OIDC, sign-in logging, the API token filter, SPA routing, `AppProperties` | |
 
 - **Reporting reads use SQL; writes use JPA.** Aggregates (budgets, review, net worth) are plain SQL through
   `NamedParameterJdbcTemplate`. Creating and changing data goes through entities and services, so the rules
@@ -139,7 +141,11 @@ phone SMS shortcut ──POST /api/ingest/sms (token)──────┘
 - **Session cookie** (`HISAAB_SESSION`, HttpOnly, SameSite=Lax). **Secure is automatic, never a setting:** it
   follows whether the request was HTTPS, which behind a proxy comes from `X-Forwarded-Proto`, trusted only from
   private and Tailscale addresses (`forward-headers-strategy: native`). Machine clients get **narrow
-  tokens**: the SMS token can only call `/api/ingest/sms`, and repeated bad tokens lock out for 15 minutes.
+  tokens**: each API token has exactly one job (send SMS, read transactions, add transactions, read balances,
+  read totals) and the limits the owner chose; `ApiTokenFilter` lets it reach only that job's endpoints. Tokens
+  are stored hashed, and repeated bad tokens lock out for 15 minutes. The Data API (`/api/v1`, docs/api.md) only
+  reads, apart from adding transactions; it never edits, deletes or changes settings. Its shapes are a contract:
+  changing one is a major release.
 - **Log every sign-in**, success or failure, with the method, IP and browser (`com.hisaab.security`).
   Never log passwords, tokens, statement passwords or full account numbers.
 - **Secrets come from the environment** (`.env`), never from code. Statement PDF passwords are typed in the UI and

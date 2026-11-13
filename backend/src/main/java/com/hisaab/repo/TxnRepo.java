@@ -99,4 +99,6 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
                           @Param("categoryId") Long categoryId);
 
     List<Txn> findByTwinRawEmail(com.hisaab.domain.RawEmail email);
+
+    java.util.Optional<Txn> findByApiTokenAndRequestKey(com.hisaab.domain.ApiToken apiToken, String requestKey);
 }

@@ -112,7 +112,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           {t.account.name} · {dateTime(t.occurredAt)}
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-          <Badge>{t.source === 'EMAIL' ? 'From email' : t.source === 'SMS' ? 'From SMS' : t.source === 'STATEMENT' ? 'From statement' : t.source === 'ADJUSTMENT' ? 'Adjustment' : 'Manual'}</Badge>
+          <Badge>{t.source === 'EMAIL' ? 'From email' : t.source === 'SMS' ? 'From SMS' : t.source === 'STATEMENT' ? 'From statement' : t.source === 'ADJUSTMENT' ? 'Adjustment' : t.addedBy ? `Added by ${t.addedBy}` : 'Manual'}</Badge>
           {t.referenceNo && <Badge>Ref {t.referenceNo}</Badge>}
           {t.reportedBalance != null && <Badge tone="blue">Bal {money(t.reportedBalance)}</Badge>}
         </div>

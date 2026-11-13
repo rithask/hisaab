@@ -10,7 +10,7 @@ import { Button, ErrorText, Field, Input, Sheet, Textarea } from './ui'
 export default function SmsPasteSheet({ open, onClose, initialText }: { open: boolean; onClose: () => void; initialText?: string }) {
   const [text, setText] = useState(initialText ?? '')
   const [sender, setSender] = useState('')
-  const send = useMoneyMutation(() => api<SmsResult>('/ingest/sms', { body: { text, sender: sender.trim() || undefined } }))
+  const send = useMoneyMutation(() => api<SmsResult>('/sms', { body: { text, sender: sender.trim() || undefined } }))
   const close = () => {
     onClose()
     setTimeout(() => (send.reset(), setText(''), setSender('')), 200)

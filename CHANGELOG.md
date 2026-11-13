@@ -9,6 +9,24 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- API tokens, in Settings → Security. Each token has a name, does one job, and stays within the limits you set:
+  - **Send SMS**: what the SMS token did. Each phone can now have its own, and you can revoke one without the other.
+  - **Read transactions**: payee, category, amount, account and time, for a day or since a day. Limit it to some
+    categories (e.g. only Fuel, for a mileage app), some accounts, and money out only.
+  - **Add transactions**: e.g. a cash spend from a Siri shortcut. It shows as "Added by" the token's name.
+  - **Read balances**: account balances and card dues, e.g. for a widget.
+  - **Read totals**: totals by category, account, month or day, counted like the app's own screens.
+- Data API (`/api/v1`), described in docs/api.md. It has a switch in Settings → Features and starts off.
+
+### Changed
+- **Upgrade:** SMS forwarding moved to `POST /api/v1/sms`, and the old single SMS token is gone. Create a *Send SMS*
+  token in Settings → Mail & SMS, then update your phone's shortcut with the new URL and token. The body is JSON
+  (`text`, `sender`, `received_at`); the old `X-Api-Key` header, plain-text bodies and other field names aren't
+  accepted any more. Take a backup first: this release adds database tables and columns, so going back to 0.6.0
+  means restoring that backup.
+- Paste SMS in the Inbox works as before.
+
 ## [0.6.0] - 2026-11-12
 
 ### Added

@@ -37,9 +37,9 @@ public class ReportService {
                          List<MerchantTotal> topMerchants, List<MerchantTotal> topSources, List<DayTotal> daily) {}
 
     /** My effective amount per transaction: debits net of others' shares, credits net of repayments. */
-    private static final String EFFECTIVE = """
+    static final String EFFECTIVE = """
             with eff as (
-              select t.id, t.direction, t.occurred_at, t.category_id, t.counterparty,
+              select t.id, t.direction, t.occurred_at, t.category_id, t.account_id, t.counterparty,
                      case when t.direction = 'DEBIT'
                           then t.amount - coalesce((select sum(s.amount) from split_share s where s.txn_id = t.id), 0)
                           else t.amount - coalesce((select sum(st.amount) from settlement st

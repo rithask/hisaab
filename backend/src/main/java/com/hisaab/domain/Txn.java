@@ -75,6 +75,15 @@ public class Txn {
     @ManyToOne(fetch = FetchType.LAZY)
     private Txn linkedTxn;
 
+    /** The API token that added it, when an app did (shown as "Added by …"). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    private ApiToken apiToken;
+
+    /** The Idempotency-Key the app sent with it, and a fingerprint of that request. */
+    private String requestKey;
+
+    private String requestHash;
+
     @ManyToMany
     @JoinTable(name = "txn_tag", joinColumns = @JoinColumn(name = "txn_id"),
             inverseJoinColumns = @JoinColumn(name = "tag_id"))

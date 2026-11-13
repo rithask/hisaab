@@ -3,7 +3,6 @@ package com.hisaab.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import com.hisaab.service.ApiTokenService;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -23,7 +22,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 
 /**
- * Single-user, session-cookie auth, plus a bearer API token that only works for SMS ingest. CSRF protection relies on
+ * Single-user, session-cookie auth, plus named API tokens for other apps and shortcuts under /api/v1, each doing
+ * one job (see ApiTokenFilter). CSRF protection relies on
  * the session cookie being SameSite=Lax (see application.yml): browsers don't send it on cross-site POST/PUT/DELETE,
  * and every state change here is one of those. The cookie is marked Secure automatically on HTTPS requests.
  */
@@ -43,7 +43,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, SecurityContextRepository repo, ApiTokenService tokens, AppProperties props,
+    SecurityFilterChain filterChain(HttpSecurity http, SecurityContextRepository repo, ApiTokenService tokens, com.hisaab.features.FeatureService features, AppProperties props,
                                     org.springframework.beans.factory.ObjectProvider<OidcSupport.LazyRegistrations> oidc,
                                     OidcLinkService links) throws Exception {
         OidcSupport.LazyRegistrations registrations = oidc.getIfAvailable();
@@ -87,11 +87,12 @@ public class SecurityConfig {
                 .securityContext(s -> s.securityContextRepository(repo))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/api/auth/login", "/api/auth/options", "/api/auth/oidc", "/api/auth/link", "/api/auth/link/cancel", "/api/health").permitAll()
-                        // The API token only ever unlocks SMS ingest; everything else needs the owner's session.
-                        .requestMatchers(HttpMethod.POST, IngestTokenFilter.PATH).hasAnyRole("OWNER", "INGEST")
+                        // API tokens only reach /api/v1, each only its own job (checked by the filter); everything
+                        // else needs the owner's session.
+                        .requestMatchers("/api/v1/**").hasRole("API")
                         .requestMatchers("/api/**").hasRole("OWNER")
                         .anyRequest().permitAll())
-                .addFilterBefore(new IngestTokenFilter(tokens), AnonymousAuthenticationFilter.class)
+                .addFilterBefore(new ApiTokenFilter(tokens, features), AnonymousAuthenticationFilter.class)
                 .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .logout(l -> l.logoutUrl("/api/auth/logout")
                         .logoutSuccessHandler((req, res, auth) -> {

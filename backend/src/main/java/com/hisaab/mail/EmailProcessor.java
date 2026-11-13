@@ -119,6 +119,18 @@ public class EmailProcessor {
         emails.save(raw);
     }
 
+    /** One line saying what was recorded, e.g. "₹500.00 spent · Zomato · HDFC card · Food & Dining". */
+    public static String summary(Txn t) {
+        java.text.NumberFormat inr = java.text.NumberFormat.getCurrencyInstance(Locale.of("en", "IN"));
+        String verb = t.getDirection() == Direction.DEBIT ? (t.isTransfer() ? "moved" : "spent") : "received";
+        StringBuilder s = new StringBuilder(inr.format(t.getAmount())).append(' ').append(verb);
+        if (t.getCounterparty() != null) s.append(t.getDirection() == Direction.DEBIT ? " · " : " from ").append(t.getCounterparty());
+        s.append(" · ").append(t.getAccount().getName());
+        if (t.isTransfer()) s.append(" · transfer");
+        else if (t.getCategory() != null) s.append(" · ").append(t.getCategory().getName());
+        return s.toString();
+    }
+
     /** Outcome of an SMS submission, returned to the caller (e.g. an iPhone Shortcut showing a notification). */
     public record SmsOutcome(RawEmail message, Txn txn, ParsedTransaction parsed, boolean alreadySeen) {}
 

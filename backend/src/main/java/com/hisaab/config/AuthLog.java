@@ -36,15 +36,15 @@ public final class AuthLog {
     }
 
     public static void tokenRejected(HttpServletRequest req, int recentFailures) {
-        log.warn("SMS API token REJECTED ip={} agent=\"{}\" failures-in-15min={}", req.getRemoteAddr(), agent(req), recentFailures);
+        log.warn("API token REJECTED ip={} agent=\"{}\" failures-in-15min={}", req.getRemoteAddr(), agent(req), recentFailures);
     }
 
     public static void tokenLockedOut(HttpServletRequest req) {
-        log.warn("SMS API LOCKED OUT ip={} for 15 minutes after repeated invalid tokens", req.getRemoteAddr());
+        log.warn("API LOCKED OUT ip={} for 15 minutes after repeated invalid tokens", req.getRemoteAddr());
     }
 
-    public static void tokenUsed(HttpServletRequest req) {
-        log.debug("SMS API token accepted ip={}", req.getRemoteAddr());
+    public static void tokenUsed(HttpServletRequest req, String token, int status) {
+        log.info("API token used token=\"{}\" {} {} status={} ip={}", clean(token, 64), req.getMethod(), clean(req.getRequestURI(), 100), status, req.getRemoteAddr());
     }
 
     /** Printable, single-line, length-capped: a username can't forge extra log lines. */

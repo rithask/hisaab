@@ -79,17 +79,22 @@ cd backend && ./mvnw test
 
 ## Bank SMS
 
-For alerts that only arrive as text messages, generate an API token in **Settings → Mail & SMS** and have the phone POST each bank SMS:
+For alerts that only arrive as text messages, create a *Send SMS* token in **Settings → Mail & SMS** and have the phone POST each bank SMS:
 
 ```
-curl -X POST https://<host>/api/ingest/sms \
+curl -X POST https://<host>/api/v1/sms \
   -H 'Authorization: Bearer hisaab_…' -H 'Content-Type: application/json' \
   -d '{"sender":"AX-HDFCBK","text":"Sent Rs.500.00 From HDFC Bank A/C *2286 To RAHUL On 05/11/26 Ref 531234567890"}'
 ```
 
-- Body: `text` (required), `sender` (optional, helps recognise the bank), `receivedAt` (optional, ISO-8601 or epoch). A `text/plain` body with `?sender=` also works.
-- Response: `status` (PARSED, DUPLICATE, NEEDS_REVIEW, IGNORED, ERROR), a one-line `message`, and the recorded `transaction` / `parsed` fields.
-- Security: the token is stored as a SHA-256 hash, works only on this endpoint, and creates no session. Requests are capped at 30/min per client, and 10 bad tokens lock that client out for 15 minutes. Revoke or rotate it in Settings.
+- Body: `text` (required), `sender` (optional, helps recognise the bank), `received_at` (optional, RFC 3339).
+- Response: `status` (parsed, duplicate, needs_review, ignored, error), a one-line `message`, and the recorded `transaction`. Details in [docs/api.md](docs/api.md).
+- Security: the token is stored as a SHA-256 hash, can only send SMS, and creates no session. Requests are capped at 60/min per client, and 10 bad tokens lock that client out for 15 minutes. Each phone can have its own token; revoke one in Settings.
+
+## API for other apps
+
+With **Settings → Features → Data API** on, other apps can read transactions, balances or totals, or add transactions, each with its own token and limits (Settings → Security → API tokens). See [docs/api.md](docs/api.md).
+
 - The same SMS sent twice is ignored, and a payment that also arrives by email is recorded once (same account, amount and direction within 20 minutes, or the same day when the alert has no time).
 - SMS can also be pasted by hand: **Inbox → Paste SMS**.
 

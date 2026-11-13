@@ -122,6 +122,8 @@ export interface Txn {
   sharedAmount?: number
   /** the app chose the category from what it learned; I haven't confirmed it */
   categorySuggested?: boolean
+  /** name of the API token that added it, when an app did */
+  addedBy?: string
 }
 
 export interface Page<T> {
@@ -291,7 +293,7 @@ export interface Settings {
   features: Record<Feature, boolean>
 }
 
-export type Feature = 'backups' | 'bills' | 'budgets' | 'networth' | 'review' | 'search' | 'subscriptions' | 'unusual' | 'rewards'
+export type Feature = 'backups' | 'bills' | 'budgets' | 'networth' | 'review' | 'search' | 'subscriptions' | 'unusual' | 'rewards' | 'data_api'
 
 export interface Bill {
   key: string
@@ -397,10 +399,22 @@ export interface SmsResult {
   parsed?: { bank: string; accountType: string; direction: Direction; amount: number; currency: string; last4?: string; date?: string; time?: string; counterparty?: string; reference?: string; balance?: number }
 }
 
-export interface TokenStatus {
-  enabled: boolean
-  hint?: string
-  createdAt?: string
+/** What an API token may do: exactly one job each. */
+export type TokenJob = 'SEND_SMS' | 'READ_TRANSACTIONS' | 'ADD_TRANSACTIONS' | 'READ_BALANCES' | 'READ_TOTALS'
+
+export interface ApiToken {
+  id: number
+  name: string
+  job: TokenJob
+  /** last characters of the token */
+  hint: string
+  /** category ids (and "none" for uncategorised) it's limited to; null = all */
+  categories: string[] | null
+  /** account ids it's limited to; null = all */
+  accounts: number[] | null
+  moneyIn: boolean
+  includeNotes: boolean
+  createdAt: string
   lastUsedAt?: string
 }
 

@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, Key, LockSimple, SignOut, SlidersHorizontal, ToggleRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, LockSimple, SignOut, SlidersHorizontal, ToggleRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { api, type BackupStatus, type Feature, type Learned, type MailImport, type TokenStatus } from '../api'
+import { api, type BackupStatus, type Feature, type Learned, type MailImport } from '../api'
+import { TokenList } from '../components/ApiTokens'
 import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
 import { isIos, useInstall } from '../pwa'
@@ -17,7 +18,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: PhIcon; hint: string }[]
   { key: 'features', label: 'Features', icon: ToggleRight, hint: 'Turn optional parts of the app on or off' },
   { key: 'mail', label: 'Mail & SMS', icon: Envelope, hint: 'Alerts mailbox, forwarding bank SMS' },
   { key: 'teaching', label: 'Teaching', icon: GraduationCap, hint: 'What it learned from your corrections' },
-  { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, signing out' },
+  { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, API tokens, signing out' },
   { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups' },
 ]
 
@@ -148,12 +149,16 @@ function SecuritySection() {
   return (
     <>
       <PocketIdCard />
+      <Section title="API tokens">
+        <p className="ink-2 mb-2 px-1 text-[13px]">Apps and shortcuts that can use Hisaab. Each token does one job, within the limits you set.</p>
+        <TokenList />
+        <p className="ink-3 mt-2 px-1 text-xs leading-relaxed">Tokens are stored hashed and shown once. Repeated wrong tokens are locked out for 15 minutes, and every use is logged.</p>
+      </Section>
       <Section title="This device">
         <button className="pressable surface flex h-12 w-full items-center justify-center gap-2 rounded-[20px] text-[15px] font-semibold text-[var(--negative)]" onClick={signOut}>
           <SignOut size={17} /> Sign out
         </button>
       </Section>
-      <p className="ink-3 mt-3 px-1 text-[12.5px]">The SMS forwarding token is managed in Mail &amp; SMS.</p>
     </>
   )
 }
@@ -170,71 +175,33 @@ function DataSection() {
 
 const backupFailing = (b: BackupStatus) => !!b.lastError && (!b.lastOk || (b.lastErrorAt ?? '') > b.lastOk)
 
-/** API token + setup guide for forwarding bank SMS from the phone. */
+/** Send SMS tokens + setup guide for forwarding bank SMS from the phone. */
 function SmsForwarding() {
-  const status = useQuery({ queryKey: ['ingest-token'], queryFn: () => api<TokenStatus>('/ingest/token') })
-  const [fresh, setFresh] = useState<string | null>(null)
   const [guide, setGuide] = useState<'ios' | 'android' | 'curl'>('ios')
-  const rotate = useMoneyMutation(() => api<{ token: string }>('/ingest/token', { method: 'POST' }), (r) => setFresh(r.token))
-  const revoke = useMoneyMutation(() => api('/ingest/token', { method: 'DELETE' }), () => setFresh(null))
-  const url = `${window.location.origin}/api/ingest/sms`
-  const st = status.data
-  const token = fresh ?? 'hisaab_your_token'
+  const url = `${window.location.origin}/api/v1/sms`
 
   return (
     <Section title="SMS forwarding">
-      <Card className="space-y-4 p-5">
+      <Card className="mb-3 p-4">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
             <ChatText size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Bank SMS</p>
-            <p className="ink-2 truncate text-xs">
-              {st?.enabled ? (st.lastUsedAt ? `Last SMS ${dateTime(st.lastUsedAt)}` : 'Token ready, nothing received yet') : 'For alerts that only come by text message'}
-            </p>
+            <p className="ink-2 text-xs">For alerts that only come by text message. Each phone can have its own token.</p>
           </div>
-          {st?.enabled ? <Badge tone="green">on</Badge> : <Badge>off</Badge>}
         </div>
-
-        <div className="rounded-[18px] bg-[var(--surface-2)] p-3">
+        <div className="mt-3 rounded-[18px] bg-[var(--surface-2)] p-3">
           <p className="ink-2 text-xs font-medium">Endpoint</p>
           <div className="mt-1 flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate font-mono text-[12px]">POST {url}</code>
             <CopyButton value={url} />
           </div>
         </div>
-
-        {fresh ? (
-          <div className="anim-pop rounded-[18px] bg-[var(--accent-soft)] p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)]">
-              <Key size={14} /> Your API token, shown only once
-            </p>
-            <code className="mt-1.5 block break-all font-mono text-[12.5px] leading-relaxed">{fresh}</code>
-            <div className="mt-2">
-              <CopyButton value={fresh} label="Copy token" />
-            </div>
-          </div>
-        ) : (
-          st?.enabled && (
-            <p className="ink-2 text-sm">
-              Token ending <b className="font-mono">…{st.hint}</b>, created {st.createdAt ? dateTime(st.createdAt) : ''}. It is stored hashed, so it can't be shown again. Generate a new one if you lost it.
-            </p>
-          )
-        )}
-
-        <div className="flex gap-2">
-          <Button className="flex-1" size="sm" disabled={rotate.isPending} onClick={() => (!st?.enabled || confirm('Replace the token? The old one stops working immediately.')) && rotate.mutate(undefined)}>
-            <Key size={15} /> {st?.enabled ? 'New token' : 'Generate token'}
-          </Button>
-          {st?.enabled && (
-            <Button variant="danger" size="sm" className="flex-1" disabled={revoke.isPending} onClick={() => confirm('Turn off SMS forwarding? The token stops working.') && revoke.mutate(undefined)}>
-              Revoke
-            </Button>
-          )}
-        </div>
-        <p className="ink-3 text-xs leading-relaxed">The token can only send SMS to this endpoint; it can't read or change anything else. Repeated wrong tokens are locked out for 15 minutes.</p>
       </Card>
+      <TokenList jobs={['SEND_SMS']} newJob="SEND_SMS" newLabel="New SMS token" />
+      <p className="ink-3 mt-2 px-1 text-xs leading-relaxed">An SMS token can only send SMS; it can't read or change anything else. All your tokens are in Security.</p>
 
       <Card className="mt-3 p-5">
         <p className="mb-3 font-semibold">Set it up on your phone</p>
@@ -249,7 +216,7 @@ function SmsForwarding() {
                 Set <b className="text-[var(--ink)]">Message Contains</b> to <code className="rounded bg-[var(--surface-2)] px-1">debited</code> (make a second one for <code className="rounded bg-[var(--surface-2)] px-1">credited</code>, or one per bank sender). Choose <b className="text-[var(--ink)]">Run Immediately</b>.
               </li>
               <li>
-                Add <b className="text-[var(--ink)]">Get Contents of URL</b>: URL above, Method <b className="text-[var(--ink)]">POST</b>, Header <code className="rounded bg-[var(--surface-2)] px-1">Authorization</code> = <code className="break-words rounded bg-[var(--surface-2)] px-1">Bearer {fresh ? token : '<token>'}</code>.
+                Add <b className="text-[var(--ink)]">Get Contents of URL</b>: URL above, Method <b className="text-[var(--ink)]">POST</b>, Header <code className="rounded bg-[var(--surface-2)] px-1">Authorization</code> = <code className="break-words rounded bg-[var(--surface-2)] px-1">Bearer &lt;token&gt;</code>.
               </li>
               <li>
                 Request Body <b className="text-[var(--ink)]">JSON</b>: <code className="rounded bg-[var(--surface-2)] px-1">text</code> = Shortcut Input › Content, <code className="rounded bg-[var(--surface-2)] px-1">sender</code> = Shortcut Input › Sender.
@@ -266,14 +233,14 @@ function SmsForwarding() {
               </li>
               <li>Add a rule for your bank senders (contains HDFCBK, AXISBK, SBI, CANBNK…).</li>
               <li>
-                Webhook: POST to the URL above with header <code className="break-all rounded bg-[var(--surface-2)] px-1">Authorization: Bearer {fresh ? token : '<token>'}</code> and JSON body{' '}
+                Webhook: POST to the URL above with header <code className="break-all rounded bg-[var(--surface-2)] px-1">Authorization: Bearer &lt;token&gt;</code> and JSON body{' '}
                 <code className="rounded bg-[var(--surface-2)] px-1">{'{"text": "%body%", "sender": "%from%"}'}</code>.
               </li>
             </ol>
           )}
           {guide === 'curl' && (
             <pre className="overflow-x-auto rounded-[16px] bg-[var(--surface-2)] p-3 font-mono text-[11.5px] leading-relaxed">{`curl -X POST ${url} \
-  -H 'Authorization: Bearer ${fresh ? token : '<token>'}' \
+  -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
   -d '{"sender":"AX-HDFCBK","text":"Sent Rs.500.00 From HDFC Bank A/C *2286 To RAHUL On 05/11/26 Ref 531234567890"}'`}</pre>
           )}
@@ -372,7 +339,7 @@ function Segmented3({ value, onChange }: { value: 'ios' | 'android' | 'curl'; on
   return <Segmented value={value} onChange={onChange} options={[{ value: 'ios', label: 'iPhone' }, { value: 'android', label: 'Android' }, { value: 'curl', label: 'Other' }]} />
 }
 
-const FEATURES: { key: Feature; name: string; hint: string }[] = [
+const FEATURES: { key: Feature; name: string; hint: string; off?: boolean }[] = [
   { key: 'backups', name: 'Automatic backups', hint: 'Nightly copy of everything, kept on the server' },
   { key: 'bills', name: 'Upcoming bills', hint: 'Learned from payments that repeat' },
   { key: 'budgets', name: 'Budgets', hint: 'Monthly limits per category' },
@@ -382,6 +349,7 @@ const FEATURES: { key: Feature; name: string; hint: string }[] = [
   { key: 'networth', name: 'Net worth over time', hint: 'Daily snapshot and chart' },
   { key: 'review', name: 'Year in review', hint: 'Your year at a glance' },
   { key: 'search', name: 'Advanced search', hint: 'Date range, amount and sort in Activity' },
+  { key: 'data_api', name: 'Data API', hint: 'Let other apps read or add transactions with a token (Security → API tokens)', off: true },
 ]
 
 /** Switch optional features off: they disappear from the app and their background jobs stop. */
@@ -394,7 +362,7 @@ function FeaturesCard() {
         {FEATURES.map((f) => (
           <div key={f.key} className="px-4 py-2.5">
             <Toggle
-              checked={features?.[f.key] ?? true}
+              checked={features?.[f.key] ?? !f.off}
               onChange={(v) => set.mutate({ [f.key]: v })}
               label={
                 <span>

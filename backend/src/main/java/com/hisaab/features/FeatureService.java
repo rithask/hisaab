@@ -8,11 +8,24 @@ import java.util.Map;
 
 /**
  * Optional features I can switch off in Settings. Off means: hidden in the app, and any background job for it
- * (backups, net-worth snapshots) doesn't run. Everything is on by default.
+ * (backups, net-worth snapshots) doesn't run. Everything is on by default, except what lets other apps in (the
+ * Data API), which waits until I turn it on.
  */
 @Service
 public class FeatureService {
-    public enum Feature { BACKUPS, BILLS, BUDGETS, NETWORTH, REVIEW, SEARCH, SUBSCRIPTIONS, UNUSUAL, REWARDS }
+    public enum Feature {
+        BACKUPS, BILLS, BUDGETS, NETWORTH, REVIEW, SEARCH, SUBSCRIPTIONS, UNUSUAL, REWARDS, DATA_API(false);
+
+        final boolean onByDefault;
+
+        Feature() {
+            this(true);
+        }
+
+        Feature(boolean onByDefault) {
+            this.onByDefault = onByDefault;
+        }
+    }
 
     private final SettingsService settings;
 
@@ -21,7 +34,7 @@ public class FeatureService {
     }
 
     public boolean on(Feature f) {
-        return !"false".equals(settings.get(key(f)).orElse("true"));
+        return Boolean.parseBoolean(settings.get(key(f)).orElse(Boolean.toString(f.onByDefault)));
     }
 
     /** Refuses the request (400 with a readable message) when the feature is switched off. */
@@ -33,7 +46,7 @@ public class FeatureService {
         settings.set(key(f), Boolean.toString(on));
     }
 
-    /** All features and whether each is on, keyed by lower-case name (e.g. "bills"). */
+    /** All features and whether each is on, keyed by lower-case name (e.g. "bills", "data_api"). */
     public Map<String, Boolean> all() {
         Map<String, Boolean> m = new LinkedHashMap<>();
         for (Feature f : Feature.values()) m.put(f.name().toLowerCase(), on(f));

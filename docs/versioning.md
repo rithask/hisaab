@@ -13,7 +13,7 @@ them to do something by hand when upgrading, or that they can't undo by going ba
 
 | Bump | When | Examples |
 |---|---|---|
-| **MAJOR** `2.0.0` | Upgrading needs manual action, or can't be rolled back by switching the image back | An environment variable renamed or removed, or its meaning changed · a database migration that rewrites or deletes data · the minimum PostgreSQL version goes up · `/api/ingest/sms` or another endpoint that phone shortcuts call changes shape · a feature removed · where data is stored changes (e.g. the `./data` folders) |
+| **MAJOR** `2.0.0` | Upgrading needs manual action, or can't be rolled back by switching the image back | An environment variable renamed or removed, or its meaning changed · a database migration that rewrites or deletes data · the minimum PostgreSQL version goes up · `/api/v1` (which phone shortcuts and other apps call) changes shape · a feature removed · where data is stored changes (e.g. the `./data` folders) |
 | **MINOR** `1.5.0` | New things, and everything that worked before still works with the same `.env` | A new feature or screen · a new **optional** setting with a safe default · an additive migration (new table or column) · a new bank or statement parser · a new API endpoint |
 | **PATCH** `1.4.3` | Fixes only; nothing new to learn or configure | A parser misreads an amount · a UI bug · a performance fix · a dependency security update · wording |
 

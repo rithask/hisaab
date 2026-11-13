@@ -30,7 +30,8 @@ public final class Dtos {
                          Instant occurredAt, String counterparty, String description, String referenceNo,
                          BigDecimal reportedBalance, CategoryDto category, List<String> tags, String notes,
                          TxnSource source, Long rawEmailId, boolean transfer, Long linkedTxnId,
-                         AccountRef linkedAccount, BigDecimal sharedAmount, boolean categorySuggested) {
+                         AccountRef linkedAccount, BigDecimal sharedAmount, boolean categorySuggested,
+                         /* name of the API token that added it, when an app did */ String addedBy) {
         static TxnDto of(Txn t, BigDecimal shared) {
             return new TxnDto(t.getId(), AccountRef.of(t.getAccount()), t.getDirection(), t.getAmount(),
                     t.getOriginalAmount(), t.getOriginalCurrency(), t.isAmountEstimated(), t.getOccurredAt(),
@@ -40,7 +41,8 @@ public final class Dtos {
                     t.getRawEmail() == null ? null : t.getRawEmail().getId(), t.isTransfer(),
                     t.getLinkedTxn() == null ? null : t.getLinkedTxn().getId(),
                     t.getLinkedTxn() == null ? null : AccountRef.of(t.getLinkedTxn().getAccount()), shared,
-                    t.isCategorySuggested() && t.getCategory() != null);
+                    t.isCategorySuggested() && t.getCategory() != null,
+                    t.getApiToken() == null ? null : t.getApiToken().getName());
         }
     }
 
