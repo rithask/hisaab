@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-13
+
 ### Changed
 - Clearer logs. Every failed Data API request is logged at warn with the reason the app was given (a request
   without a token and a hit rate limit too), and a server failure at error with its stack trace. Creating,
