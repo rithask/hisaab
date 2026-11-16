@@ -49,6 +49,9 @@ must do when upgrading (marked **Upgrade:**).
   of that kind at that bank.
 - Sheets grow smoothly when you open extra fields in them: More details on an account, More on a transaction,
   the original message, and changing the amount or payment when settling up.
+- Activity is a search box and one **Filter** button. The filter sheet has everything (money in or out,
+  account, category or no category, when, amount, sort, and including money moved between your accounts);
+  below the search box only what's set shows, each a chip you tap to remove, with Clear all.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked

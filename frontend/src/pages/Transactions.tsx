@@ -1,12 +1,12 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { MagnifyingGlass, Receipt, Sliders, X } from '@phosphor-icons/react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, qs, type Page as Paged, type Txn } from '../api'
 import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
 import { DatePicker } from '../components/DatePicker'
-import { Button, Chip, Empty, Field, Input, List, PillSelect, Segmented, Sheet, Skeleton, Page, Rise } from '../components/ui'
+import { Button, Chip, cx, Empty, Field, Input, List, Segmented, Sheet, Skeleton, Page, Rise, Toggle } from '../components/ui'
 import { dateLabel, dayKey, money, money0, ymd, zonedInstant } from '../format'
 import { useAccounts, useCategories } from '../hooks'
 
@@ -25,7 +25,7 @@ export default function Transactions() {
     includeTransfers: params.get('includeTransfers') === 'true',
     tag: params.get('tag') ?? undefined,
     q: params.get('q') ?? undefined,
-    // Advanced search (Settings → Features): dates are yyyy-mm-dd in the app's time zone, "to" inclusive.
+    // Dates are yyyy-mm-dd in the app's time zone, "to" inclusive.
     from: params.get('from') ? zonedInstant(params.get('from')!).toISOString() : undefined,
     to: params.get('to') ? zonedInstant(nextDay(params.get('to')!)).toISOString() : undefined,
     minAmount: params.get('min') ?? undefined,
@@ -38,7 +38,7 @@ export default function Transactions() {
     for (const [k, v] of Object.entries(kv)) (v ? n.set(k, v) : n.delete(k))
     setParams(n, { replace: true })
   }
-  const activeAdvanced = ['from', 'to', 'min', 'max', 'sort'].filter((k) => params.get(k))
+  const active = describe(params, accounts.data ?? [], cats.data ?? [])
   const set = (k: string, v: string | undefined) => {
     const n = new URLSearchParams(params)
     if (v) n.set(k, v)
@@ -98,70 +98,47 @@ export default function Transactions() {
 
       {/* Sticky search + filters */}
       <div className="sticky top-0 z-30 -mx-4 px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur-xl [mask-image:linear-gradient(to_bottom,black_85%,transparent)]">
-        <form
-          className="relative"
-          onSubmit={(e) => {
-            e.preventDefault()
-            set('q', q.trim() || undefined)
-          }}
-        >
-          <MagnifyingGlass size={17} className="ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            className="surface h-11 w-full rounded-full pl-11 pr-10 text-[15px] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--ink-3)] hover:border-[var(--line-strong)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
-            placeholder="Search payee, notes, ref no."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onBlur={() => set('q', q.trim() || undefined)}
-          />
-          {q && (
-            <button type="button" className="ink-3 absolute right-3 top-1/2 -translate-y-1/2 p-1" onClick={() => (setQ(''), set('q', undefined))} aria-label="Clear search">
-              <X size={16} />
-            </button>
-          )}
-        </form>
-        <div className="no-scrollbar -mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          <PillSelect active={!!filters.accountId} value={filters.accountId ?? ''} onChange={(e) => set('accountId', e.target.value || undefined)} aria-label="Account">
-            <option value="">All accounts</option>
-            {(accounts.data ?? []).map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </PillSelect>
-          <PillSelect active={!!filters.categoryId} value={filters.categoryId ?? ''} onChange={(e) => set('categoryId', e.target.value || undefined)} aria-label="Category">
-            <option value="">All categories</option>
-            {(cats.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </PillSelect>
-          <Chip active={filters.direction === 'DEBIT'} onClick={() => set('direction', filters.direction === 'DEBIT' ? undefined : 'DEBIT')}>
-            Money out
-          </Chip>
-          <Chip active={filters.direction === 'CREDIT'} onClick={() => set('direction', filters.direction === 'CREDIT' ? undefined : 'CREDIT')}>
-            Money in
-          </Chip>
-          <Chip active={filters.uncategorized === 'true'} onClick={() => set('uncategorized', filters.uncategorized ? undefined : 'true')}>
-            No category
-          </Chip>
-          <Chip active={filters.includeTransfers} onClick={() => set('includeTransfers', filters.includeTransfers ? undefined : 'true')}>
-            Between my accounts
-          </Chip>
-          {filters.tag && (
-            <Chip active onClick={() => set('tag', undefined)}>
-              #{filters.tag} <X size={13} />
-            </Chip>
-          )}
-          <Chip active={activeAdvanced.length > 0} onClick={() => setFiltering(true)}>
-            <Sliders size={14} /> {activeAdvanced.length ? `Filters · ${describeAdvanced(params)}` : 'More filters'}
-          </Chip>
-          {activeAdvanced.length > 0 && (
-            <Chip onClick={() => setMany({ from: undefined, to: undefined, min: undefined, max: undefined, sort: undefined })}>
-              <X size={13} /> Clear
-            </Chip>
-          )}
+        <div className="flex gap-2">
+          <form
+            className="relative min-w-0 flex-1"
+            onSubmit={(e) => {
+              e.preventDefault()
+              set('q', q.trim() || undefined)
+            }}
+          >
+            <MagnifyingGlass size={17} className="ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              className="surface h-11 w-full rounded-full pl-11 pr-10 text-[15px] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--ink-3)] hover:border-[var(--line-strong)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
+              placeholder="Search payee, notes, ref no."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onBlur={() => set('q', q.trim() || undefined)}
+            />
+            {q && (
+              <button type="button" className="ink-3 absolute right-3 top-1/2 -translate-y-1/2 p-1" onClick={() => (setQ(''), set('q', undefined))} aria-label="Clear search">
+                <X size={16} />
+              </button>
+            )}
+          </form>
+          <button
+            type="button"
+            onClick={() => setFiltering(true)}
+            className={cx('pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold', active.length ? 'bg-[var(--ink)] text-[var(--bg)]' : 'surface')}
+          >
+            <Sliders size={16} /> Filter{active.length ? ` · ${active.length}` : ''}
+          </button>
         </div>
+        {/* Only what's set, each one tap to remove. */}
+        {active.length > 0 && (
+          <div className="no-scrollbar -mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+            {active.map((f) => (
+              <Chip key={f.label} active onClick={() => setMany(Object.fromEntries(f.keys.map((k) => [k, undefined])))}>
+                {f.label} <X size={13} />
+              </Chip>
+            ))}
+            {active.length > 1 && <Chip onClick={() => setMany(Object.fromEntries(FILTER_KEYS.map((k) => [k, undefined])))}>Clear all</Chip>}
+          </div>
+        )}
       </div>
 
       {filters.uncategorized === 'true' && total != null && total > 0 && (
@@ -204,7 +181,7 @@ export default function Transactions() {
 
       <TxnSheet txn={open} onClose={() => setOpen(null)} />
       <Sheet open={filtering} onClose={() => setFiltering(false)} title="Filters">
-        {filtering && <AdvancedFilters params={params} onApply={(kv) => (setMany(kv), setFiltering(false))} />}
+        {filtering && <FilterForm params={params} onApply={(kv) => (setMany(kv), setFiltering(false))} />}
       </Sheet>
     </Page>
   )
@@ -232,38 +209,92 @@ function presets() {
   ]
 }
 
-function describeAdvanced(p: URLSearchParams) {
-  const bits: string[] = []
+/** Every filter the sheet sets, so "Clear all" clears them all. */
+const FILTER_KEYS = ['accountId', 'categoryId', 'uncategorized', 'direction', 'includeTransfers', 'tag', 'from', 'to', 'min', 'max', 'sort']
+
+/** What's filtered, in words: one chip each, with the params it removes. */
+function describe(p: URLSearchParams, accounts: { id: number; name: string }[], cats: { id: number; name: string }[]) {
+  const out: { label: string; keys: string[] }[] = []
+  const acc = accounts.find((a) => String(a.id) === p.get('accountId'))
+  if (acc) out.push({ label: acc.name, keys: ['accountId'] })
+  const cat = cats.find((c) => String(c.id) === p.get('categoryId'))
+  if (cat) out.push({ label: cat.name, keys: ['categoryId'] })
+  if (p.get('uncategorized') === 'true') out.push({ label: 'No category', keys: ['uncategorized'] })
+  if (p.get('direction')) out.push({ label: p.get('direction') === 'DEBIT' ? 'Money out' : 'Money in', keys: ['direction'] })
+  if (p.get('includeTransfers') === 'true') out.push({ label: 'With moves between my accounts', keys: ['includeTransfers'] })
+  if (p.get('tag')) out.push({ label: `#${p.get('tag')}`, keys: ['tag'] })
   const pre = presets().find((x) => x.from === p.get('from') && x.to === p.get('to'))
-  if (pre) bits.push(pre.label.toLowerCase())
-  else if (p.get('from') || p.get('to')) bits.push('dates')
-  if (p.get('min') || p.get('max')) bits.push(p.get('min') && p.get('max') ? `₹${p.get('min')}–${p.get('max')}` : p.get('min') ? `≥ ₹${p.get('min')}` : `≤ ₹${p.get('max')}`)
-  if (p.get('sort') && p.get('sort') !== 'newest') bits.push(p.get('sort')!)
-  return bits.join(', ')
+  if (pre) out.push({ label: pre.label, keys: ['from', 'to'] })
+  else if (p.get('from') || p.get('to')) out.push({ label: [p.get('from') ?? '…', p.get('to') ?? '…'].join(' – '), keys: ['from', 'to'] })
+  if (p.get('min') || p.get('max'))
+    out.push({ label: p.get('min') && p.get('max') ? `₹${p.get('min')}–${p.get('max')}` : p.get('min') ? `₹${p.get('min')} or more` : `Up to ₹${p.get('max')}`, keys: ['min', 'max'] })
+  if (p.get('sort') && p.get('sort') !== 'newest') out.push({ label: `${p.get('sort')![0].toUpperCase()}${p.get('sort')!.slice(1)} first`, keys: ['sort'] })
+  return out
 }
 
-function AdvancedFilters({ params, onApply }: { params: URLSearchParams; onApply: (kv: Record<string, string | undefined>) => void }) {
+/** All the filters in one sheet; nothing changes until "Show results". */
+function FilterForm({ params, onApply }: { params: URLSearchParams; onApply: (kv: Record<string, string | undefined>) => void }) {
+  const accounts = useAccounts()
+  const cats = useCategories()
+  const [accountId, setAccountId] = useState(params.get('accountId') ?? '')
+  // '' any, 'none' no category, or a category id
+  const [category, setCategory] = useState(params.get('uncategorized') === 'true' ? 'none' : (params.get('categoryId') ?? ''))
+  const [direction, setDirection] = useState<'' | 'DEBIT' | 'CREDIT'>((params.get('direction') as 'DEBIT' | 'CREDIT') ?? '')
+  const [moves, setMoves] = useState(params.get('includeTransfers') === 'true')
   const [from, setFrom] = useState(params.get('from') ?? '')
   const [to, setTo] = useState(params.get('to') ?? '')
   const [min, setMin] = useState(params.get('min') ?? '')
   const [max, setMax] = useState(params.get('max') ?? '')
   const [sort, setSort] = useState<Sort>((params.get('sort') as Sort) || 'newest')
   const num = (v: string) => v.replace(/[^\d.]/g, '')
+  const kinds = direction === 'CREDIT' ? ['INCOME'] : direction === 'DEBIT' ? ['EXPENSE'] : ['EXPENSE', 'INCOME']
   return (
     <div className="space-y-5">
-      <div>
-        <p className="ink-2 mb-2 px-1 text-[13px] font-medium">When</p>
-        <div className="flex flex-wrap gap-2">
-          <Chip active={!from && !to} onClick={() => (setFrom(''), setTo(''))}>
-            Any time
+      <Group label="Money">
+        <Segmented<'' | 'DEBIT' | 'CREDIT'>
+          value={direction}
+          onChange={setDirection}
+          className="w-full"
+          options={[
+            { value: '', label: 'All' },
+            { value: 'DEBIT', label: 'Out' },
+            { value: 'CREDIT', label: 'In' },
+          ]}
+        />
+      </Group>
+      <Group label="Account">
+        <Chip active={!accountId} onClick={() => setAccountId('')}>
+          Any
+        </Chip>
+        {(accounts.data ?? []).map((a) => (
+          <Chip key={a.id} active={accountId === String(a.id)} onClick={() => setAccountId(String(a.id))}>
+            {a.name}
           </Chip>
-          {presets().map((p) => (
-            <Chip key={p.label} active={from === p.from && to === p.to} onClick={() => (setFrom(p.from), setTo(p.to))}>
-              {p.label}
-            </Chip>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2">
+        ))}
+      </Group>
+      <Group label="Category">
+        <Chip active={!category} onClick={() => setCategory('')}>
+          Any
+        </Chip>
+        <Chip active={category === 'none'} onClick={() => setCategory('none')}>
+          No category
+        </Chip>
+        {(cats.data ?? []).filter((c) => kinds.includes(c.kind)).map((c) => (
+          <Chip key={c.id} active={category === String(c.id)} onClick={() => setCategory(String(c.id))}>
+            {c.name}
+          </Chip>
+        ))}
+      </Group>
+      <Group label="When">
+        <Chip active={!from && !to} onClick={() => (setFrom(''), setTo(''))}>
+          Any time
+        </Chip>
+        {presets().map((p) => (
+          <Chip key={p.label} active={from === p.from && to === p.to} onClick={() => (setFrom(p.from), setTo(p.to))}>
+            {p.label}
+          </Chip>
+        ))}
+        <div className="mt-1 flex w-full gap-2">
           <Field label="From">
             <DatePicker value={from} max={to || undefined} onChange={setFrom} label="From" placeholder="Any" short clearable />
           </Field>
@@ -271,19 +302,18 @@ function AdvancedFilters({ params, onApply }: { params: URLSearchParams; onApply
             <DatePicker value={to} min={from || undefined} onChange={setTo} label="To" placeholder="Any" short clearable />
           </Field>
         </div>
-      </div>
-      <div>
-        <p className="ink-2 mb-2 px-1 text-[13px] font-medium">Amount (₹)</p>
-        <div className="flex gap-2">
+      </Group>
+      <Group label="Amount (₹)">
+        <div className="flex w-full gap-2">
           <Input inputMode="decimal" placeholder="At least" value={min} onChange={(e) => setMin(num(e.target.value))} aria-label="Minimum amount" />
           <Input inputMode="decimal" placeholder="At most" value={max} onChange={(e) => setMax(num(e.target.value))} aria-label="Maximum amount" />
         </div>
-      </div>
-      <div>
-        <p className="ink-2 mb-2 px-1 text-[13px] font-medium">Sort by</p>
+      </Group>
+      <Group label="Sort by">
         <Segmented<Sort>
           value={sort}
           onChange={setSort}
+          className="w-full"
           options={[
             { value: 'newest', label: 'Newest' },
             { value: 'oldest', label: 'Oldest' },
@@ -291,10 +321,38 @@ function AdvancedFilters({ params, onApply }: { params: URLSearchParams; onApply
             { value: 'smallest', label: 'Smallest' },
           ]}
         />
+      </Group>
+      <div className="rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
+        <Toggle checked={moves} onChange={setMoves} label="Include money moved between my accounts" />
       </div>
-      <Button className="w-full" onClick={() => onApply({ from: from || undefined, to: to || undefined, min: min || undefined, max: max || undefined, sort: sort === 'newest' ? undefined : sort })}>
+      <Button
+        className="w-full"
+        onClick={() =>
+          onApply({
+            accountId: accountId || undefined,
+            categoryId: category && category !== 'none' ? category : undefined,
+            uncategorized: category === 'none' ? 'true' : undefined,
+            direction: direction || undefined,
+            includeTransfers: moves ? 'true' : undefined,
+            from: from || undefined,
+            to: to || undefined,
+            min: min || undefined,
+            max: max || undefined,
+            sort: sort === 'newest' ? undefined : sort,
+          })
+        }
+      >
         Show results
       </Button>
+    </div>
+  )
+}
+
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="ink-2 mb-2 px-1 text-[13px] font-medium">{label}</p>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )
 }
