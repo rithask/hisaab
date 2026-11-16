@@ -492,3 +492,25 @@ export function Confirm({ ask, yes, onYes, busy, className, children }: { ask: R
     </div>
   )
 }
+
+/**
+ * Extra fields that open in place (More details, More): the height animates, so a sheet grows smoothly instead of
+ * jumping. Closed, nothing is rendered.
+ */
+export function Fold({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        // Clipped only while it moves, so focus rings inside aren't cut off once it's open.
+        <motion.div
+          initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+          animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+          exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}

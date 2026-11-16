@@ -3,7 +3,7 @@ import { Check, HandCoins, PencilSimple, Receipt, Trash, Users, Wallet, X } from
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type Person, type Settlement, type Txn } from '../api'
-import { Avatar, BigMoney, Button, Card, Confirm, Empty, ErrorText, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
+import { Avatar, BigMoney, Button, Card, Confirm, Fold, Empty, ErrorText, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
 import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from '../components/DatePicker'
@@ -240,11 +240,11 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
           <BigMoney value={value} className="text-[44px] leading-tight" />
           <PencilSimple size={16} className="ink-3" />
         </button>
-        {changing === 'amount' && (
-          <div className="anim-pop mx-auto mt-2 max-w-[200px]">
+        <Fold open={changing === 'amount'}>
+          <div className="mx-auto mt-2 max-w-[200px]">
             <Input autoFocus inputMode="decimal" aria-label="Amount" className="text-center" value={amount ?? String(value)} onChange={(e) => setAmount(e.target.value)} />
           </div>
-        )}
+        </Fold>
         <p className="ink-2 mt-1 text-[13px]">
           {standing(person.outstanding, first)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
         </p>
@@ -261,8 +261,8 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
         </span>
         <span className="shrink-0 text-[14px] font-medium text-[var(--accent)]">Change</span>
       </button>
-      {changing === 'payment' && (
-        <List className="anim-pop">
+      <Fold open={changing === 'payment'}>
+        <List >
           {others.map((t) => (
             <button key={t.id} type="button" onClick={() => (setPicked(t), setAmount(null), setChanging(null))} className="row flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className="min-w-0 flex-1">
@@ -281,7 +281,7 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
             </button>
           )}
         </List>
-      )}
+      </Fold>
       {!txn && (
         <div className="space-y-2">
           <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />

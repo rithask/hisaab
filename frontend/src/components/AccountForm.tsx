@@ -4,7 +4,7 @@ import { fromLocalInput, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from './DatePicker'
 import { CaretDown } from '@phosphor-icons/react'
-import { Button, Chip, cx, ErrorText, Field, Input, Segmented } from './ui'
+import { Button, Chip, cx, ErrorText, Field, Fold, Input, Segmented } from './ui'
 
 /**
  * Create or edit a bank account, credit card or cash wallet: which bank and today's balance are all it needs. The
@@ -100,8 +100,8 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
             </span>
             <CaretDown size={14} weight="bold" className={cx('transition-transform duration-150', more && 'rotate-180')} />
           </button>
-          {more && (
-            <div className="anim-pop space-y-4 pt-2">
+          <Fold open={more}>
+            <div className="space-y-4 pt-2">
               <Field label="Last 4 digits" hint="Leave empty: the first bank alert fills it in.">
                 <Input inputMode="numeric" maxLength={4} pattern="\d{4}" value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, ''))} />
               </Field>
@@ -124,7 +124,7 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
                 <DateTimePicker value={openingDate} onChange={setOpeningDate} label="Balance as of" />
               </Field>
             </div>
-          )}
+          </Fold>
         </div>
       )}
       <ErrorText error={save.error ?? archive.error} />

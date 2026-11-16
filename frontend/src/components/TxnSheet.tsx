@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowCounterClockwise, ArrowsLeftRight, Bank, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '../format'
@@ -10,7 +10,7 @@ import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
-import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow, Avatar } from './ui'
+import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
   return (
@@ -306,11 +306,11 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
               )}
             </div>
             <ErrorText error={del.error} />
-            {showEmail && (
-              <pre className="anim-pop max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
+            <Fold open={showEmail}>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
                 {email.data ? `${email.data.subject ?? ''}\n\n${email.data.bodyText ?? ''}` : 'Loading…'}
               </pre>
-            )}
+            </Fold>
             <Field label="Notes">
               <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (t.notes ?? '') && update.mutate({ notes })} />
             </Field>
@@ -863,19 +863,6 @@ function Guess({ on, onClick, children }: { on: boolean; onClick: () => void; ch
       <span className="flex min-w-0 items-center gap-2 truncate">{children}</span>
       <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-150', on ? 'rotate-180' : 'opacity-50')} />
     </button>
-  )
-}
-
-/** Smoothly opens and closes extra fields. */
-function Fold({ open, children }: { open: boolean; children: ReactNode }) {
-  return (
-    <AnimatePresence initial={false}>
-      {open && (
-        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
   )
 }
 

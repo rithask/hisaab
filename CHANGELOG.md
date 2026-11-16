@@ -47,6 +47,8 @@ must do when upgrading (marked **Upgrade:**).
   savings" when left empty). Last 4 digits, credit limit, statement and due days, and "as of" are under **More
   details**. Left empty, the last 4 digits are learned from the bank's first alert, when it's your only account
   of that kind at that bank.
+- Sheets grow smoothly when you open extra fields in them: More details on an account, More on a transaction,
+  the original message, and changing the amount or payment when settling up.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked
