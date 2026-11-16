@@ -31,6 +31,10 @@ public final class AuthLog {
         log.warn("Sign-in FAILED user=\"{}\" via=\"{}\" ip={} agent=\"{}\"", clean(user, 64), clean(reason, 160), req.getRemoteAddr(), agent(req));
     }
 
+    public static void signInLockedOut(HttpServletRequest req) {
+        log.warn("Sign-in LOCKED OUT ip={} for 15 minutes after repeated wrong passwords agent=\"{}\"", req.getRemoteAddr(), agent(req));
+    }
+
     public static void signOut(HttpServletRequest req, String user) {
         log.info("Sign-out user=\"{}\" ip={}", clean(user, 64), req.getRemoteAddr());
     }

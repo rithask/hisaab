@@ -22,11 +22,13 @@ public class AuthController {
     private final com.hisaab.config.AppProperties props;
     private final org.springframework.beans.factory.ObjectProvider<com.hisaab.config.OidcSupport.LazyRegistrations> oidc;
     private final com.hisaab.config.OidcLinkService links;
+    private final com.hisaab.config.LoginThrottle throttle;
 
     public AuthController(AuthenticationManager auth, SecurityContextRepository contexts, com.hisaab.config.AppProperties props,
                           org.springframework.beans.factory.ObjectProvider<com.hisaab.config.OidcSupport.LazyRegistrations> oidc,
-                          com.hisaab.config.OidcLinkService links) {
+                          com.hisaab.config.OidcLinkService links, com.hisaab.config.LoginThrottle throttle) {
         this.links = links;
+        this.throttle = throttle;
         this.auth = auth;
         this.contexts = contexts;
         this.props = props;
@@ -67,8 +69,11 @@ public class AuthController {
             com.hisaab.config.AuthLog.signInFailed(req, body.username(), "password (turned off)");
             return ResponseEntity.status(403).body(Map.of("error", "Password sign-in is turned off. Use " + props.oidc().name() + "."));
         }
+        ResponseEntity<?> wait = tooMany(req);
+        if (wait != null) return wait;
         try {
             Authentication a = auth.authenticate(new UsernamePasswordAuthenticationToken(body.username(), body.password()));
+            throttle.succeeded(req.getRemoteAddr());
             if (req.getSession(false) != null) req.changeSessionId(); // prevent session fixation
             SecurityContext ctx = SecurityContextHolder.createEmptyContext();
             ctx.setAuthentication(a);
@@ -78,7 +83,23 @@ public class AuthController {
             return ResponseEntity.ok(Map.of("username", a.getName()));
         } catch (AuthenticationException e) {
             com.hisaab.config.AuthLog.signInFailed(req, body.username());
+            wrongPassword(req);
             return ResponseEntity.status(401).body(Map.of("error", "Wrong username or password"));
+        }
+    }
+
+    /** 429 with Retry-After (RFC 6585) while this client is locked out after wrong passwords; else null. */
+    private ResponseEntity<?> tooMany(HttpServletRequest req) {
+        java.time.Duration wait = throttle.waitFor(req.getRemoteAddr());
+        if (wait.isZero()) return null;
+        long minutes = Math.max(1, (wait.toSeconds() + 59) / 60);
+        return ResponseEntity.status(429).header("Retry-After", Long.toString(wait.toSeconds()))
+                .body(Map.of("error", "Too many wrong passwords. Try again in " + minutes + " minute" + (minutes == 1 ? "" : "s") + "."));
+    }
+
+    private void wrongPassword(HttpServletRequest req) {
+        if (throttle.failed(req.getRemoteAddr()) == com.hisaab.config.LoginThrottle.MAX_FAILURES) {
+            com.hisaab.config.AuthLog.signInLockedOut(req);
         }
     }
 
@@ -104,9 +125,13 @@ public class AuthController {
         if (p == null) return ResponseEntity.status(400).body(Map.of("error", "Nothing is waiting to be linked. Sign in with " + props.oidc().name() + " again."));
         if (links.linkedId() != null) return ResponseEntity.status(409).body(Map.of("error", "Another account is already linked."));
         if (com.hisaab.config.SecurityConfig.passwordLoginEnabled(props)) {
+            ResponseEntity<?> wait = tooMany(req);
+            if (wait != null) return wait;
             try {
                 auth.authenticate(new UsernamePasswordAuthenticationToken(props.auth().username(), in == null ? null : in.password()));
+                throttle.succeeded(req.getRemoteAddr());
             } catch (AuthenticationException e) {
+                wrongPassword(req);
                 com.hisaab.config.AuthLog.signInFailed(req, p.email(), props.oidc().name() + ": link refused, wrong app password");
                 return ResponseEntity.status(401).body(Map.of("error", "That's not the app's password"));
             }
