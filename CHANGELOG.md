@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-16
+
 ### Changed
 - Home has one **To check** card instead of a list of links: a balance that's off, a repayment to confirm, a
   payment with no category, a message the app couldn't read, something that looks wrong. Each card asks one
