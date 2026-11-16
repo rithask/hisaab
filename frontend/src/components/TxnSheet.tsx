@@ -7,6 +7,7 @@ import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '.
 import { useAccounts, useCategories, useFeature, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DatePicker, DateTimePicker } from './DatePicker'
+import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
 import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney } from './ui'
@@ -239,6 +240,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         </div>
       )}
 
+      {!t.transfer && !paidBy && <RepaymentRow txn={t} />}
       {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} />}
       {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} />}
 

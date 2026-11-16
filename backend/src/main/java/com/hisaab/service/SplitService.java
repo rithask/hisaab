@@ -43,6 +43,8 @@ public class SplitService {
      */
     @Transactional
     public List<SplitShare> setSplit(Txn txn, SplitMethod method, boolean includeMe, List<Participant> participants) {
+        // a bill I split isn't me paying someone back: drop a guess that it was
+        settlements.findByTxn(txn).stream().filter(s -> s.getStatus() == SettlementStatus.SUGGESTED).forEach(settlements::delete);
         shares.deleteByTxn(txn);
         shares.flush();
         if (participants == null || participants.isEmpty()) return List.of();
@@ -120,39 +122,98 @@ public class SplitService {
     }
 
     /**
-     * When money comes in, guess whether it is someone paying me back. Only a suggestion: I confirm it.
-     * Name match on the UPI name wins; otherwise an exact match on someone's outstanding amount.
+     * What's still open with someone once the repayments waiting for my confirmation go through: a suggestion
+     * shouldn't be made twice for the same money.
+     */
+    private BigDecimal open(Person p) {
+        return outstanding(p)
+                .subtract(settlements.total(p, SettlementStatus.SUGGESTED, SettlementDirection.IN))
+                .add(settlements.total(p, SettlementStatus.SUGGESTED, SettlementDirection.OUT));
+    }
+
+    /** The money's sender or recipient is this person, by their UPI name or their name. */
+    public static boolean named(Person p, String counterparty) {
+        return Names.samePerson(p.getUpiName() != null ? p.getUpiName() : p.getName(), counterparty)
+                || Names.samePerson(p.getName(), counterparty);
+    }
+
+    /**
+     * Guess whether money is someone settling up. Only a suggestion: I confirm it.
+     * Money in: someone who owes me paying me back. Money out: me paying back someone I owe.
+     * A name match (UPI name or name) wins, whatever the amount; otherwise the amount must be exactly what's open
+     * with one person. Money already linked, or turned down before, is left alone.
      */
     @Transactional
-    public void suggestSettlement(Txn credit) {
-        if (credit.isTransfer() || credit.isDebit() || credit.isPaidByPerson()) return;
-        if (!settlements.findByTxn(credit).isEmpty()) return;
-        List<Person> owing = people.findAll().stream().filter(p -> outstanding(p).signum() > 0).toList();
-        if (owing.isEmpty()) return;
-
-        List<Person> byName = owing.stream()
-                .filter(p -> Names.samePerson(p.getUpiName() != null ? p.getUpiName() : p.getName(), credit.getCounterparty())
-                        || Names.samePerson(p.getName(), credit.getCounterparty()))
-                .toList();
-        List<Person> pick = byName;
-        if (pick.isEmpty()) {
-            pick = owing.stream().filter(p -> outstanding(p).compareTo(credit.getAmount()) == 0).toList();
+    public void suggestSettlement(Txn t) {
+        if (t.isTransfer() || t.isPaidByPerson() || t.getAccount() == null) return;
+        if (!settlements.findByTxn(t).isEmpty()) return;
+        if (t.getId() != null && shares.totalForTxn(t).signum() > 0) return; // a bill I split isn't me paying someone back
+        boolean in = !t.isDebit();
+        // what's open, from my side of this money: what they owe me (in) or what I owe them (out)
+        java.util.Map<Person, BigDecimal> due = new java.util.LinkedHashMap<>();
+        for (Person p : people.findAll()) {
+            BigDecimal v = in ? open(p) : open(p).negate();
+            if (v.signum() > 0) due.put(p, v);
         }
+        if (due.isEmpty()) return;
+
+        List<Person> pick = due.keySet().stream().filter(p -> named(p, t.getCounterparty())).toList();
+        if (pick.isEmpty()) pick = due.keySet().stream().filter(p -> due.get(p).compareTo(t.getAmount()) == 0).toList();
         if (pick.size() != 1) return;
         Person p = pick.get(0);
         Settlement s = new Settlement();
         s.setPerson(p);
-        s.setTxn(credit);
-        s.setAmount(credit.getAmount().min(outstanding(p)));
-        s.setSettledAt(credit.getOccurredAt());
+        s.setTxn(t);
+        s.setAmount(t.getAmount().min(due.get(p)));
+        s.setSettledAt(t.getOccurredAt());
         s.setStatus(SettlementStatus.SUGGESTED);
-        s.setDirection(SettlementDirection.IN);
-        s.setNote("Auto-matched from " + (credit.getCounterparty() == null ? "incoming payment" : credit.getCounterparty()));
+        s.setDirection(in ? SettlementDirection.IN : SettlementDirection.OUT);
+        s.setNote("Auto-matched from " + (t.getCounterparty() == null ? (in ? "incoming payment" : "payment") : t.getCounterparty()));
         settlements.save(s);
     }
 
+    /** How far back to look again for money that settles up, when something about a balance changes. */
+    static final java.time.Duration LOOK_BACK = java.time.Duration.ofDays(30);
+
+    /**
+     * Look again at recent money nobody has been linked to: after a split, a "they paid" entry or a person's
+     * UPI name changes, a payment that arrived earlier may now be someone settling up.
+     */
     @Transactional
-    public Settlement record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Txn txn, String note) {
+    public void rescan() {
+        for (Txn t : txns.findUnsettledSince(Instant.now().minus(LOOK_BACK))) suggestSettlement(t);
+    }
+
+    /**
+     * Record a repayment I made or got, optionally linked to the money in or out that carried it. Linked money
+     * stops counting as income (or spending), and suggestions on it are replaced. If the sender's name differs
+     * from the person's and no UPI name is saved yet, it's remembered, so the next one matches by name.
+     *
+     * @return the UPI name remembered for the person, if one was
+     */
+    public record Recorded(Settlement settlement, String rememberedName) {}
+
+    @Transactional
+    public Recorded record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Txn txn, String note) {
+        direction = direction == null ? SettlementDirection.IN : direction;
+        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (txn != null) {
+            if (txn.isTransfer() || txn.isPaidByPerson() || txn.getAccount() == null) {
+                throw new IllegalArgumentException("Only money in or out of your accounts can be a repayment");
+            }
+            if (txn.isDebit() != (direction == SettlementDirection.OUT)) {
+                throw new IllegalArgumentException(txn.isDebit() ? "Money you paid out can only be you paying someone back"
+                        : "Money you received can only be someone paying you back");
+            }
+            // a suggestion or a "no" on this money gives way to what I chose
+            settlements.findByTxn(txn).stream().filter(x -> x.getStatus() != SettlementStatus.CONFIRMED).forEach(settlements::delete);
+            settlements.flush();
+            BigDecimal linked = settlements.findByTxn(txn).stream().map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (linked.add(amount).compareTo(txn.getAmount()) > 0) {
+                throw new IllegalArgumentException("That's more than the " + txn.getAmount().toPlainString() + " this payment was");
+            }
+            if (at == null) at = txn.getOccurredAt();
+        }
         Settlement s = new Settlement();
         s.setDirection(direction == null ? SettlementDirection.IN : direction);
         s.setPerson(p);
@@ -161,6 +222,21 @@ public class SplitService {
         s.setTxn(txn);
         s.setNote(note);
         s.setStatus(SettlementStatus.CONFIRMED);
-        return settlements.save(s);
+        return new Recorded(settlements.save(s), txn == null ? null : remember(p, txn));
+    }
+
+    /** I confirmed a suggested repayment: as for {@link #record}, remember the name it came from. */
+    @Transactional
+    public String confirm(Settlement s, BigDecimal amount) {
+        if (amount != null && amount.signum() > 0) s.setAmount(Money.r2(amount));
+        s.setStatus(SettlementStatus.CONFIRMED);
+        return s.getTxn() == null ? null : remember(s.getPerson(), s.getTxn());
+    }
+
+    private static String remember(Person p, Txn t) {
+        String name = t.getCounterparty();
+        if (p.getUpiName() != null || name == null || name.isBlank() || named(p, name)) return null;
+        p.setUpiName(name.length() > 200 ? name.substring(0, 200) : name.trim());
+        return p.getUpiName();
     }
 }

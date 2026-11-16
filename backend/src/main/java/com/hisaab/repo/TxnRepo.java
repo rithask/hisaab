@@ -109,4 +109,25 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
     List<Txn> findByPaidByOrderByOccurredAtDesc(com.hisaab.domain.Person person);
 
     boolean existsByPaidBy(com.hisaab.domain.Person person);
+
+    /** Recent money in or out of my accounts that no repayment (or "no") is linked to. */
+    @Query("""
+            select t from Txn t
+            where t.occurredAt >= :since and t.transfer = false and t.paidBy is null and t.account is not null
+              and not exists (select s from Settlement s where s.txn = t)
+              and not exists (select x from SplitShare x where x.txn = t)
+            order by t.occurredAt
+            """)
+    List<Txn> findUnsettledSince(@Param("since") Instant since);
+
+    /** Recent money one way that isn't a repayment yet (a "no" doesn't count): for picking one by hand. */
+    @Query("""
+            select t from Txn t
+            where t.occurredAt >= :since and t.direction = :direction and t.transfer = false and t.paidBy is null
+              and t.account is not null
+              and not exists (select s from Settlement s where s.txn = t and s.status <> com.hisaab.domain.Enums.SettlementStatus.REJECTED)
+              and not exists (select x from SplitShare x where x.txn = t)
+            order by t.occurredAt desc
+            """)
+    List<Txn> findOpenSince(@Param("since") Instant since, @Param("direction") Direction direction);
 }

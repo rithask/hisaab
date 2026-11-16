@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { PencilSimple, Receipt, Trash, Users } from '@phosphor-icons/react'
+import { Check, PencilSimple, Receipt, Trash, Users, Wallet, X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type Person, type Settlement, type Txn } from '../api'
-import { Avatar, Badge, BigMoney, Button, Card, Empty, ErrorText, Field, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Segmented, Sheet } from '../components/ui'
+import { Avatar, BigMoney, Button, Card, Empty, ErrorText, Field, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Segmented, Sheet, cx } from '../components/ui'
 import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from '../components/DatePicker'
@@ -38,6 +38,8 @@ export default function PersonDetail() {
   const [open, setOpen] = useState<Txn | null>(null)
   const remove = useMoneyMutation(() => api(`/people/${id}`, { method: 'DELETE' }), () => nav('/people'))
   const delSettlement = useMoneyMutation((sid: number) => api(`/settlements/${sid}`, { method: 'DELETE' }))
+  const confirmSettlement = useMoneyMutation((sid: number) => api(`/settlements/${sid}/confirm`, { method: 'POST' }))
+  const rejectSettlement = useMoneyMutation((sid: number) => api(`/settlements/${sid}/reject`, { method: 'POST' }))
 
   if (!d.data) return <PageSkeleton />
   const { person: p, shares, settlements, paidForMe } = d.data
@@ -65,7 +67,7 @@ export default function PersonDetail() {
       .map((s) => ({
         key: `m${s.id}`,
         at: s.settledAt,
-        title: s.direction === 'OUT' ? `You paid ${first} back` : `${first} paid you back`,
+        title: s.status === 'SUGGESTED' ? (s.direction === 'OUT' ? `Paying ${first} back?` : `${first} paying you back?`) : s.direction === 'OUT' ? `You paid ${first} back` : `${first} paid you back`,
         sub: [s.txnCounterparty && `“${s.txnCounterparty}”`, s.note].filter(Boolean).join(' · ') || 'Payment',
         delta: s.status === 'CONFIRMED' ? (s.direction === 'OUT' ? s.amount : -s.amount) : 0,
         settlement: s,
@@ -116,15 +118,23 @@ export default function PersonDetail() {
                       {dateTime(l.at)} · {l.sub}
                     </p>
                   </button>
-                  {l.settlement && l.settlement.status !== 'CONFIRMED' ? (
-                    <Badge tone="amber">{money(l.settlement.amount)} to confirm</Badge>
+                  {l.settlement && l.settlement.status === 'SUGGESTED' ? (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <span className="tabular mr-1 text-[15px] font-semibold">{money(l.settlement.amount)}?</span>
+                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-2)]" onClick={() => rejectSettlement.mutate(l.settlement!.id)} aria-label="Not a repayment">
+                        <X size={16} />
+                      </button>
+                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full accent-fill" onClick={() => confirmSettlement.mutate(l.settlement!.id)} aria-label="Confirm repayment">
+                        <Check size={16} />
+                      </button>
+                    </span>
                   ) : (
                     <span className="tabular shrink-0 text-[15px] font-semibold">
                       {l.delta >= 0 ? '+' : '−'}
                       {money(Math.abs(l.delta))}
                     </span>
                   )}
-                  {l.settlement && (
+                  {l.settlement && l.settlement.status === 'CONFIRMED' && (
                     <button className="ink-3 p-1" onClick={() => confirm('Remove this payment?') && delSettlement.mutate(l.settlement!.id)} aria-label="Remove payment">
                       <Trash size={16} />
                     </button>
@@ -174,14 +184,29 @@ function PickPayment({ first, onPick }: { first: string; onPick: (t: Txn) => voi
   )
 }
 
+/**
+ * Record a repayment. Pick the money it came in (or went out) with, so it stops counting as income or spending,
+ * or "Cash or another account" for money the app never saw.
+ */
 function PaymentForm({ onClose, person }: { onClose: () => void; person: Person }) {
   const first = person.name.split(' ')[0]
   const [direction, setDirection] = useState<'IN' | 'OUT'>(person.outstanding < 0 ? 'OUT' : 'IN')
-  const [amount, setAmount] = useState(String(Math.abs(person.outstanding)))
+  const due = Math.abs(person.outstanding)
+  const [txn, setTxn] = useState<Txn | null>(null)
+  const [amount, setAmount] = useState(String(due))
   const [when, setWhen] = useState(toLocalInput())
   const [note, setNote] = useState('')
+  const open = useQuery({ queryKey: ['open-payments', person.id, direction], queryFn: () => api<Txn[]>(`/people/${person.id}/open-payments?direction=${direction}`) })
   const value = Number(amount)
-  const save = useMoneyMutation(() => api('/settlements', { body: { personId: person.id, direction, amount: value, settledAt: fromLocalInput(when), note } }), onClose)
+  const choose = (t: Txn | null) => {
+    setTxn(t)
+    setAmount(String(t ? Math.min(t.amount, due || t.amount) : due))
+  }
+  const switchDirection = (d: 'IN' | 'OUT') => (setDirection(d), choose(null))
+  const save = useMoneyMutation(
+    () => api('/settlements', { body: { personId: person.id, direction, amount: value, txnId: txn?.id, settledAt: txn ? undefined : fromLocalInput(when), note } }),
+    onClose,
+  )
   return (
     <form
       className="space-y-4"
@@ -192,28 +217,54 @@ function PaymentForm({ onClose, person }: { onClose: () => void; person: Person 
     >
       <Segmented<'IN' | 'OUT'>
         value={direction}
-        onChange={setDirection}
+        onChange={switchDirection}
         options={[
           { value: 'IN', label: `${first} paid you` },
           { value: 'OUT', label: `You paid ${first}` },
         ]}
       />
+      <div>
+        <p className="ink-2 mb-2 px-1 text-[13px] font-medium">{direction === 'IN' ? 'Which money was it?' : 'Which payment was it?'}</p>
+        <List>
+          {(open.data ?? []).slice(0, 8).map((t) => (
+            <button key={t.id} type="button" onClick={() => choose(t)} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left row', txn?.id === t.id && 'bg-[var(--surface-2)]')}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium">{t.counterparty ?? t.description ?? (direction === 'IN' ? 'Money received' : 'Payment')}</span>
+                <span className="ink-2 block truncate text-xs">
+                  {dateTime(t.occurredAt)} · {t.account?.name}
+                </span>
+              </span>
+              <span className="tabular shrink-0 text-[15px] font-semibold">{money(t.amount)}</span>
+              {txn?.id === t.id && <Check size={18} className="shrink-0" />}
+            </button>
+          ))}
+          <button type="button" onClick={() => choose(null)} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left row', !txn && 'bg-[var(--surface-2)]')}>
+            <Wallet size={19} className="ink-2 shrink-0" />
+            <span className="flex-1 text-[15px] font-medium">Cash or another account</span>
+            {!txn && <Check size={18} className="shrink-0" />}
+          </button>
+        </List>
+      </div>
       <Field label="Amount">
         <Input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </Field>
-      <Field label="When">
-        <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />
-      </Field>
-      <Field label="Note">
-        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cash, GPay…" />
-      </Field>
+      {!txn && (
+        <>
+          <Field label="When">
+            <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />
+          </Field>
+          <Field label="Note">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cash, GPay…" />
+          </Field>
+        </>
+      )}
       {value > 0 && (
         <p className="ink-2 rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-[13px]">
           {standing(person.outstanding, first)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
         </p>
       )}
       <ErrorText error={save.error} />
-      <Button type="submit" className="w-full" disabled={save.isPending || !(value > 0)}>
+      <Button type="submit" className="w-full" disabled={save.isPending || !(value > 0) || (!!txn && value > txn.amount)}>
         Save payment
       </Button>
     </form>

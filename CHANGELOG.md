@@ -17,6 +17,16 @@ must do when upgrading (marked **Upgrade:**).
 - Balances with people now go both ways: "Rahul owes you ₹300" or "You owe Rahul ₹150", and you can record paying
   someone back. A person's page shows one history of what each of you paid and paid back, with **I paid** and
   **Rahul paid** buttons. What you owe people is taken off your net worth.
+- **Repayments you can link yourself.** Open money that came in and tap **"Repayment from someone?"** (or
+  **"Paying someone back?"** on money you sent, when you owe someone): pick the person, with those who owe you
+  first, and check the amount. On a person's page, **record a payment** by picking the money it came in, or
+  **Cash or another account**. Linked money no longer counts as income (or spending).
+- When you link a payment from a sender whose name doesn't match the person (e.g. "MUHAMMED FAZ" for Fazil), that
+  name is remembered, so their next payment is matched by name whatever the amount.
+- Repayments are looked for again when a balance changes: after a split, a "they paid" entry or a person's UPI name
+  is changed, recent money nobody was linked to is checked, so money that arrived before you recorded the split is
+  still matched. Money you send is suggested as paying someone back when you owe them. Suggestions also show on the
+  person's page, with Yes / No.
 - **Upgrade:** take a backup first; this release changes the database, so going back means restoring it.
 
 ## [0.8.1] - 2026-11-13

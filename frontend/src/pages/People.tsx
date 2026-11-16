@@ -44,14 +44,14 @@ export default function People() {
       </Card>
 
       {(suggested.data ?? []).length > 0 && (
-        <Section title="Did they pay you back?">
+        <Section title="Settling up?">
           <div className="space-y-2">
             {suggested.data!.map((s) => (
               <Card key={s.id} className="anim-pop flex items-center gap-3">
                 <Avatar name={s.personName} size={44} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">
-                    {s.personName} · <span className="tabular">{money(s.amount)}</span>
+                    {s.direction === 'OUT' ? `You → ${s.personName}` : s.personName} · <span className="tabular">{money(s.amount)}</span>
                   </p>
                   <p className="ink-2 truncate text-xs">
                     {s.txnCounterparty ? `From “${s.txnCounterparty}” · ` : ''}

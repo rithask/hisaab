@@ -56,13 +56,37 @@ public class PeopleController {
     public record PersonInput(String name, String upiName, String phone, String notes) {}
 
     @PostMapping("/people")
+    @Transactional
     public PersonDto create(@RequestBody PersonInput in) {
-        return dto(people.save(apply(new Person(), in)));
+        Person p = people.save(apply(new Person(), in));
+        splits.rescan(); // a payment from them may already be here
+        return dto(p);
     }
 
     @PutMapping("/people/{id}")
+    @Transactional
     public PersonDto update(@PathVariable Long id, @RequestBody PersonInput in) {
-        return dto(people.save(apply(person(id), in)));
+        Person p = people.save(apply(person(id), in));
+        splits.rescan(); // a new UPI name can match a payment that's already here
+        return dto(p);
+    }
+
+    /**
+     * Recent money that could be this person settling up, for picking it by hand: money in when they owe me,
+     * money out when I owe them.
+     */
+    @GetMapping("/people/{id}/open-payments")
+    @Transactional(readOnly = true)
+    public List<TxnDto> openPayments(@PathVariable Long id, @RequestParam SettlementDirection direction) {
+        Person p = person(id);
+        var dir = direction == SettlementDirection.OUT ? com.hisaab.domain.Enums.Direction.DEBIT : com.hisaab.domain.Enums.Direction.CREDIT;
+        BigDecimal due = splits.outstanding(p).abs();
+        // their name first, then the amounts nearest to what's open, then the newest
+        return txns.findOpenSince(Instant.now().minus(java.time.Duration.ofDays(60)), dir).stream()
+                .sorted(java.util.Comparator.comparing((com.hisaab.domain.Txn t) -> !SplitService.named(p, t.getCounterparty()))
+                        .thenComparing(t -> t.getAmount().subtract(due).abs())
+                        .thenComparing(com.hisaab.domain.Txn::getOccurredAt, java.util.Comparator.reverseOrder()))
+                .limit(30).map(t -> TxnDto.of(t, null)).toList();
     }
 
     @DeleteMapping("/people/{id}")
@@ -114,23 +138,33 @@ public class PeopleController {
     public record SettlementInput(Long personId, SettlementDirection direction, BigDecimal amount, Instant settledAt,
                                   Long txnId, String note) {}
 
+    /** @param rememberedName the sender's name, saved as the person's UPI name so the next one matches */
+    public record Recorded(SettlementDto settlement, String rememberedName) {}
+
     @PostMapping("/settlements")
     @Transactional
-    public SettlementDto record(@RequestBody SettlementInput in) {
-        if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-        return SettlementDto.of(splits.record(person(in.personId()), in.direction(), in.amount(), in.settledAt(),
-                in.txnId() == null ? null : txns.findById(in.txnId()).orElse(null), in.note()));
+    public Recorded record(@RequestBody SettlementInput in) {
+        var txn = in.txnId() == null ? null : txns.findById(in.txnId()).orElseThrow(() -> new NoSuchElementException("Transaction not found"));
+        var r = splits.record(person(in.personId()), in.direction(), in.amount(), in.settledAt(), txn, in.note());
+        return new Recorded(SettlementDto.of(r.settlement()), r.rememberedName());
+    }
+
+    /** Repayments linked to a payment (not the ones I turned down). */
+    @GetMapping("/transactions/{id}/repayments")
+    @Transactional(readOnly = true)
+    public List<SettlementDto> repayments(@PathVariable Long id) {
+        var t = txns.findById(id).orElseThrow(() -> new NoSuchElementException("Transaction not found"));
+        return settlements.findByTxn(t).stream().filter(s -> s.getStatus() != SettlementStatus.REJECTED).map(SettlementDto::of).toList();
     }
 
     public record ConfirmInput(BigDecimal amount) {}
 
     @PostMapping("/settlements/{id}/confirm")
     @Transactional
-    public SettlementDto confirm(@PathVariable Long id, @RequestBody(required = false) ConfirmInput in) {
+    public Recorded confirm(@PathVariable Long id, @RequestBody(required = false) ConfirmInput in) {
         Settlement s = settlements.findById(id).orElseThrow();
-        if (in != null && in.amount() != null && in.amount().signum() > 0) s.setAmount(in.amount());
-        s.setStatus(SettlementStatus.CONFIRMED);
-        return SettlementDto.of(s);
+        String remembered = splits.confirm(s, in == null ? null : in.amount());
+        return new Recorded(SettlementDto.of(s), remembered);
     }
 
     @PostMapping("/settlements/{id}/reject")
@@ -142,7 +176,10 @@ public class PeopleController {
     }
 
     @DeleteMapping("/settlements/{id}")
+    @Transactional
     public void deleteSettlement(@PathVariable Long id) {
         settlements.deleteById(id);
+        settlements.flush();
+        splits.rescan();
     }
 }
