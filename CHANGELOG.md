@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-16
+
 ### Security
 - Password sign-in is limited: after 5 wrong passwords in 15 minutes, that client is locked out for 15 minutes
   (also when linking a sign-in provider account). A right password clears the count. Lockouts are logged.
