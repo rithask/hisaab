@@ -36,6 +36,10 @@ must do when upgrading (marked **Upgrade:**).
   category" instead of uncategorised, how a message is "worded" instead of its format, and messages are
   "recorded", "needs you", "couldn't read" or "skipped". Settings → Teaching is now **What it learned**. Notes on
   messages the app couldn't read say what to do instead of naming a parser.
+- Home answers "am I okay?": one number, **You have** (cash in your accounts less what you owe on cards), with
+  this month's spending and your net worth as small links under it, then To check, then Recent. Upcoming bills,
+  This month, budgets and accounts moved off Home (Repeating, Insights, Budgets, Accounts & cards); a card due
+  within 3 days is a To check card. "Show investments on Home" now applies to the net worth link.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked
