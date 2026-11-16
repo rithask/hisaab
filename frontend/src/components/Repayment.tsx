@@ -5,7 +5,7 @@ import { api, type Person, type Settlement, type Txn } from '../api'
 import { money } from '../format'
 import { useMoneyMutation, usePeople } from '../hooks'
 import { standing } from './PaidBy'
-import { Avatar, Button, cx, ErrorText, Field, Input, Sheet } from './ui'
+import { Avatar, Button, cx, ErrorText, Field, Input, MoreRow, Sheet } from './ui'
 
 export type Recorded = { settlement: Settlement; rememberedName?: string }
 
@@ -13,7 +13,11 @@ export type Recorded = { settlement: Settlement; rememberedName?: string }
  * On money in or out of my accounts: is it someone settling up? Money in can be someone paying me back; money
  * out can be me paying back someone I owe. Linked money stops counting as income or spending.
  */
-export function RepaymentRow({ txn }: { txn: Txn }) {
+/**
+ * @param part "linked": only repayments already linked to this payment; "ask": only the offer to link one (shown
+ *             under More). Both when left out.
+ */
+export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' }) {
   const incoming = txn.direction === 'CREDIT'
   const people = usePeople()
   const linked = useQuery({ queryKey: ['repayments', txn.id], queryFn: () => api<Settlement[]>(`/transactions/${txn.id}/repayments`) })
@@ -31,6 +35,8 @@ export function RepaymentRow({ txn }: { txn: Txn }) {
   const someoneToPay = people.data.some((p) => p.outstanding < 0)
   if (list.length === 0 && !incoming && !someoneToPay) return null
   if (list.length === 0 && people.data.length === 0) return null
+  if (part === 'linked' && list.length === 0) return null
+  if (part === 'ask' && list.length > 0) return null
   const first = (n: string) => n.split(' ')[0]
 
   return (
@@ -63,9 +69,9 @@ export function RepaymentRow({ txn }: { txn: Txn }) {
         ),
       )}
       {list.length === 0 && (
-        <button className="ink-2 flex items-center gap-1.5 px-1 text-sm font-medium" onClick={() => setPicking(true)}>
-          <ArrowUUpLeft size={15} /> {incoming ? 'Repayment from someone?' : 'Paying someone back?'}
-        </button>
+        <MoreRow icon={ArrowUUpLeft} onClick={() => setPicking(true)}>
+          {incoming ? 'Someone paying you back?' : 'Paying someone back?'}
+        </MoreRow>
       )}
       {remembered && (
         <p className="anim-pop rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--accent)]">

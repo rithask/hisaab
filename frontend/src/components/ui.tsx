@@ -1,4 +1,4 @@
-import { CaretDown, CaretLeft, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { CaretDown, CaretLeft, CaretRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import {
   useEffect,
@@ -449,4 +449,15 @@ export function FeatureGate({ on, name, children }: { on: boolean | undefined; n
       </Page>
     )
   return <>{children}</>
+}
+
+/** One row in a list of things you could do (a transaction's More list): icon, label, chevron. */
+export function MoreRow({ icon: Icon, onClick, children, tone }: { icon: PhIcon; onClick: () => void; children: ReactNode; tone?: 'danger' }) {
+  return (
+    <button type="button" onClick={onClick} className={cx('row flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px]', tone === 'danger' && 'text-[var(--negative)]')}>
+      <Icon size={19} className={tone === 'danger' ? undefined : 'ink-2'} />
+      <span className="min-w-0 flex-1">{children}</span>
+      {tone !== 'danger' && <CaretRight size={15} className="ink-3" />}
+    </button>
+  )
 }

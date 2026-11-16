@@ -15,6 +15,10 @@ must do when upgrading (marked **Upgrade:**).
   question with one-tap answers ("Yes / No", "Use the bank's balance / Ignore", the categories you use most);
   "Later" puts it at the back. When nothing needs you it says "All caught up".
 - Inbox is now just the history of bank emails and SMS; mismatches and messages to review moved to To check.
+- A transaction shows only the amount, payee, account, date and category. A set category is one row with
+  "Change"; a guessed one asks "Right?". Splitting, marking a transfer, expecting a refund, linking a repayment,
+  notes, tags, fixing what an alert read, the original message and Delete are under **More**. Anything already
+  set (a split, a refund you're waiting for, a linked repayment, someone else paid) still shows up front.
 
 ## [0.10.0] - 2026-11-16
 

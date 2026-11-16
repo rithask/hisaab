@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsLeftRight, Bank, Users, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowsLeftRight, Bank, Users, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
@@ -10,7 +10,7 @@ import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
-import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney } from './ui'
+import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
   return (
@@ -36,6 +36,8 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const [fixing, setFixing] = useState(false)
   const [fixed, setFixed] = useState<TeachResult | null>(null)
   const [editingShare, setEditingShare] = useState(false)
+  const [changingCategory, setChangingCategory] = useState(false)
+  const [more, setMore] = useState(false)
   // A friend paid and this is my share: no account, no learning, no splitting or transfers.
   const paidBy = t.paidBy
   const fromAlert = (t.source === 'EMAIL' || t.source === 'SMS') && !!t.rawEmailId
@@ -74,6 +76,12 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
   const kind = t.direction === 'DEBIT' ? 'EXPENSE' : 'INCOME'
   const options = (cats.data ?? []).filter((c) => c.kind === kind)
+
+  const cat = t.category
+  const CatIcon = categoryIcon(cat)
+  // Picking a category is open only when there isn't one yet; otherwise it's one row (a guess asks "Right?").
+  const choosing = changingCategory || !cat
+  const extras = [notes && 'note', t.tags.length > 0 && `${t.tags.length} tag${t.tags.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
 
   return (
     <div className="space-y-5">
@@ -116,20 +124,10 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         <p className="ink-2 text-sm">
           {paidBy ? `Paid by ${paidBy.name}` : t.account?.name} · {dateTime(t.occurredAt)}
         </p>
-        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-          <Badge>{t.source === 'EMAIL' ? 'From email' : t.source === 'SMS' ? 'From SMS' : t.source === 'STATEMENT' ? 'From statement' : t.source === 'ADJUSTMENT' ? 'Adjustment' : t.source === 'PERSON' ? 'Your share' : t.addedBy ? `Added by ${t.addedBy}` : 'Manual'}</Badge>
-          {t.referenceNo && <Badge>Ref {t.referenceNo}</Badge>}
-          {t.reportedBalance != null && <Badge tone="blue">Bal {money(t.reportedBalance)}</Badge>}
-        </div>
       </div>
 
-      {fromAlert && !fixed && (
-        <button className="pressable ink-2 mx-auto -mt-2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium" onClick={() => setFixing(true)}>
-          <GraduationCap size={15} /> Wrong amount, direction or account? Fix it
-        </button>
-      )}
       {fixed && (
-        <p className="anim-pop -mt-2 rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-center text-xs text-[var(--accent)]">
+        <p className="anim-pop rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-center text-xs text-[var(--accent)]">
           Fixed.{' '}
           {fixed.learnedFormat
             ? 'Learned from it, so the next message like this is read right.'
@@ -142,6 +140,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         {fixing && t.rawEmailId && <TeachForm id={t.rawEmailId} onDone={onFixed} />}
       </Sheet>
 
+      {/* Only what already applies to this payment shows here; everything you could add is under More. */}
       {paidBy && (
         <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">
           <Users size={18} className="mt-0.5 shrink-0" />
@@ -172,29 +171,28 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
         <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">
           <ArrowsLeftRight size={18} className="mt-0.5 shrink-0" />
           <div className="flex-1">
-            <p className="font-medium">Transfer between my accounts</p>
+            <p className="font-medium">Money moved between my accounts</p>
             <p className="ink-2">
               {t.linkedAccount ? `Matched with ${t.linkedAccount.name}. ` : ''}Not counted as income or spending.
             </p>
             <button className="link mt-2 font-semibold text-[var(--accent)]" onClick={() => update.mutate({ transfer: false })}>
-              This isn't a transfer
+              It wasn't
             </button>
           </div>
         </div>
-      ) : (
+      ) : choosing ? (
         <div>
           <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-[13px] font-medium">
-            Category
-            {t.categorySuggested && <span className="ink-3 text-xs font-normal">Suggested from your earlier choices. Tap it to confirm.</span>}
+            {cat ? 'Change category' : 'What was it?'}
           </p>
           <div className="grid grid-cols-3 gap-2">
             {options.map((c) => {
               const Icon = categoryIcon(c)
-              const on = t.category?.id === c.id
+              const on = cat?.id === c.id
               return (
                 <button
                   key={c.id}
-                  onClick={() => update.mutate({ categoryId: c.id })}
+                  onClick={() => (update.mutate({ categoryId: c.id }), setChangingCategory(false))}
                   className={cx(
                     'pressable flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2.5 text-[12px] font-medium leading-tight transition-colors duration-150',
                     on ? 'bg-[var(--ink)] text-[var(--surface)]' : 'bg-[var(--surface-2)] text-[var(--ink-2)]',
@@ -206,78 +204,120 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
               )
             })}
           </div>
-          {learned && (
-            <div className="anim-pop mt-3 rounded-2xl bg-[var(--accent-soft)] p-3 text-sm">
-              {learned.payee ? (
-                <p>
-                  Learned: future payments {t.direction === 'CREDIT' ? 'from' : 'to'} <b>{learned.payee}</b> will be <b>{learned.category}</b>.
-                  {learned.applied != null && ` ${learned.applied} earlier one${learned.applied === 1 ? ' was' : 's were'} updated too.`}
-                </p>
-              ) : learned.byWording ? (
-                <p>
-                  Learned: messages worded like this one will be <b>{learned.category}</b>.
-                </p>
-              ) : (
-                <p>Saved. This one has no payee name, so the app can't recognise it next time. Tap the name at the top to add one.</p>
-              )}
-              {similar > 0 && (
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="ink-2">
-                    {similar} earlier one{similar > 1 ? 's have' : ' has'} a different or no category.
-                  </span>
-                  <Button size="sm" className="shrink-0" onClick={() => applySimilar.mutate(undefined)} disabled={applySimilar.isPending}>
-                    Update {similar > 1 ? 'them' : 'it'}
-                  </Button>
-                </div>
-              )}
-            </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
+          <CatIcon size={20} style={{ color: cat!.color }} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium">{cat!.name}</span>
+            {t.categorySuggested && <span className="ink-2 block text-[12.5px]">A guess from your earlier choices</span>}
+          </span>
+          {t.categorySuggested && (
+            <Button size="sm" disabled={update.isPending} onClick={() => update.mutate({ categoryId: cat!.id })}>
+              Right
+            </Button>
           )}
-          {!paidBy && (
-            <button className="ink-2 mt-3 px-1 text-sm font-medium" onClick={() => update.mutate({ transfer: true })}>
-              Mark as transfer between my accounts
-            </button>
+          <button className="link h-9 px-1 text-[14px] font-medium text-[var(--accent)]" onClick={() => setChangingCategory(true)}>
+            Change
+          </button>
+        </div>
+      )}
+      {learned && !t.transfer && (
+        <div className="anim-pop -mt-2 rounded-2xl bg-[var(--accent-soft)] p-3 text-sm">
+          {learned.payee ? (
+            <p>
+              Learned: future payments {t.direction === 'CREDIT' ? 'from' : 'to'} <b>{learned.payee}</b> will be <b>{learned.category}</b>.
+              {learned.applied != null && ` ${learned.applied} earlier one${learned.applied === 1 ? ' was' : 's were'} updated too.`}
+            </p>
+          ) : learned.byWording ? (
+            <p>
+              Learned: messages worded like this one will be <b>{learned.category}</b>.
+            </p>
+          ) : (
+            <p>Saved. This one has no payee name, so the app can't recognise it next time. Tap the name at the top to add one.</p>
+          )}
+          {similar > 0 && (
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="ink-2">
+                {similar} earlier one{similar > 1 ? 's have' : ' has'} a different or no category.
+              </span>
+              <Button size="sm" className="shrink-0" onClick={() => applySimilar.mutate(undefined)} disabled={applySimilar.isPending}>
+                Update {similar > 1 ? 'them' : 'it'}
+              </Button>
+            </div>
           )}
         </div>
       )}
 
-      {!t.transfer && !paidBy && <RepaymentRow txn={t} />}
-      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} />}
-      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} />}
-
-      <div className="grid gap-3">
-        <Field label="Tags" hint="Comma separated, e.g. trip-goa, office">
-          <Input value={tags} onChange={(e) => setTags(e.target.value)} onBlur={() => tags !== t.tags.join(', ') && update.mutate({ tags: tags.split(',') })} />
-        </Field>
-        <Field label="Notes">
-          <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (t.notes ?? '') && update.mutate({ notes })} />
-        </Field>
-      </div>
+      {!t.transfer && !paidBy && <RepaymentRow txn={t} part="linked" />}
+      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} part="linked" />}
+      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} part="linked" />}
 
       <ErrorText error={update.error ?? del.error} />
 
-      {t.rawEmailId && (
-        <div>
-          <Button variant="secondary" size="sm" onClick={() => setShowEmail((s) => !s)}>
-            <Envelope size={15} /> {showEmail ? 'Hide' : 'Show'} original email
-          </Button>
-          {showEmail && (
-            <pre className="anim-pop mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
-              {email.data ? `${email.data.subject ?? ''}\n\n${email.data.bodyText ?? ''}` : 'Loading…'}
-            </pre>
-          )}
-        </div>
-      )}
-
-      <Button variant="danger" className="w-full" onClick={() => confirm('Delete this transaction?') && del.mutate(undefined)}>
-        <Trash size={16} /> Delete
-      </Button>
+      {/* Everything else, folded away */}
+      <div>
+        <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 flex w-full items-center justify-between rounded-2xl px-1 py-2 text-[14px] font-medium">
+          <span>
+            More
+            {extras && !more ? <span className="ml-2 text-[var(--accent)]">{extras}</span> : null}
+          </span>
+          <motion.span animate={{ rotate: more ? 180 : 0 }} transition={SPRING}>
+            <CaretDown size={14} weight="bold" />
+          </motion.span>
+        </button>
+        <Fold open={more}>
+          <div className="space-y-3 pt-2">
+            <div className="surface overflow-hidden rounded-[20px] [&>*+*]:border-t [&>*+*]:border-[var(--line)]">
+              {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} part="ask" />}
+              {!t.transfer && !paidBy && <RepaymentRow txn={t} part="ask" />}
+              {!t.transfer && !paidBy && (
+                <MoreRow icon={ArrowsLeftRight} onClick={() => update.mutate({ transfer: true })}>
+                  Money moved between my accounts
+                </MoreRow>
+              )}
+              {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} part="ask" />}
+              {fromAlert && !fixed && (
+                <MoreRow icon={GraduationCap} onClick={() => setFixing(true)}>
+                  Wrong amount or account? Fix it
+                </MoreRow>
+              )}
+              {t.rawEmailId && (
+                <MoreRow icon={Envelope} onClick={() => setShowEmail((s) => !s)}>
+                  {showEmail ? 'Hide' : 'Show'} the original message
+                </MoreRow>
+              )}
+              <MoreRow icon={Trash} tone="danger" onClick={() => confirm('Delete this transaction?') && del.mutate(undefined)}>
+                Delete
+              </MoreRow>
+            </div>
+            {showEmail && (
+              <pre className="anim-pop max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
+                {email.data ? `${email.data.subject ?? ''}\n\n${email.data.bodyText ?? ''}` : 'Loading…'}
+              </pre>
+            )}
+            <Field label="Notes">
+              <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (t.notes ?? '') && update.mutate({ notes })} />
+            </Field>
+            <Field label="Tags" hint="Comma separated, e.g. trip-goa, office">
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} onBlur={() => tags !== t.tags.join(', ') && update.mutate({ tags: tags.split(',') })} />
+            </Field>
+            <p className="ink-3 px-1 text-[12.5px]">
+              {t.source === 'EMAIL' ? 'From a bank email' : t.source === 'SMS' ? 'From a bank SMS' : t.source === 'STATEMENT' ? 'From a statement' : t.source === 'ADJUSTMENT' ? 'Balance correction' : t.source === 'PERSON' ? 'Your share of what someone else paid' : t.addedBy ? `Added by ${t.addedBy}` : 'Added by hand'}
+              {t.referenceNo ? ` · Ref ${t.referenceNo}` : ''}
+              {t.reportedBalance != null ? ` · Balance after: ${money(t.reportedBalance)}` : ''}
+            </p>
+          </div>
+        </Fold>
+      </div>
     </div>
   )
 }
 
 type Method = 'EQUAL' | 'EXACT' | 'PERCENT'
 
-function SplitEditor({ txn }: { txn: Txn }) {
+/** @param part "linked": only an existing split; "ask": only the offer to split (under More). */
+function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
   const people = usePeople()
   const split = useQuery({ queryKey: ['split', txn.id], queryFn: () => api<Split>(`/transactions/${txn.id}/split`) })
   const [editing, setEditing] = useState(false)
@@ -322,6 +362,14 @@ function SplitEditor({ txn }: { txn: Txn }) {
     return ''
   })()
 
+  const has = (split.data?.shares.length ?? 0) > 0
+  if (!split.data || (part === 'linked' ? !has : has)) return null
+  if (!editing && !has)
+    return (
+      <MoreRow icon={Users} onClick={() => setEditing(true)}>
+        Split with friends
+      </MoreRow>
+    )
   if (!editing) {
     const s = split.data
     return (
@@ -748,7 +796,7 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
  * "I'm expecting money back" for a payment (a return, a cancelled order). Unusual activity warns if it hasn't
  * arrived by the date; it's marked arrived when a matching credit shows up. Only with Unusual activity on.
  */
-function RefundWatcher({ txnId }: { txnId: number }) {
+function RefundWatcher({ txnId, part }: { txnId: number; part: 'linked' | 'ask' }) {
   const on = useFeature('unusual')
   const q = useQuery({
     queryKey: ['refund', txnId],
@@ -761,16 +809,17 @@ function RefundWatcher({ txnId }: { txnId: number }) {
   const stop = useMoneyMutation(() => api(`/refunds/${txnId}`, { method: 'DELETE' }))
   if (on !== true || q.data === undefined) return null
   const r = q.data
+  if (part === 'linked' ? !r : !!r) return null
   const today = ymd()
 
   if (!r && !editing)
     return (
-      <button className="ink-2 mt-3 block px-1 text-sm font-medium" onClick={() => setEditing(true)}>
-        I'm expecting a refund for this
-      </button>
+      <MoreRow icon={ArrowCounterClockwise} onClick={() => setEditing(true)}>
+        I'm expecting a refund
+      </MoreRow>
     )
   return (
-    <div className="surface mt-4 rounded-2xl p-4">
+    <div className="rounded-2xl bg-[var(--surface-2)] p-4">
       {r && !editing ? (
         <>
           <div className="flex items-center justify-between gap-2">
