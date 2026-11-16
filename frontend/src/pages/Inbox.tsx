@@ -49,7 +49,7 @@ export default function Inbox() {
 
   return (
     <Page>
-      <PageHeader back title="Inbox" subtitle="Every bank email and SMS the app has seen" />
+      <PageHeader up={{ to: '/settings', label: 'Settings' }} title="Messages" subtitle="Every bank email and SMS the app has seen" />
       <div className="grid grid-cols-3 gap-2">
         <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-[13px]" onClick={() => sync.mutate(undefined)} disabled={sync.isPending}>
           <ArrowsClockwise size={16} /> {sync.isPending ? "Syncing…" : "Sync mail"}

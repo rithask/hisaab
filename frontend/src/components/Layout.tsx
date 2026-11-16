@@ -1,4 +1,4 @@
-import { ArrowsLeftRight, Bank, CalendarCheck, Gift, Repeat, ShieldWarning, ChartBar, ChartLineUp, FileText, GearSix, House, Plus, Sparkle, Tag, Target, Tray, TrendUp, Users, type Icon as PhIcon } from '@phosphor-icons/react'
+import { ArrowsLeftRight, Bank, Repeat, ChartBar, ChartLineUp, FileText, GearSix, House, Plus, Target, Users, type Icon as PhIcon } from '@phosphor-icons/react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import type { Feature } from '../api'
@@ -16,26 +16,23 @@ const main: Item[] = [
   { to: '/invest', label: 'Invest', icon: ChartLineUp, match: (p) => p.startsWith('/invest') },
 ]
 
-/** Shown in the sidebar on wide screens; on phones they live under the profile button on Home. */
-const secondary: Item[] = [
-  { to: '/accounts', label: 'Accounts', icon: Bank, match: (p) => p.startsWith('/accounts') },
-  { to: '/reports', label: 'Insights', icon: ChartBar, match: (p) => p.startsWith('/reports') },
-  { to: '/inbox', label: 'Inbox', icon: Tray, match: (p) => p.startsWith('/inbox') },
-  { to: '/categories', label: 'Categories', icon: Tag, match: (p) => p.startsWith('/categories') },
-  { to: '/statements', label: 'Statements', icon: FileText, match: (p) => p.startsWith('/statements') || p.startsWith('/import') },
-  { to: '/settings', label: 'Settings', icon: GearSix, match: (p) => p.startsWith('/settings') || p.startsWith('/more') },
+/**
+ * The rest, in the sidebar on wide screens and under the menu button on phones. Kept short on purpose: the other
+ * pages are reached from where they belong (unusual payments from To check, net worth from Home's number, rewards
+ * from each card, categories and messages from Settings). Optional features hide when switched off.
+ */
+export const secondary: (Item & { hint: string; features?: Feature[] })[] = [
+  { to: '/accounts', label: 'Accounts & cards', hint: 'Balances, limits, due dates, rewards', icon: Bank, match: (p) => p.startsWith('/accounts') || p.startsWith('/rewards') },
+  { to: '/reports', label: 'Insights', hint: 'Where money goes and comes from', icon: ChartBar, match: (p) => p.startsWith('/reports') },
+  { to: '/repeating', label: 'Repeating', hint: 'Bills and subscriptions', icon: Repeat, match: (p) => ['/repeating', '/bills', '/subscriptions'].some((x) => p.startsWith(x)), features: ['bills', 'subscriptions'] },
+  { to: '/budgets', label: 'Budgets', hint: 'Monthly limits per category', icon: Target, match: (p) => p.startsWith('/budgets'), feature: 'budgets' },
+  { to: '/statements', label: 'Statements', hint: 'Import a statement PDF, saved ones', icon: FileText, match: (p) => p.startsWith('/statements') || p.startsWith('/import') },
+  { to: '/settings', label: 'Settings', hint: 'Mail, categories, backups', icon: GearSix, match: (p) => ['/settings', '/more', '/categories', '/inbox'].some((x) => p.startsWith(x)) },
 ]
 
-/** Optional features (Settings → Features); hidden from the sidebar when switched off. */
-const planning: Item[] = [
-  { to: '/bills', label: 'Bills', icon: CalendarCheck, match: (p) => p.startsWith('/bills'), feature: 'bills' },
-  { to: '/budgets', label: 'Budgets', icon: Target, match: (p) => p.startsWith('/budgets'), feature: 'budgets' },
-  { to: '/subscriptions', label: 'Subscriptions', icon: Repeat, match: (p) => p.startsWith('/subscriptions'), feature: 'subscriptions' },
-  { to: '/unusual', label: 'Unusual activity', icon: ShieldWarning, match: (p) => p.startsWith('/unusual'), feature: 'unusual' },
-  { to: '/rewards', label: 'Rewards', icon: Gift, match: (p) => p.startsWith('/rewards'), feature: 'rewards' },
-  { to: '/networth', label: 'Net worth', icon: TrendUp, match: (p) => p.startsWith('/networth'), feature: 'networth' },
-  { to: '/review', label: 'Year in review', icon: Sparkle, match: (p) => p.startsWith('/review'), feature: 'review' },
-]
+/** Whether a menu item's feature (or, for a merged page, any of its features) is switched on. */
+export const shown = (i: (typeof secondary)[number], f: Partial<Record<Feature, boolean>> | undefined) =>
+  i.features ? i.features.some((x) => f?.[x] !== false) : !i.feature || f?.[i.feature] !== false
 
 const AddContext = createContext<(accountId?: number) => void>(() => {})
 export const useAddTransaction = () => useContext(AddContext)
@@ -54,7 +51,7 @@ export default function Layout() {
   const online = useOnline()
   const add = () => setAdding({})
   const settings = useSettings()
-  const planningOn = planning.filter((i) => settings.data && settings.data.features?.[i.feature!] !== false)
+  const rest = secondary.filter((i) => settings.data && shown(i, settings.data.features))
 
   return (
     <AddContext.Provider value={(accountId) => setAdding({ accountId })}>
@@ -70,19 +67,9 @@ export default function Layout() {
               <SideLink key={i.to} item={i} on={i.match(pathname)} />
             ))}
           </nav>
-          {planningOn.length > 0 && (
-            <>
-              <div className="my-4 border-t border-[var(--line)]" />
-              <nav aria-label="Planning" className="space-y-0.5">
-                {planningOn.map((i) => (
-                  <SideLink key={i.to} item={i} on={i.match(pathname)} />
-                ))}
-              </nav>
-            </>
-          )}
           <div className="my-4 border-t border-[var(--line)]" />
           <nav aria-label="More" className="space-y-0.5">
-            {secondary.map((i) => (
+            {rest.map((i) => (
               <SideLink key={i.to} item={i} on={i.match(pathname)} />
             ))}
           </nav>

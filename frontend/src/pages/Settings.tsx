@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, LockSimple, SignOut, SlidersHorizontal, ToggleRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, LockSimple, SignOut, SlidersHorizontal, Tag, ToggleRight, Tray, X, type Icon as PhIcon } from '@phosphor-icons/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { api, type BackupStatus, type Feature, type Learned, type MailImport } from '../api'
@@ -20,6 +20,12 @@ const SECTIONS: { key: SectionKey; label: string; icon: PhIcon; hint: string }[]
   { key: 'teaching', label: 'Teaching', icon: GraduationCap, hint: 'What it learned from your corrections' },
   { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, API tokens, signing out' },
   { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups' },
+]
+
+/** Pages of their own that belong with the settings, listed after the sections. */
+const PAGES: { to: string; label: string; icon: PhIcon; hint: string }[] = [
+  { to: '/categories', label: 'Categories & rules', icon: Tag, hint: 'Your categories and auto-filing' },
+  { to: '/inbox', label: 'Messages', icon: Tray, hint: 'Bank emails and SMS, paste one' },
 ]
 
 /**
@@ -75,6 +81,18 @@ function SectionMenu({ active }: { active: SectionKey }) {
             <span className="ink-2 block truncate text-[12.5px]">{hint}</span>
           </span>
           {badge[key]}
+          <CaretRight size={16} className="ink-3 shrink-0" />
+        </Link>
+      ))}
+      {PAGES.map(({ to, icon: Icon, label, hint }) => (
+        <Link key={to} to={to} className="row flex items-center gap-3.5 px-4 py-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+            <Icon size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium">{label}</span>
+            <span className="ink-2 block truncate text-[12.5px]">{hint}</span>
+          </span>
           <CaretRight size={16} className="ink-3 shrink-0" />
         </Link>
       ))}
@@ -246,7 +264,7 @@ function SmsForwarding() {
           )}
         </div>
         <p className="ink-3 mt-4 text-xs leading-relaxed">
-          Payments that also arrive by email are recorded once. You can also paste an SMS by hand from <b>Inbox → Paste SMS</b>. Your phone needs to reach this server (e.g. over Tailscale or your public URL).
+          Payments that also arrive by email are recorded once. You can also paste an SMS by hand from <b>Settings → Messages → Paste SMS</b>. Your phone needs to reach this server (e.g. over Tailscale or your public URL).
         </p>
       </Card>
     </Section>
@@ -276,7 +294,7 @@ function LearnedCard() {
       </div>
       {empty ? (
         <p className="ink-2 mt-4 text-sm leading-relaxed">
-          Nothing yet. It learns when you correct a message in the Inbox, mark one as not a transaction, rename a payee on a transaction, or pick the account for a message it couldn't place.
+          Nothing yet. It learns when you correct a message (Settings → Messages), mark one as not a transaction, rename a payee on a transaction, or pick the account for a message it couldn't place.
         </p>
       ) : (
         <div className="mt-4 space-y-4">

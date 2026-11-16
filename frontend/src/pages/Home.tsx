@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bank, CaretRight, CreditCard, List as MenuIcon, Wallet } from '@phosphor-icons/react'
+import { Bank, CaretRight, CreditCard, List as MenuIcon, Sparkle, Wallet } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, qs, type Account, type Bill, type Budget, type Dashboard, type NetWorthPoint, type Page as Paged, type Settings, type Txn } from '../api'
@@ -67,8 +67,20 @@ export default function Home() {
 
       {/* The one number */}
       <section className="mt-5">
-        <p className="ink-2 text-[15px]">{showInvest ? 'Net worth' : 'Net worth, without investments'}</p>
-        <BigMoney value={showInvest ? t.netWorth : t.netWorth - t.investments} className="mt-0.5 block text-[44px] leading-tight" />
+        {/* Tapping the number shows how it changed over time (with Net worth on). */}
+        {f?.networth ? (
+          <Link to="/networth" className="block transition-opacity duration-150 active:opacity-60" aria-label="Net worth over time">
+            <p className="ink-2 flex items-center gap-1 text-[15px]">
+              {showInvest ? 'Net worth' : 'Net worth, without investments'} <CaretRight size={13} className="ink-3" />
+            </p>
+            <BigMoney value={showInvest ? t.netWorth : t.netWorth - t.investments} className="mt-0.5 block text-[44px] leading-tight" />
+          </Link>
+        ) : (
+          <>
+            <p className="ink-2 text-[15px]">{showInvest ? 'Net worth' : 'Net worth, without investments'}</p>
+            <BigMoney value={showInvest ? t.netWorth : t.netWorth - t.investments} className="mt-0.5 block text-[44px] leading-tight" />
+          </>
+        )}
         {f?.networth && showInvest && (trend.data?.length ?? 0) > 2 && (
           <Link to="/networth" className="row -mx-1 mt-1 block rounded-xl px-1" aria-label="Net worth over time">
             <Sparkline values={trend.data!.map((p) => p.netWorth)} />
@@ -83,8 +95,17 @@ export default function Home() {
 
       <ToCheck d={d} />
 
+      {/* Year in review comes to Home at the turn of the year, instead of living in the menu. */}
+      {f?.review && (new Date().getMonth() === 11 || new Date().getMonth() === 0) && (
+        <Link to={`/review?year=${new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()}`} className="pressable surface mt-4 flex items-center gap-3 rounded-[20px] p-4">
+          <Sparkle size={22} weight="fill" className="text-[var(--accent)]" />
+          <span className="min-w-0 flex-1 text-[15px] font-medium">Your {new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()} in review</span>
+          <CaretRight size={16} className="ink-3" />
+        </Link>
+      )}
+
       {f?.bills && (bills.data?.length ?? 0) > 0 && (
-        <Section title="Upcoming bills" action={<More to="/bills">All bills</More>}>
+        <Section title="Upcoming bills" action={<More to="/repeating">All bills</More>}>
           <BillList bills={bills.data!.slice(0, 4)} />
         </Section>
       )}

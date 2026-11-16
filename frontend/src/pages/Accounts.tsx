@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bank, Plus, Wallet } from '@phosphor-icons/react'
+import { Bank, CaretRight, Gift, Plus, Wallet } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
+import { useFeature } from '../hooks'
 import { useState } from 'react'
 import { api, type Account } from '../api'
 import AccountForm from '../components/AccountForm'
@@ -11,6 +13,7 @@ import { money, shortDate } from '../format'
 export default function Accounts() {
   const list = useQuery({ queryKey: ['accounts', 'all'], queryFn: () => api<Account[]>('/accounts?includeArchived=true') })
   const [editing, setEditing] = useState<Account | 'new' | null>(null)
+  const rewards = useFeature('rewards')
   if (!list.data) return <PageSkeleton />
   const active = list.data.filter((a) => !a.archived)
   const cards = active.filter((a) => a.type === 'CREDIT_CARD')
@@ -19,7 +22,7 @@ export default function Accounts() {
 
   return (
     <Page>
-      <PageHeader back title="Accounts" action={<IconButton icon={Plus} label="Add account" onClick={() => setEditing('new')} />} />
+      <PageHeader back title="Accounts & cards" action={<IconButton icon={Plus} label="Add account" onClick={() => setEditing('new')} />} />
       {active.length === 0 && <Empty icon={Bank} title="No accounts yet">Add your bank accounts and cards to start tracking.</Empty>}
 
       {cards.length > 0 && (
@@ -52,6 +55,13 @@ export default function Accounts() {
                       <p className="ink-2 col-span-3">Add statement and due days to track billing cycles.</p>
                     )}
                   </Card>
+                )}
+                {rewards && (
+                  <Link to="/rewards" className="row mt-2 flex items-center gap-3 rounded-[20px] bg-[var(--surface)] px-4 py-3 text-[14px] font-medium">
+                    <Gift size={18} className="ink-2" />
+                    <span className="flex-1">Rewards on this card</span>
+                    <CaretRight size={15} className="ink-3" />
+                  </Link>
                 )}
               </div>
             ))}

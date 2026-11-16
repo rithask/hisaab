@@ -37,7 +37,7 @@ export default function Unusual() {
   return (
     <FeatureGate on={on} name="Unusual activity">
       <Page>
-        <PageHeader back title="Unusual activity" subtitle="Recent payments worth a second look" />
+        <PageHeader up={{ to: '/', label: 'Home' }} title="Unusual activity" subtitle="Recent payments worth a second look" />
         {!d ? (
           <PageSkeleton />
         ) : (

@@ -77,7 +77,7 @@ export default function PersonDetail() {
   const v = Math.round(p.outstanding * 100) / 100
   return (
     <Page>
-      <PageHeader back title="" action={<IconButton icon={PencilSimple} label="Edit" onClick={() => setSheet('edit')} />} />
+      <PageHeader up={{ to: '/people', label: 'Splits' }} title="" action={<IconButton icon={PencilSimple} label="Edit" onClick={() => setSheet('edit')} />} />
       <div className="-mt-6 flex flex-col items-center text-center">
         <Avatar name={p.name} size={76} />
         <h1 className="mt-3 text-[24px] font-bold">{p.name}</h1>

@@ -64,11 +64,19 @@ export function List({ children, className }: { children: ReactNode; className?:
   return <div className={cx('surface overflow-hidden rounded-[20px] [&>*+*]:border-t [&>*+*]:border-[var(--line)]', className)}>{children}</div>
 }
 
-export function PageHeader({ title, subtitle, action, back }: { title: string; subtitle?: ReactNode; action?: ReactNode; back?: boolean }) {
+/**
+ * @param back "Back" on phones (wide screens have the sidebar instead)
+ * @param up   for a page opened from inside another one (Settings → Messages): a link back to it, on every screen
+ */
+export function PageHeader({ title, subtitle, action, back, up }: { title: string; subtitle?: ReactNode; action?: ReactNode; back?: boolean; up?: { to: string; label: string } }) {
   const nav = useNavigate()
   return (
     <header className="mb-5 pt-1">
-      {back && (
+      {up ? (
+        <button onClick={() => nav(up.to)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)]">
+          <CaretLeft size={16} weight="bold" /> {up.label}
+        </button>
+      ) : back && (
         <button onClick={() => nav(-1)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)] lg:hidden">
           <CaretLeft size={16} weight="bold" /> Back
         </button>

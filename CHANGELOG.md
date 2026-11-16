@@ -19,6 +19,12 @@ must do when upgrading (marked **Upgrade:**).
   "Change"; a guessed one asks "Right?". Splitting, marking a transfer, expecting a refund, linking a repayment,
   notes, tags, fixing what an alert read, the original message and Delete are under **More**. Anything already
   set (a split, a refund you're waiting for, a linked repayment, someone else paid) still shows up front.
+- The menu is down to six places: Accounts & cards, Insights, Repeating, Budgets, Statements, Settings.
+  **Repeating** is Bills and Subscriptions on one page (the old addresses still work). Tap the net worth number
+  on Home for Net worth; rewards are a link under each credit card; Year in review is a row at the top of
+  Insights (and a card on Home in December and January); unusual payments are To check cards; Categories &
+  rules and Messages (the old Inbox) are in Settings. Pages opened from inside another one (Messages,
+  Categories, Rewards, Net worth, a statement import) have a link back to it on every screen size.
 
 ## [0.10.0] - 2026-11-16
 

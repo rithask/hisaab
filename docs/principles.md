@@ -19,8 +19,8 @@ counted in the time zone set with `TZ` (section 3.3).
 2. **Learn from corrections.** When the user fixes something (a category, a payee name, the account an SMS
    belongs to, a bill that isn't a bill), remember it and apply it next time. Say so in the UI ("Learned: Zomato
    → Food").
-3. **Accuracy over completeness.** Better to leave a transaction "Uncategorised", or an SMS in the Inbox for
-   review, than to guess wrong. Unsure results go to a place the user checks (Home → *Needs attention*, Inbox).
+3. **Accuracy over completeness.** Better to leave a transaction "Uncategorised", or an SMS waiting for review,
+   than to guess wrong. Unsure results become a card in Home → *To check*: one question, one-tap answers.
    Never silently drop data.
 4. **Nothing is deleted without asking.** Destructive actions confirm first. Turning a feature off hides it; it
    doesn't delete its data.
@@ -159,8 +159,10 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 2. Backend: call `features.require(Feature.X)` (or check `on`) at the top of every endpoint, and skip scheduled
    work when it's off.
 3. Frontend: add the key to the `Feature` type in `api.ts` and a row in `FEATURES` in `Settings.tsx`; wrap the
-   page in `<FeatureGate on={useFeature('x')} name="…">`; hide its menu, sidebar and Home entries when off; only
-   enable its queries when it's on.
+   page in `<FeatureGate on={useFeature('x')} name="…">`; hide its entries when off; only enable its queries when
+   it's on. The menu is short on purpose (`secondary` in `Layout.tsx`): reach the page from where it belongs (a
+   card, an account, Settings) rather than adding a menu row, and turn anything that needs a decision into a
+   card in `ToCheck.tsx`.
 4. Add an `Added` line to `CHANGELOG.md`.
 
 ### 3.7 Frontend (`frontend/src`)

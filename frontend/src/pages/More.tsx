@@ -1,34 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bank, CalendarCheck, Gift, Repeat, ShieldWarning, CaretRight, ChartBar, FileText, GearSix, SignOut, Sparkle, Tag, Target, Tray, TrendUp, UploadSimple, type Icon as PhIcon } from '@phosphor-icons/react'
+import { CaretRight, SignOut } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
-import { api, type Feature, type Settings as S } from '../api'
+import { api, type Settings as S } from '../api'
+import { secondary, shown } from '../components/Layout'
 import { useSignOut } from '../hooks'
 import { Avatar, Badge, List, PageHeader, Page, Rise } from '../components/ui'
-
-type Item = { to: string; icon: PhIcon; label: string; hint: string; feature?: Feature }
-
-const groups: Item[][] = [
-  [
-    { to: '/bills', icon: CalendarCheck, label: 'Bills', hint: 'Upcoming, learned from repeating payments', feature: 'bills' },
-    { to: '/budgets', icon: Target, label: 'Budgets', hint: 'Monthly limits per category', feature: 'budgets' },
-    { to: '/subscriptions', icon: Repeat, label: 'Subscriptions', hint: 'Price rises, double charges, new ones', feature: 'subscriptions' },
-    { to: '/unusual', icon: ShieldWarning, label: 'Unusual activity', hint: 'Payments worth a second look, refunds', feature: 'unusual' },
-    { to: '/rewards', icon: Gift, label: 'Rewards', hint: 'Cashback and points on your cards', feature: 'rewards' },
-    { to: '/networth', icon: TrendUp, label: 'Net worth', hint: 'How it has changed over time', feature: 'networth' },
-    { to: '/review', icon: Sparkle, label: 'Year in review', hint: 'Your year at a glance', feature: 'review' },
-  ],
-  [
-    { to: '/accounts', icon: Bank, label: 'Accounts & cards', hint: 'Balances, limits, billing cycles' },
-    { to: '/reports', icon: ChartBar, label: 'Insights', hint: 'Where money goes and comes from' },
-    { to: '/categories', icon: Tag, label: 'Categories & rules', hint: 'Auto-categorisation' },
-  ],
-  [
-    { to: '/inbox', icon: Tray, label: 'Inbox & alerts', hint: 'Emails needing review, mismatches' },
-    { to: '/import', icon: UploadSimple, label: 'Import a statement', hint: 'Add or complete transactions from a PDF' },
-    { to: '/statements', icon: FileText, label: 'Statements', hint: 'Saved PDF statements' },
-    { to: '/settings', icon: GearSix, label: 'Settings', hint: 'Mail & SMS, teaching, backups, security' },
-  ],
-]
 
 export default function More() {
   const signOut = useSignOut()
@@ -43,10 +19,9 @@ export default function More() {
           <div className="mt-1">{s.data?.mail.configured ? <Badge tone="green">Mailbox connected</Badge> : <Badge tone="amber">Mailbox not connected</Badge>}</div>
         </div>
       </div>
-      {groups.map((all) => all.filter((x) => !x.feature || s.data?.features?.[x.feature] !== false)).filter((g) => g.length > 0).map((g, i) => (
-        <Rise key={i} className="mt-5">
+      <Rise className="mt-5">
         <List>
-          {g.map(({ to, icon: Icon, label, hint }) => (
+          {secondary.filter((i) => shown(i, s.data?.features)).map(({ to, icon: Icon, label, hint }) => (
             <Link key={to} to={to} className="flex items-center gap-3.5 px-4 py-3.5 row">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
                 <Icon size={20} />
@@ -59,8 +34,7 @@ export default function More() {
             </Link>
           ))}
         </List>
-        </Rise>
-      ))}
+      </Rise>
       <button
         className="pressable surface mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[20px] text-[15px] font-semibold text-[var(--negative)]"
         onClick={signOut}

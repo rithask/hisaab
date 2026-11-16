@@ -21,7 +21,7 @@ export default function Rewards() {
   return (
     <FeatureGate on={on} name="Rewards">
       <Page>
-        <PageHeader back title="Rewards" subtitle="Cashback and points on your cards" />
+        <PageHeader up={{ to: '/accounts', label: 'Accounts & cards' }} title="Rewards" subtitle="Cashback and points on your cards" />
         {!q.data ? (
           <PageSkeleton />
         ) : q.data.length === 0 ? (

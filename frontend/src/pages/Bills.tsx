@@ -1,26 +1,23 @@
 import { useQuery } from '@tanstack/react-query'
 import { CalendarCheck, CreditCard, Repeat } from '@phosphor-icons/react'
 import { api, type Bill } from '../api'
-import { Badge, Card, cx, Empty, FeatureGate, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
+import { Badge, Card, cx, Empty, List, PageSkeleton, Section } from '../components/ui'
 import { money, shortDate } from '../format'
-import { useFeature, useMoneyMutation } from '../hooks'
+import { useMoneyMutation } from '../hooks'
 
 export const whenLabel = (b: Bill) =>
   b.overdue ? `${-b.daysLeft} day${b.daysLeft === -1 ? '' : 's'} late` : b.daysLeft === 0 ? 'Today' : b.daysLeft === 1 ? 'Tomorrow' : `In ${b.daysLeft} days`
 
-/** Bills the app has learned from repeating payments, plus card due dates. Nothing to set up. */
-export default function Bills() {
-  const on = useFeature('bills')
-  const q = useQuery({ queryKey: ['bills'], queryFn: () => api<Bill[]>('/bills'), enabled: on === true })
+/** Bills the app has learned from repeating payments, plus card due dates. Nothing to set up. Part of Repeating. */
+export function BillsPart() {
+  const q = useQuery({ queryKey: ['bills'], queryFn: () => api<Bill[]>('/bills') })
   const ignore = useMoneyMutation((key: string) => api('/bills/ignore', { body: { key } }))
   const soon = (q.data ?? []).filter((b) => b.daysLeft <= 14)
   const later = (q.data ?? []).filter((b) => b.daysLeft > 14)
   const total = soon.reduce((s, b) => s + b.amount, 0)
 
   return (
-    <FeatureGate on={on} name="Bills">
-      <Page>
-        <PageHeader back title="Bills" subtitle="Learned from payments that repeat" />
+    <>
         {!q.data ? (
           <PageSkeleton />
         ) : q.data.length === 0 ? (
@@ -30,7 +27,7 @@ export default function Bills() {
         ) : (
           <>
             <Card>
-              <p className="ink-2 text-[13px]">Due in the next 14 days</p>
+              <p className="ink-2 text-[13px]">Bills due in the next 14 days</p>
               <p className="display mt-0.5 text-[28px]">{money(total)}</p>
               <p className="ink-2 mt-0.5 text-[13px]">
                 {soon.length} bill{soon.length === 1 ? '' : 's'}
@@ -42,15 +39,14 @@ export default function Bills() {
               </Section>
             )}
             {later.length > 0 && (
-              <Section title="Later">
+              <Section title="Later bills">
                 <BillList bills={later} onIgnore={(k) => ignore.mutate(k)} />
               </Section>
             )}
             <p className="ink-3 mt-4 px-1 text-[13px]">A payee counts as a bill after a few payments at a regular interval with similar amounts. Tap "Not a bill" to stop tracking one.</p>
           </>
         )}
-      </Page>
-    </FeatureGate>
+    </>
   )
 }
 

@@ -6,13 +6,12 @@ import Layout from './components/Layout'
 import { PageSkeleton } from './components/ui'
 import Accounts from './pages/Accounts'
 import Categories from './pages/Categories'
-import Bills from './pages/Bills'
 import Budgets from './pages/Budgets'
 import Home from './pages/Home'
 import NetWorth from './pages/NetWorth'
 import Review from './pages/Review'
 import Rewards from './pages/Rewards'
-import Subscriptions from './pages/Subscriptions'
+import Repeating, { ToRepeating } from './pages/Repeating'
 import Unusual from './pages/Unusual'
 import ImportStatement from './pages/ImportStatement'
 import Inbox from './pages/Inbox'
@@ -54,11 +53,12 @@ export default function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="inbox" element={<Inbox />} />
           <Route path="statements" element={<Statements />} />
-          <Route path="bills" element={<Bills />} />
+          <Route path="repeating" element={<Repeating />} />
+          <Route path="bills" element={<ToRepeating />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="networth" element={<NetWorth />} />
           <Route path="review" element={<Review />} />
-          <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="subscriptions" element={<ToRepeating />} />
           <Route path="unusual" element={<Unusual />} />
           <Route path="rewards" element={<Rewards />} />
           <Route path="import" element={<ImportStatement />} />

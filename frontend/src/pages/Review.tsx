@@ -20,7 +20,7 @@ export default function Review() {
   return (
     <FeatureGate on={on} name="Year in review">
       <Page>
-        <PageHeader back title={`${year} in review`} subtitle={r?.partial ? 'So far this year' : undefined} />
+        <PageHeader up={{ to: '/reports', label: 'Insights' }} title={`${year} in review`} subtitle={r?.partial ? 'So far this year' : undefined} />
         {r && r.years.length > 1 && (
           <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
             {r.years.map((y) => (

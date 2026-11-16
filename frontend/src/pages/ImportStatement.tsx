@@ -44,7 +44,7 @@ function Upload() {
 
   return (
     <Page>
-      <PageHeader back title="Import statement" subtitle="Add or complete transactions from a bank or card statement" />
+      <PageHeader up={{ to: '/statements', label: 'Statements' }} title="Import statement" subtitle="Add or complete transactions from a bank or card statement" />
 
       <Card className="p-5">
         <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), upload.reset())} />
@@ -123,7 +123,7 @@ function Review({ id }: { id: number }) {
   if (d.status !== 'REVIEW')
     return (
       <Page>
-        <PageHeader back title="Import statement" />
+        <PageHeader up={{ to: '/statements', label: 'Statements' }} title="Import statement" />
         <Card className="p-5 text-[15px]">This statement was already {d.status.toLowerCase()}.</Card>
       </Page>
     )
@@ -142,7 +142,7 @@ function Review({ id }: { id: number }) {
 
   return (
     <Page className="pb-40 lg:pb-0">
-      <PageHeader back title="Review statement" subtitle={`${d.label}${d.last4 ? ` ••${d.last4}` : ''}${d.from ? ` · ${shortDate(d.from)} – ${shortDate(d.to!)}` : ''}`} />
+      <PageHeader up={{ to: '/statements', label: 'Statements' }} title="Review statement" subtitle={`${d.label}${d.last4 ? ` ••${d.last4}` : ''}${d.from ? ` · ${shortDate(d.from)} – ${shortDate(d.to!)}` : ''}`} />
 
       {/* Did we read it right? */}
       <Card className="flex items-start gap-3 p-4">

@@ -3,9 +3,9 @@ import { ArrowUpRight, Copy, Repeat, Sparkle, TrendDown, TrendUp, Pause } from '
 import { useState } from 'react'
 import { api, type Subscription, type SubscriptionAlert, type Subscriptions as Data } from '../api'
 import { TxnSheetById } from '../components/TxnSheet'
-import { Badge, Button, Card, Empty, FeatureGate, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
+import { Badge, Button, Card, Empty, List, PageSkeleton, Section, Sheet } from '../components/ui'
 import { money0, moneyAuto, shortDate } from '../format'
-import { useFeature, useMoneyMutation } from '../hooks'
+import { useMoneyMutation } from '../hooks'
 
 const per = (every: string) => ({ 'Every week': 'a week', 'Every month': 'a month', 'Every 3 months': 'every 3 months', 'Every year': 'a year' })[every] ?? every.toLowerCase()
 
@@ -35,10 +35,9 @@ export function alertText(a: SubscriptionAlert): { title: string; detail: string
 
 const alertIcon = { PRICE_UP: TrendUp, PRICE_DOWN: TrendDown, DOUBLE: Copy, NEW: Sparkle, STOPPED: Pause } as const
 
-/** Subscriptions learned from fixed-price payments that repeat, and what changed about them. */
-export default function Subscriptions() {
-  const on = useFeature('subscriptions')
-  const q = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<Data>('/subscriptions'), enabled: on === true })
+/** Subscriptions learned from fixed-price payments that repeat, and what changed about them. Part of Repeating. */
+export function SubscriptionsPart() {
+  const q = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<Data>('/subscriptions') })
   const [open, setOpen] = useState<Subscription | null>(null)
   const [txn, setTxn] = useState<number | null>(null)
   const unhide = useMoneyMutation((key: string) => api('/subscriptions/unhide', { body: { key } }))
@@ -47,9 +46,7 @@ export default function Subscriptions() {
   const stopped = d?.items.filter((s) => s.status === 'STOPPED') ?? []
 
   return (
-    <FeatureGate on={on} name="Subscription watch">
-      <Page>
-        <PageHeader back title="Subscriptions" subtitle="Learned from payments that repeat" />
+    <>
         {!d ? (
           <PageSkeleton />
         ) : d.items.length === 0 ? (
@@ -103,7 +100,7 @@ export default function Subscriptions() {
               </Section>
             )}
             <p className="ink-3 mt-4 px-1 text-[13px]">
-              Fixed-price payments that repeat. Rent, investments and bills that vary (electricity, phone usage) aren't counted; they're on the Bills page.
+              Fixed-price payments that repeat. Rent, investments and bills that vary (electricity, phone usage) are under Bills above.
             </p>
           </>
         )}
@@ -111,8 +108,7 @@ export default function Subscriptions() {
           {open && <SubDetail s={open} onDone={() => setOpen(null)} />}
         </Sheet>
         <TxnSheetById id={txn} onClose={() => setTxn(null)} />
-      </Page>
-    </FeatureGate>
+    </>
   )
 }
 

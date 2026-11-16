@@ -59,7 +59,7 @@ curl -X POST https://money.example.com/api/v1/sms \
 }
 ```
 
-`status` is `parsed`, `duplicate` (this SMS was received before), `needs_review` (it's waiting in the Inbox),
+`status` is `parsed`, `duplicate` (this SMS was received before), `needs_review` (it's waiting in To check on Home),
 `ignored` (not a transaction) or `error`. `message` is one line, e.g. for a phone notification. `transaction` is
 what was recorded, or `null`. The same SMS sent twice is counted once, and a payment that also arrives by email is
 recorded once.

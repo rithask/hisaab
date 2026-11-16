@@ -20,7 +20,7 @@ export default function NetWorth() {
   return (
     <FeatureGate on={on} name="Net worth">
       <Page>
-        <PageHeader back title="Net worth" />
+        <PageHeader up={{ to: '/', label: 'Home' }} title="Net worth" />
         {!q.data ? (
           <PageSkeleton />
         ) : !last ? (

@@ -22,7 +22,7 @@ export default function Categories() {
 
   return (
     <Page>
-      <PageHeader back title="Categories" />
+      <PageHeader up={{ to: '/settings', label: 'Settings' }} title="Categories & rules" />
       <Segmented<'categories' | 'rules'>
         value={tab}
         onChange={setTab}

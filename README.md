@@ -67,7 +67,7 @@ Older mail can be pulled in from Settings → Import & backups → Import older 
 | HDFC credit card | "Rs. X has been debited from your HDFC Bank Credit Card ending NNNN towards …" | verified with a real sample |
 | Canara Bank account | "An amount of INR X has been DEBITED/CREDITED on dd/mm/yy … account XXXXNNNN …" | verified (debit); credit inferred |
 | Axis Bank account | table: Amount Debited/Credited, Account Number, Date & Time, Transaction Info | verified (debit); credit inferred |
-| Axis credit card, SBI card | — | not yet: these land in Inbox → Needs review |
+| Axis credit card, SBI card | — | not yet: these come up in **To check** on Home |
 
 Unrecognised emails are kept and can be re-processed once a parser is added.
 
@@ -96,13 +96,13 @@ curl -X POST https://<host>/api/v1/sms \
 With **Settings → Features → Data API** on, other apps can read transactions, balances or totals, or add transactions, each with its own token and limits (Settings → Security → API tokens). See [docs/api.md](docs/api.md).
 
 - The same SMS sent twice is ignored, and a payment that also arrives by email is recorded once (same account, amount and direction within 20 minutes, or the same day when the alert has no time).
-- SMS can also be pasted by hand: **Inbox → Paste SMS**.
+- SMS can also be pasted by hand: **Settings → Messages → Paste SMS**.
 
 ### How the SMS parser learns
 
 No AI is involved; it learns from evidence.
 
-- **Formats.** Open an SMS in the Inbox and choose *Tell me what this is* (or *This was read wrong*). Your four answers (in/out, amount, account, payee) turn the message's wording into a template; the next SMS worded the same way is read exactly. Everything still waiting for review is retried straight away.
+- **Formats.** Open an SMS that couldn't be read (from **To check** on Home, or Settings → Messages) and choose *Tell me what this is* (or *This was read wrong*). Your four answers (in/out, amount, account, payee) turn the message's wording into a template; the next SMS worded the same way is read exactly. Everything still waiting for review is retried straight away.
 - **Accounts.** If the digits in an SMS aren't an account's last four (or there are none), the account you pick is remembered for that bank.
 - **Payee names.** Rename a payee on a transaction and every earlier and future alert with the same raw name follows.
 - **Self-correction.** When an SMS prints the balance, the arithmetic decides the direction: if the balance only fits the opposite direction, it is flipped and the message is annotated.
