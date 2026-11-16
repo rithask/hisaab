@@ -25,6 +25,13 @@ must do when upgrading (marked **Upgrade:**).
   Insights (and a card on Home in December and January); unusual payments are To check cards; Categories &
   rules and Messages (the old Inbox) are in Settings. Pages opened from inside another one (Messages,
   Categories, Rewards, Net worth, a statement import) have a link back to it on every screen size.
+- Adding a transaction is amount and where; the app fills in the account, category and time as one line of
+  guesses you tap only to change. "Someone else paid", "Split with friends" (equally, you included), a note and
+  "Between my accounts" are chips under **Also**.
+
+### Fixed
+- Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked
+  (Safari, the installed app). It now asks in place, with any error shown right there.
 
 ## [0.10.0] - 2026-11-16
 

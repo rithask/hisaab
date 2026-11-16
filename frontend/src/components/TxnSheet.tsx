@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowCounterClockwise, ArrowsLeftRight, Bank, Users, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowsLeftRight, Bank, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
@@ -10,7 +10,7 @@ import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
-import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow } from './ui'
+import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow, Avatar } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
   return (
@@ -38,6 +38,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const [editingShare, setEditingShare] = useState(false)
   const [changingCategory, setChangingCategory] = useState(false)
   const [more, setMore] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   // A friend paid and this is my share: no account, no learning, no splitting or transfers.
   const paidBy = t.paidBy
   const fromAlert = (t.source === 'EMAIL' || t.source === 'SMS') && !!t.rawEmailId
@@ -253,7 +254,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} part="linked" />}
       {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} part="linked" />}
 
-      <ErrorText error={update.error ?? del.error} />
+      <ErrorText error={update.error} />
 
       {/* Everything else, folded away */}
       <div>
@@ -287,10 +288,24 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
                   {showEmail ? 'Hide' : 'Show'} the original message
                 </MoreRow>
               )}
-              <MoreRow icon={Trash} tone="danger" onClick={() => confirm('Delete this transaction?') && del.mutate(undefined)}>
-                Delete
-              </MoreRow>
+              {/* Asked in place, not with a browser pop-up: those can be blocked (Safari, the installed app). */}
+              {deleting ? (
+                <div className="anim-pop flex items-center gap-2 px-4 py-2.5">
+                  <span className="min-w-0 flex-1 text-[15px]">Delete this transaction?</span>
+                  <Button size="sm" variant="secondary" onClick={() => setDeleting(false)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" variant="danger" disabled={del.isPending} onClick={() => del.mutate(undefined)}>
+                    Delete
+                  </Button>
+                </div>
+              ) : (
+                <MoreRow icon={Trash} tone="danger" onClick={() => setDeleting(true)}>
+                  Delete
+                </MoreRow>
+              )}
             </div>
+            <ErrorText error={del.error} />
             {showEmail && (
               <pre className="anim-pop max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
                 {email.data ? `${email.data.subject ?? ''}\n\n${email.data.bodyText ?? ''}` : 'Loading…'}
@@ -466,8 +481,9 @@ const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD']
 type WhenMode = 'now' | 'yesterday' | 'custom'
 
 /**
- * Adding a transaction is three decisions: how much, which account, what for. Those are all one tap
- * (amount field, chips), recent payees fill everything in at once, and the rare options stay folded away.
+ * Adding a transaction is two decisions: how much, and where. The app fills in the rest (account, category,
+ * when) as one line of guesses that open only if tapped; a recent payee fills them from last time. The rare
+ * extras (someone else paid, splitting, a note, a transfer) are chips that each open their own few fields.
  */
 function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaultAccountId?: number }) {
   const accounts = useAccounts()
@@ -483,7 +499,12 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const [when, setWhen] = useState(toLocalInput())
   const [notes, setNotes] = useState('')
   const [transfer, setTransfer] = useState(false)
-  const [more, setMore] = useState(false)
+  // Which of the guesses (account, category, when) is open for changing; one at a time.
+  const [open, setOpen] = useState<'account' | 'category' | 'when' | null>(null)
+  const toggle = (k: 'account' | 'category' | 'when') => setOpen((o) => (o === k ? null : k))
+  const [noting, setNoting] = useState(false)
+  const [splitting, setSplitting] = useState(false)
+  const [splitWith, setSplitWith] = useState<number[]>([])
   // "Someone else paid": a friend paid; I record my share, with no account of mine
   const people = usePeople()
   const [someone, setSomeone] = useState(false)
@@ -503,6 +524,11 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const share = shareOf(value, shareMode, exactShare)
   const payer = (people.data ?? []).find((p) => p.id === personId)
   const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== ''
+  const account = active.find((a) => a.id === accountId)
+  const AccountIcon = account?.type === 'CREDIT_CARD' ? CreditCard : account?.type === 'CASH' ? Wallet : Bank
+  const category = kindCats.find((c) => c.id === categoryId)
+  const CatIcon = category ? categoryIcon(category) : Sparkle
+  const splitNow = splitting && !paidByOther && !transfer && direction === 'DEBIT' && splitWith.length > 0
 
   // People and shops I've paid before (or been paid by): one tap fills payee, category and account.
   const payees = useMemo(() => {
@@ -537,7 +563,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
     () =>
       paidByOther
         ? api('/transactions/paid-by', { body: { personId, total: value, share, categoryId: categoryId || null, where: counterparty, occurredAt: occurredAt(), notes } })
-        : api('/transactions', {
+        : api<Txn>('/transactions', {
         body: {
           accountId,
           direction,
@@ -549,7 +575,10 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           notes,
           transfer,
         },
-      }),
+      }).then((t) =>
+        // Split with friends: equally, me included; the split can be changed on the transaction later.
+        splitNow ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: true, participants: splitWith.map((personId) => ({ personId, value: null })) } }) : t,
+      ),
     onClose,
   )
 
@@ -634,22 +663,94 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         )}
       </div>
 
-      {/* 3. Which account */}
-      <Label>{direction === 'DEBIT' ? 'Paid from' : 'Into'}</Label>
+      {/* 3. What the app filled in: one line of guesses, each opens only if tapped. */}
+      <Label>{direction === 'DEBIT' ? 'Paid' : 'Received'}</Label>
+      <div className="flex flex-wrap gap-2">
+        <Guess on={open === 'account'} onClick={() => toggle('account')}>
+          {paidByOther ? <Users size={17} /> : <AccountIcon size={17} />}
+          {paidByOther ? (payer ? `By ${payer.name}` : 'By someone else') : (account?.name ?? 'Account')}
+        </Guess>
+        {!transfer && (
+          <Guess on={open === 'category'} onClick={() => toggle('category')}>
+            <CatIcon size={17} style={category ? { color: category.color } : undefined} />
+            {category?.name ?? (paidByOther ? 'No category' : 'Category: auto')}
+          </Guess>
+        )}
+        <Guess on={open === 'when'} onClick={() => toggle('when')}>
+          <CalendarBlank size={17} />
+          {whenMode === 'now' ? 'Just now' : whenMode === 'yesterday' ? 'Yesterday' : dateTime(fromLocalInput(when))}
+        </Guess>
+      </div>
+      <Fold open={open === 'account'}>
+        <ChipRow className="pt-2.5">
+          {active.map((a) => {
+            const Icon = a.type === 'CREDIT_CARD' ? CreditCard : a.type === 'CASH' ? Wallet : Bank
+            return (
+              <Choice key={a.id} on={!paidByOther && a.id === accountId} onClick={() => (setAccountId(a.id), setSomeone(false), setOpen(null))}>
+                <Icon size={17} weight={!paidByOther && a.id === accountId ? 'fill' : 'regular'} />
+                {a.name}
+              </Choice>
+            )
+          })}
+        </ChipRow>
+      </Fold>
+      <Fold open={open === 'category'}>
+        <ChipRow rows={2} className="pt-2.5">
+          <Choice on={categoryId === ''} onClick={() => (setCategoryId(''), setOpen(null))}>
+            <Sparkle size={17} weight={categoryId === '' ? 'fill' : 'regular'} />
+            {paidByOther ? 'None' : 'Auto'}
+          </Choice>
+          {kindCats.map((c) => {
+            const Icon = categoryIcon(c)
+            const on = c.id === categoryId
+            return (
+              <Choice key={c.id} on={on} onClick={() => (setCategoryId(c.id), setOpen(null))}>
+                <Icon size={17} weight={on ? 'fill' : 'regular'} style={on ? undefined : { color: c.color }} />
+                {c.name}
+              </Choice>
+            )
+          })}
+        </ChipRow>
+      </Fold>
+      <Fold open={open === 'when'}>
+        <ChipRow className="pt-2.5">
+          <Choice on={whenMode === 'now'} onClick={() => (setWhenMode('now'), setOpen(null))}>
+            Just now
+          </Choice>
+          <Choice on={whenMode === 'yesterday'} onClick={() => (setWhenMode('yesterday'), setOpen(null))}>
+            Yesterday
+          </Choice>
+          <Choice on={whenMode === 'custom'} onClick={() => setWhenMode('custom')}>
+            <CalendarBlank size={17} weight={whenMode === 'custom' ? 'fill' : 'regular'} />
+            Pick a date
+          </Choice>
+        </ChipRow>
+        {whenMode === 'custom' && (
+          <div className="pt-2.5">
+            <DateTimePicker value={when} max={toLocalInput()} onChange={setWhen} />
+          </div>
+        )}
+      </Fold>
+
+      {/* 4. The rare extras, as chips: each opens its own few fields. */}
+      <Label>Also</Label>
       <ChipRow>
-        {active.map((a) => {
-          const Icon = a.type === 'CREDIT_CARD' ? CreditCard : a.type === 'CASH' ? Wallet : Bank
-          return (
-            <Choice key={a.id} on={!paidByOther && a.id === accountId} onClick={() => (setAccountId(a.id), setSomeone(false))}>
-              <Icon size={17} weight={!paidByOther && a.id === accountId ? 'fill' : 'regular'} />
-              {a.name}
-            </Choice>
-          )
-        })}
         {direction === 'DEBIT' && (
-          <Choice on={paidByOther} onClick={() => (setSomeone(true), setCurrency('INR'), setTransfer(false))}>
-            <Users size={17} weight={paidByOther ? 'fill' : 'regular'} />
-            Someone else
+          <Choice on={someone} onClick={() => (setSomeone(!someone), setSplitting(false), setTransfer(false), setCurrency('INR'), setOpen(null))}>
+            <Users size={17} weight={someone ? 'fill' : 'regular'} /> Someone else paid
+          </Choice>
+        )}
+        {direction === 'DEBIT' && !someone && (
+          <Choice on={splitting} onClick={() => (setSplitting(!splitting), setTransfer(false))}>
+            <UsersThree size={17} weight={splitting ? 'fill' : 'regular'} /> Split with friends
+          </Choice>
+        )}
+        <Choice on={noting} onClick={() => setNoting(!noting)}>
+          <NotePencil size={17} weight={noting ? 'fill' : 'regular'} /> Note
+        </Choice>
+        {!someone && (
+          <Choice on={transfer} onClick={() => (setTransfer(!transfer), setSplitting(false))}>
+            <ArrowsLeftRight size={17} weight={transfer ? 'fill' : 'regular'} /> Between my accounts
           </Choice>
         )}
       </ChipRow>
@@ -663,68 +764,39 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           {payer && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
         </div>
       </Fold>
-
-      {/* 4. What for */}
-      {!transfer && (
-        <>
-          <Label>Category</Label>
-          <ChipRow rows={2}>
-            <Choice on={categoryId === ''} onClick={() => setCategoryId('')}>
-              <Sparkle size={17} weight={categoryId === '' ? 'fill' : 'regular'} />
-              {paidByOther ? 'None' : 'Auto'}
-            </Choice>
-            {kindCats.map((c) => {
-              const Icon = categoryIcon(c)
-              const on = c.id === categoryId
-              return (
-                <Choice key={c.id} on={on} onClick={() => setCategoryId(c.id)}>
-                  <Icon size={17} weight={on ? 'fill' : 'regular'} style={on ? undefined : { color: c.color }} />
-                  {c.name}
-                </Choice>
-              )
-            })}
-          </ChipRow>
-        </>
-      )}
-
-      {/* 5. When */}
-      <Label>When</Label>
-      <ChipRow>
-        <Choice on={whenMode === 'now'} onClick={() => setWhenMode('now')}>
-          Just now
-        </Choice>
-        <Choice on={whenMode === 'yesterday'} onClick={() => setWhenMode('yesterday')}>
-          Yesterday
-        </Choice>
-        <Choice on={whenMode === 'custom'} onClick={() => setWhenMode('custom')}>
-          <CalendarBlank size={17} weight={whenMode === 'custom' ? 'fill' : 'regular'} />
-          {whenMode === 'custom' ? dateTime(fromLocalInput(when)) : 'Pick a date'}
-        </Choice>
-      </ChipRow>
-      <Fold open={whenMode === 'custom'}>
-        <div className="pt-2.5">
-          <DateTimePicker value={when} max={toLocalInput()} onChange={setWhen} />
-        </div>
-      </Fold>
-
-      {/* The rest, folded away */}
-      <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 mt-5 flex w-full items-center justify-between rounded-2xl px-1 py-2 text-[13px] font-medium">
-        <span>
-          More options
-          {(notes || transfer) && !more ? <span className="ml-2 text-[var(--accent)]">{[notes && 'note', transfer && 'transfer'].filter(Boolean).join(' · ')}</span> : null}
-        </span>
-        <motion.span animate={{ rotate: more ? 180 : 0 }} transition={SPRING}>
-          <CaretDown size={14} weight="bold" />
-        </motion.span>
-      </button>
-      <Fold open={more}>
-        <div className="space-y-2.5 pt-1">
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note" aria-label="Notes" />
-          {!paidByOther && (
-            <div className="rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
-              <Toggle checked={transfer} onChange={setTransfer} label="Transfer between my own accounts" />
+      <Fold open={splitting && !paidByOther}>
+        <div className="space-y-3 pt-4">
+          {(people.data ?? []).length === 0 ? (
+            <p className="ink-2 px-1 text-sm">Add people under Splits first.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {(people.data ?? []).map((p) => {
+                const on = splitWith.includes(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSplitWith((w) => (on ? w.filter((x) => x !== p.id) : [...w, p.id]))}
+                    className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[14px] font-medium transition-colors duration-150', on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)]')}
+                  >
+                    <Avatar name={p.name} size={32} />
+                    {p.name}
+                  </button>
+                )
+              })}
             </div>
           )}
+          {splitWith.length > 0 && value > 0 && (
+            <p className="ink-2 px-1 text-[13px]">
+              Split equally with you: {money(Math.floor((value / (splitWith.length + 1)) * 100) / 100)} each. Change it later on the transaction.
+            </p>
+          )}
+        </div>
+      </Fold>
+      <Fold open={noting}>
+        <div className="pt-2.5">
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note" aria-label="Notes" autoFocus />
         </div>
       </Fold>
 
@@ -732,7 +804,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <div className="sticky bottom-0 z-10 -mx-5 mt-4 bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}` : 'Enter an amount'}
+          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${splitNow ? `, split ${splitWith.length + 1} ways` : ''}` : 'Enter an amount'}
         </Button>
       </div>
     </form>
@@ -775,6 +847,21 @@ function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; c
       )}
     >
       {children}
+    </button>
+  )
+}
+
+/** One of the app's guesses (account, category, when): shows the choice, tap to change it. */
+function Guess({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={on}
+      onClick={onClick}
+      className={cx('pressable flex h-11 max-w-full items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors duration-150', on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)] text-[var(--ink)]')}
+    >
+      <span className="flex min-w-0 items-center gap-2 truncate">{children}</span>
+      <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-150', on ? 'rotate-180' : 'opacity-50')} />
     </button>
   )
 }
