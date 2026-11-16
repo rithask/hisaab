@@ -9,6 +9,13 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Changed
+- Home has one **To check** card instead of a list of links: a balance that's off, a repayment to confirm, a
+  payment with no category, a message the app couldn't read, something that looks wrong. Each card asks one
+  question with one-tap answers ("Yes / No", "Use the bank's balance / Ignore", the categories you use most);
+  "Later" puts it at the back. When nothing needs you it says "All caught up".
+- Inbox is now just the history of bank emails and SMS; mismatches and messages to review moved to To check.
+
 ## [0.10.0] - 2026-11-16
 
 ### Security

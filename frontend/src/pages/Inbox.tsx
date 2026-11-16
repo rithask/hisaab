@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, ShieldCheck, UploadSimple, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, ShieldCheck, UploadSimple } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { api, qs, type Alert, type Email, type EmailStatus, type TeachResult } from '../api'
-import { Badge, Button, Card, Chip, cx, Empty, ErrorText, List, Notice, PageHeader, Section, Sheet, Page } from '../components/ui'
-import { count, dateTime, money } from '../format'
+import { api, qs, type Email, type EmailStatus, type TeachResult } from '../api'
+import { Badge, Button, Chip, cx, Empty, ErrorText, List, Notice, PageHeader, Section, Sheet, Page } from '../components/ui'
+import { count, dateTime } from '../format'
 import { useMoneyMutation } from '../hooks'
 import SmsPasteSheet from '../components/SmsPasteSheet'
 import TeachForm from '../components/TeachForm'
@@ -20,8 +20,6 @@ const label = (s: EmailStatus) => s.replace('_', ' ').toLowerCase()
 
 export default function Inbox() {
   const [filter, setFilter] = useState<EmailStatus | ''>('')
-  const alerts = useQuery({ queryKey: ['alerts'], queryFn: () => api<Alert[]>('/alerts') })
-  const review = useQuery({ queryKey: ['emails', 'review'], queryFn: async () => [...(await api<Email[]>('/emails?status=NEEDS_REVIEW')), ...(await api<Email[]>('/emails?status=ERROR'))] })
   const all = useQuery({ queryKey: ['emails', filter], queryFn: () => api<Email[]>('/emails' + qs({ status: filter })) })
   const [open, setOpen] = useState<number | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -37,12 +35,9 @@ export default function Inbox() {
     if (shared) window.history.replaceState(null, '', '/inbox')
   }, [shared])
 
-  const dismiss = useMoneyMutation((id: number) => api(`/alerts/${id}/dismiss`, { method: 'POST' }))
-  const adjust = useMoneyMutation((id: number) => api(`/alerts/${id}/adjust`, { method: 'POST' }))
   const sync = useMoneyMutation(() => api<{ fetched: number; processed: number; error?: string }>('/mail/sync', { method: 'POST' }), (r) =>
     setMsg(r.error ? `Sync failed: ${r.error}` : `Checked mailbox: ${r.fetched} new message(s).`),
   )
-  const retry = useMoneyMutation(() => api<{ parsed: number }>('/emails/reprocess-pending', { method: 'POST' }), (r) => setMsg(`Re-processed: ${r.parsed} now recorded.`))
   const upload = useMoneyMutation(
     (f: File) => {
       const form = new FormData()
@@ -54,7 +49,7 @@ export default function Inbox() {
 
   return (
     <Page>
-      <PageHeader back title="Inbox" subtitle="Bank emails, SMS and alerts" />
+      <PageHeader back title="Inbox" subtitle="Every bank email and SMS the app has seen" />
       <div className="grid grid-cols-3 gap-2">
         <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-[13px]" onClick={() => sync.mutate(undefined)} disabled={sync.isPending}>
           <ArrowsClockwise size={16} /> {sync.isPending ? "Syncing…" : "Sync mail"}
@@ -72,51 +67,7 @@ export default function Inbox() {
           <Notice tone="neutral">{msg}</Notice>
         </div>
       )}
-      <ErrorText error={sync.error ?? upload.error ?? retry.error} />
-
-      {(alerts.data ?? []).length > 0 && (
-        <Section title="Balance mismatches">
-          <div className="space-y-2">
-            {alerts.data!.map((a) => (
-              <Card key={a.id} className="anim-pop">
-                <div className="flex gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                    <Warning size={19} />
-                  </span>
-                  <div className="min-w-0 flex-1 text-sm">
-                    <p className="font-semibold">{a.account?.name ?? 'Balance'} doesn't match</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-[var(--surface-2)] p-3 text-xs">
-                      <div>
-                        <p className="ink-2">Bank says</p>
-                        <p className="tabular text-[15px] font-semibold">{money(a.actual)}</p>
-                      </div>
-                      <div>
-                        <p className="ink-2">App calculated</p>
-                        <p className="tabular text-[15px] font-semibold">{money(a.expected)}</p>
-                      </div>
-                    </div>
-                    <p className="ink-2 mt-2 text-xs">A transaction may be missing · {dateTime(a.createdAt)}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => adjust.mutate(a.id)}>
-                        Match bank
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => dismiss.mutate(a.id)}>
-                        Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {(review.data ?? []).length > 0 && (
-        <Section title="Needs review" action={<button className="link text-[13px] font-semibold text-[var(--accent)]" onClick={() => retry.mutate(undefined)}>Retry all</button>}>
-          <EmailList items={review.data!} onOpen={setOpen} />
-        </Section>
-      )}
+      <ErrorText error={sync.error ?? upload.error} />
 
       <Section title="All messages">
         <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
@@ -170,7 +121,7 @@ function EmailList({ items, onOpen }: { items: Email[]; onOpen: (id: number) => 
   )
 }
 
-function EmailView({ id }: { id: number; onDone: () => void }) {
+export function EmailView({ id }: { id: number; onDone: () => void }) {
   const e = useQuery({ queryKey: ['email', id], queryFn: () => api<Email>(`/emails/${id}`) })
   const reprocess = useMoneyMutation(() => api<Email>(`/emails/${id}/reprocess`, { method: 'POST' }))
   const skip = useMoneyMutation(() => api<{ learned: boolean; conflicts: number; alsoSkipped: number }>(`/emails/${id}/not-a-transaction`, { method: 'POST' }))

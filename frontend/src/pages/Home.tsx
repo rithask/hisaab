@@ -1,19 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bank, CaretRight, CloudWarning, Repeat, ShieldWarning, CreditCard, FileText, HandCoins, List as MenuIcon, LockKey, Target, Tray, Wallet, Warning, type Icon as PhIcon } from '@phosphor-icons/react'
+import { Bank, CaretRight, CreditCard, List as MenuIcon, Wallet } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, qs, type Account, type BackupStatus, type Bill, type Budget, type Dashboard, type NetWorthPoint, type Page as Paged, type Settings, type Subscriptions, type Txn, type Unusual } from '../api'
+import { api, qs, type Account, type Bill, type Budget, type Dashboard, type NetWorthPoint, type Page as Paged, type Settings, type Txn } from '../api'
 import { CategoryList, Sparkline } from '../components/charts'
 import { BillList } from './Bills'
 import { BudgetLine } from './Budgets'
-import { alertText } from './Subscriptions'
+import ToCheck from '../components/ToCheck'
 import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
 import { BigMoney, Button, Card, cx, Delta, List, Meter, Page, PageSkeleton, Section } from '../components/ui'
 import { money, money0, monthKey, shiftMonth, shortDate } from '../format'
 
 /**
- * Home answers, top to bottom: how much do I have, does anything need me, what did I spend this month,
+ * Home answers, top to bottom: how much do I have, what needs me (one card at a time), what did I spend this month,
  * where is my money, what happened lately. Nothing else.
  */
 export default function Home() {
@@ -28,9 +28,6 @@ export default function Home() {
   const bills = useQuery({ queryKey: ['bills', 'soon'], queryFn: () => api<Bill[]>('/bills?within=14'), enabled: f?.bills === true })
   const budgets = useQuery({ queryKey: ['budgets'], queryFn: () => api<Budget[]>('/budgets'), enabled: f?.budgets === true })
   const trend = useQuery({ queryKey: ['networth', '1m'], queryFn: () => api<NetWorthPoint[]>('/networth?range=1m'), enabled: f?.networth === true })
-  const backup = useQuery({ queryKey: ['backups'], queryFn: () => api<BackupStatus>('/backups'), enabled: f?.backups === true })
-  const subs = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<Subscriptions>('/subscriptions'), enabled: f?.subscriptions === true })
-  const unusual = useQuery({ queryKey: ['unusual'], queryFn: () => api<Unusual>('/unusual'), enabled: f?.unusual === true })
 
   if (!dash.data) return <PageSkeleton />
   const d = dash.data
@@ -62,28 +59,7 @@ export default function Home() {
     )
   }
 
-  const cards = d.accounts.filter((a) => a.type === 'CREDIT_CARD')
-  const dues = cards.filter((c) => c.card?.dueDate && c.card.daysToDue <= 10 && c.balance > 0)
   const prev = d.trend.find((m) => m.month === shiftMonth(month, -1))
-
-  // Only things that need a decision; the section disappears when there are none.
-  const todo: { to: string; icon: PhIcon; text: string; urgent?: boolean }[] = []
-  if (d.counts.alerts) todo.push({ to: '/inbox', icon: Warning, text: `${d.counts.alerts} balance ${d.counts.alerts > 1 ? "don't" : "doesn't"} match the bank`, urgent: true })
-  for (const c of dues) todo.push({ to: '/accounts', icon: CreditCard, text: `Pay ${c.name}: ${money0(c.balance)} due ${c.card!.daysToDue === 0 ? 'today' : `in ${c.card!.daysToDue} day${c.card!.daysToDue > 1 ? 's' : ''}`}`, urgent: c.card!.daysToDue <= 3 })
-  if (d.counts.suggestedSettlements) todo.push({ to: '/people', icon: HandCoins, text: `Confirm ${d.counts.suggestedSettlements} repayment${d.counts.suggestedSettlements > 1 ? 's' : ''}` })
-  if (d.counts.statementsToReview) todo.push({ to: '/import', icon: FileText, text: `Review ${d.counts.statementsToReview} statement${d.counts.statementsToReview > 1 ? 's' : ''} before importing` })
-  if (d.counts.statementsLocked) todo.push({ to: '/statements', icon: LockKey, text: `${d.counts.statementsLocked} statement${d.counts.statementsLocked > 1 ? 's need their' : ' needs its'} password` })
-  if (f?.backups && backup.data && (backup.data.lastError || backup.data.stale) && (backup.data.lastError || backup.data.lastOk))
-    todo.push({ to: '/settings/data', icon: CloudWarning, text: backup.data.lastError ? "Backups are failing. Check Settings" : 'No backup in the last 2 days', urgent: true })
-  for (const b of (f?.budgets ? (budgets.data ?? []) : []).filter((x) => x.status === 'OVER')) todo.push({ to: '/budgets', icon: Target, text: `Over budget on ${b.name}`, urgent: true })
-  const odd = f?.unusual ? (unusual.data?.items ?? []) : []
-  if (odd.length)
-    todo.push({ to: '/unusual', icon: ShieldWarning, text: odd.length === 1 ? `Check a payment to ${odd[0].name ?? 'someone'}` : `${odd.length} payments worth a second look`, urgent: odd.some((i) => i.reasons.some((r) => r.kind === 'DOUBLE_CHARGE')) })
-  for (const r of f?.unusual ? (unusual.data?.refunds ?? []).filter((x) => x.status === 'LATE') : []) todo.push({ to: '/unusual', icon: ShieldWarning, text: `Refund from ${r.name ?? 'a payment'} hasn't arrived`, urgent: true })
-  const subAlerts = f?.subscriptions ? (subs.data?.alerts ?? []) : []
-  if (subAlerts.length)
-    todo.push({ to: '/subscriptions', icon: Repeat, text: subAlerts.length === 1 ? alertText(subAlerts[0]).title : `${subAlerts.length} subscription changes to check`, urgent: subAlerts.some((a) => a.kind === 'DOUBLE') })
-  if (d.counts.emailsToReview) todo.push({ to: '/inbox', icon: Tray, text: `${d.counts.emailsToReview} message${d.counts.emailsToReview > 1 ? 's' : ''} to check` })
 
   return (
     <Page>
@@ -105,19 +81,7 @@ export default function Home() {
         </div>
       </section>
 
-      {todo.length > 0 && (
-        <Section title="Needs attention">
-          <List>
-            {todo.map((a, i) => (
-              <Link key={i} to={a.to} className="flex items-center gap-3 px-4 py-3.5 row">
-                <a.icon size={20} className={a.urgent ? 'text-[var(--negative)]' : 'text-[var(--ink-2)]'} />
-                <span className="min-w-0 flex-1 text-[15px]">{a.text}</span>
-                <CaretRight size={16} className="ink-3" />
-              </Link>
-            ))}
-          </List>
-        </Section>
-      )}
+      <ToCheck d={d} />
 
       {f?.bills && (bills.data?.length ?? 0) > 0 && (
         <Section title="Upcoming bills" action={<More to="/bills">All bills</More>}>
