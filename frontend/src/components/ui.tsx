@@ -4,6 +4,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -467,5 +468,27 @@ export function MoreRow({ icon: Icon, onClick, children, tone }: { icon: PhIcon;
       <span className="min-w-0 flex-1">{children}</span>
       {tone !== 'danger' && <CaretRight size={15} className="ink-3" />}
     </button>
+  )
+}
+
+/**
+ * Asks before something that can't be undone, in place: the trigger is swapped for the question with Cancel and
+ * the action. Not a browser pop-up (confirm()), which Safari and the installed app can block without a word.
+ *
+ * @param children renders the trigger; call the function it's given to ask
+ */
+export function Confirm({ ask, yes, onYes, busy, className, children }: { ask: ReactNode; yes: string; onYes: () => void; busy?: boolean; className?: string; children: (ask: () => void) => ReactNode }) {
+  const [asking, setAsking] = useState(false)
+  if (!asking) return <>{children(() => setAsking(true))}</>
+  return (
+    <div className={cx('anim-pop flex w-full flex-wrap items-center gap-2', className)}>
+      <span className="min-w-0 flex-1 text-[14px]">{ask}</span>
+      <Button type="button" size="sm" variant="secondary" onClick={() => setAsking(false)}>
+        Cancel
+      </Button>
+      <Button type="button" size="sm" variant="danger" disabled={busy} onClick={onYes}>
+        {yes}
+      </Button>
+    </div>
   )
 }

@@ -7,7 +7,7 @@ import { TokenList } from '../components/ApiTokens'
 import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
 import { isIos, useInstall } from '../pwa'
-import { Badge, Button, Card, Chip, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
+import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
 import { count, dateTime, shortDate, ymd } from '../format'
 import { useMoneyMutation, useSettings, useSignOut } from '../hooks'
 
@@ -304,6 +304,8 @@ function LearnedCard() {
               <ul className="space-y-2">
                 {l!.formats.map((f) => (
                   <li key={f.id} className="flex items-start gap-2 rounded-[16px] bg-[var(--surface-2)] p-3">
+                    <Confirm ask="Forget this format?" yes="Forget" busy={forgetFormat.isPending} onYes={() => forgetFormat.mutate(f.id)}>
+                    {(ask) => (<>
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-mono text-[11px] leading-relaxed">{f.skeleton}</p>
                       <p className="ink-3 mt-1 text-[11px]">
@@ -322,9 +324,11 @@ function LearnedCard() {
                         </p>
                       )}
                     </div>
-                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this format" onClick={() => confirm('Forget this format?') && forgetFormat.mutate(f.id)}>
+                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this format" onClick={ask}>
                       <X size={14} weight="bold" />
                     </button>
+                    </>)}
+                    </Confirm>
                   </li>
                 ))}
               </ul>
@@ -336,12 +340,18 @@ function LearnedCard() {
               <ul className="space-y-2">
                 {l!.payees.map((p) => (
                   <li key={p.id} className="flex items-center gap-2 rounded-[16px] bg-[var(--surface-2)] px-3 py-2.5 text-[13px]">
-                    <span className="ink-2 min-w-0 flex-1 truncate font-mono text-[11.5px] uppercase">{p.rawKey}</span>
-                    <span className="ink-3">→</span>
-                    <span className="min-w-0 flex-1 truncate font-medium">{p.displayName}</span>
-                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this name" onClick={() => confirm('Forget this name?') && forgetPayee.mutate(p.id)}>
-                      <X size={14} weight="bold" />
-                    </button>
+                    <Confirm ask="Forget this name?" yes="Forget" busy={forgetPayee.isPending} onYes={() => forgetPayee.mutate(p.id)}>
+                      {(ask) => (
+                        <>
+                          <span className="ink-2 min-w-0 flex-1 truncate font-mono text-[11.5px] uppercase">{p.rawKey}</span>
+                          <span className="ink-3">→</span>
+                          <span className="min-w-0 flex-1 truncate font-medium">{p.displayName}</span>
+                          <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this name" onClick={ask}>
+                            <X size={14} weight="bold" />
+                          </button>
+                        </>
+                      )}
+                    </Confirm>
                   </li>
                 ))}
               </ul>
@@ -459,9 +469,13 @@ function PocketIdCard() {
           </p>
         </div>
         {link.data?.linked && (
-          <Button variant="secondary" size="sm" onClick={() => confirm(`Unlink this ${name} account? Signing in with ${name} will ask to link again.`) && unlink.mutate(undefined)}>
-            Unlink
-          </Button>
+          <Confirm className="mt-3" ask={`Unlink this ${name} account? Signing in with ${name} will ask to link again.`} yes="Unlink" busy={unlink.isPending} onYes={() => unlink.mutate(undefined)}>
+            {(ask) => (
+              <Button variant="secondary" size="sm" onClick={ask}>
+                Unlink
+              </Button>
+            )}
+          </Confirm>
         )}
       </Card>
     </Section>

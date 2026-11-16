@@ -22,7 +22,8 @@ counted in the time zone set with `TZ` (section 3.3).
 3. **Accuracy over completeness.** Better to leave a transaction "Uncategorised", or an SMS waiting for review,
    than to guess wrong. Unsure results become a card in Home → *To check*: one question, one-tap answers.
    Never silently drop data.
-4. **Nothing is deleted without asking.** Destructive actions confirm first. Turning a feature off hides it; it
+4. **Nothing is deleted without asking.** Destructive actions confirm first, in place with `<Confirm>` (never the
+   browser's `confirm()`, which Safari and the installed app can block without a word). Turning a feature off hides it; it
    doesn't delete its data.
 5. **Every optional feature has a switch.** Bills, budgets, net worth, year in review, advanced search,
    subscription watch, unusual activity and rewards (and backups) can each be turned off in Settings → Features;

@@ -3,7 +3,7 @@ import { Check, PencilSimple, Receipt, Trash, Users, Wallet, X } from '@phosphor
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type Person, type Settlement, type Txn } from '../api'
-import { Avatar, BigMoney, Button, Card, Empty, ErrorText, Field, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Segmented, Sheet, cx } from '../components/ui'
+import { Avatar, BigMoney, Button, Card, Confirm, Empty, ErrorText, Field, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Segmented, Sheet, cx } from '../components/ui'
 import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from '../components/DatePicker'
@@ -112,6 +112,8 @@ export default function PersonDetail() {
             <List>
               {lines.map((l) => (
                 <div key={l.key} className="flex items-center gap-3 px-4 py-3">
+                  <Confirm ask="Remove this payment?" yes="Remove" busy={delSettlement.isPending} onYes={() => l.settlement && delSettlement.mutate(l.settlement.id)}>
+                  {(ask) => (<>
                   <button className="min-w-0 flex-1 text-left" disabled={!l.txn} onClick={() => l.txn && setOpen(l.txn)}>
                     <p className="truncate text-[15px] font-semibold">{l.title}</p>
                     <p className="ink-2 truncate text-xs">
@@ -135,10 +137,12 @@ export default function PersonDetail() {
                     </span>
                   )}
                   {l.settlement && l.settlement.status === 'CONFIRMED' && (
-                    <button className="ink-3 p-1" onClick={() => confirm('Remove this payment?') && delSettlement.mutate(l.settlement!.id)} aria-label="Remove payment">
+                    <button className="ink-3 p-1" onClick={ask} aria-label="Remove payment">
                       <Trash size={16} />
                     </button>
                   )}
+                  </>)}
+                  </Confirm>
                 </div>
               ))}
             </List>
@@ -147,9 +151,13 @@ export default function PersonDetail() {
         )}
       </Section>
 
-      <Button variant="danger" className="mt-8 w-full" onClick={() => confirm(`Delete ${p.name} and their split history?`) && remove.mutate(undefined)}>
-        Delete person
-      </Button>
+      <Confirm className="mt-8" ask={`Delete ${p.name} and their split history?`} yes="Delete" busy={remove.isPending} onYes={() => remove.mutate(undefined)}>
+        {(ask) => (
+          <Button variant="danger" className="mt-8 w-full" onClick={ask}>
+            Delete person
+          </Button>
+        )}
+      </Confirm>
       <ErrorText error={remove.error} />
 
       <Sheet open={sheet === 'payment'} onClose={() => setSheet(null)} title="Record a payment">

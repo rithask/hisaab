@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowsClockwise, ChatText, GraduationCap, EnvelopeOpen, EnvelopeSimple, ShieldCheck, UploadSimple } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { api, qs, type Email, type EmailStatus, type TeachResult } from '../api'
-import { Badge, Button, Chip, cx, Empty, ErrorText, List, Notice, PageHeader, Section, Sheet, Page } from '../components/ui'
+import { Badge, Button, Chip, Confirm, cx, Empty, ErrorText, List, Notice, PageHeader, Section, Sheet, Page } from '../components/ui'
 import { count, dateTime } from '../format'
 import { useMoneyMutation } from '../hooks'
 import SmsPasteSheet from '../components/SmsPasteSheet'
@@ -180,9 +180,13 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
         </Button>
       )}
       {e.data.status === 'PARSED' && !teaching && !taught && !skip.data && (
-        <button className="ink-2 w-full text-center text-sm font-medium" onClick={() => confirm('Remove its transaction and skip messages worded like this?') && skip.mutate(undefined)}>
-          This isn't a transaction
-        </button>
+        <Confirm ask="Remove its transaction and skip messages worded like this?" yes="Remove" busy={skip.isPending} onYes={() => skip.mutate(undefined)}>
+          {(ask) => (
+            <button className="ink-2 w-full text-center text-sm font-medium" onClick={ask}>
+              This isn't a transaction
+            </button>
+          )}
+        </Confirm>
       )}
       {skip.data && (
         <Notice tone={skip.data.learned ? 'green' : 'amber'}>

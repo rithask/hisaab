@@ -3,7 +3,7 @@ import { ArrowsClockwise, ChartLineUp, PiggyBank, Plus, Trash, UploadSimple } fr
 import { useRef, useState } from 'react'
 import { api, type Holding, type MfScheme, type Portfolio } from '../api'
 import { AllocationBar } from '../components/charts'
-import { Badge, Button, Card, cx, Empty, ErrorText, Field, IconButton, Input, List, Notice, PageHeader, PageSkeleton, Section, Segmented, Sheet, Page, BigMoney } from '../components/ui'
+import { Badge, Button, Card, Confirm, cx, Empty, ErrorText, Field, IconButton, Input, List, Notice, PageHeader, PageSkeleton, Section, Segmented, Sheet, Page, BigMoney } from '../components/ui'
 import { dateTime, money, money0 } from '../format'
 import { useMoneyMutation } from '../hooks'
 
@@ -264,9 +264,13 @@ function HoldingForm({ type, holding, onClose }: { type: 'STOCK' | 'MF'; holding
         Save
       </Button>
       {holding && (
-        <Button type="button" variant="danger" className="w-full" onClick={() => confirm('Remove this holding?') && del.mutate(undefined)}>
-          <Trash size={16} /> Remove
-        </Button>
+        <Confirm ask="Remove this holding?" yes="Remove" busy={del.isPending} onYes={() => del.mutate(undefined)}>
+          {(ask) => (
+            <Button type="button" variant="danger" className="w-full" onClick={ask}>
+              <Trash size={16} /> Remove
+            </Button>
+          )}
+        </Confirm>
       )}
     </form>
   )

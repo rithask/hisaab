@@ -3,7 +3,7 @@ import { CreditCard, Gift, Plus, Trash } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type CardRewards, type RewardCycle, type RewardProgram, type RewardRule } from '../api'
 import { DatePicker } from '../components/DatePicker'
-import { Button, Card, cx, Empty, ErrorText, FeatureGate, Field, Input, List, Meter, Page, PageHeader, PageSkeleton, Section, Segmented, Select, Sheet } from '../components/ui'
+import { Button, Card, Confirm, cx, Empty, ErrorText, FeatureGate, Field, Input, List, Meter, Page, PageHeader, PageSkeleton, Section, Segmented, Select, Sheet } from '../components/ui'
 import { count, money0, moneyAuto, shortDate, ymd } from '../format'
 import { useCategories, useFeature, useMoneyMutation } from '../hooks'
 
@@ -300,9 +300,13 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
         {save.isPending ? 'Saving…' : 'Save'}
       </Button>
       {p && (
-        <Button type="button" variant="secondary" className="w-full" onClick={() => confirm(`Stop tracking rewards on ${c.account}?`) && remove.mutate(undefined)}>
-          Stop tracking rewards
-        </Button>
+        <Confirm ask={`Stop tracking rewards on ${c.account}?`} yes="Stop" busy={remove.isPending} onYes={() => remove.mutate(undefined)}>
+          {(ask) => (
+            <Button type="button" variant="secondary" className="w-full" onClick={ask}>
+              Stop tracking rewards
+            </Button>
+          )}
+        </Confirm>
       )}
       <p className="ink-3 px-1 text-[12.5px]">Copy the rates from your card's terms; they change from time to time, so check them now and then.</p>
     </form>

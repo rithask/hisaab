@@ -6,7 +6,7 @@ import { api, type ApiToken, type TokenJob } from '../api'
 import { dateTime } from '../format'
 import { useAccounts, useCategories, useFeature, useMoneyMutation } from '../hooks'
 import { CopyButton } from './SmsPasteSheet'
-import { Button, Chip, ErrorText, Field, Input, List, Notice, Segmented, Sheet, Toggle } from './ui'
+import { Button, Chip, Confirm, ErrorText, Field, Input, List, Notice, Segmented, Sheet, Toggle } from './ui'
 
 export const JOBS: { value: TokenJob; label: string; hint: string }[] = [
   { value: 'SEND_SMS', label: 'Send SMS', hint: 'Forward bank SMS from your phone' },
@@ -238,14 +238,13 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
         {token ? 'Save' : 'Create token'}
       </Button>
       {token && (
-        <button
-          type="button"
-          className="w-full text-center text-sm font-medium text-[var(--negative)]"
-          disabled={revoke.isPending}
-          onClick={() => confirm(`Revoke "${token.name}"? Whatever uses it stops working straight away.`) && revoke.mutate(undefined)}
-        >
-          Revoke token
-        </button>
+        <Confirm ask={`Revoke "${token.name}"? Whatever uses it stops working straight away.`} yes="Revoke" busy={revoke.isPending} onYes={() => revoke.mutate(undefined)}>
+          {(ask) => (
+            <button type="button" className="w-full text-center text-sm font-medium text-[var(--negative)]" disabled={revoke.isPending} onClick={ask}>
+              Revoke token
+            </button>
+          )}
+        </Confirm>
       )}
     </form>
   )

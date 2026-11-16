@@ -31,7 +31,10 @@ must do when upgrading (marked **Upgrade:**).
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked
-  (Safari, the installed app). It now asks in place, with any error shown right there.
+  (Safari, the installed app). It now asks in place, with any error shown right there. So does everything else
+  that asked with a pop-up: deleting a person or category, removing a split payment or holding, discarding an
+  import, "This isn't a transaction", forgetting a format or payee name, revoking an API token, unlinking a
+  sign-in account and stopping rewards tracking.
 
 ## [0.10.0] - 2026-11-16
 

@@ -3,7 +3,7 @@ import { Plus, Trash } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type Category, type Rule } from '../api'
 import { categoryIcon, tint } from '../icons'
-import { Badge, Button, ErrorText, Field, Input, List, PageHeader, Section, Segmented, Select, Sheet, Page } from '../components/ui'
+import { Badge, Button, Confirm, ErrorText, Field, Input, List, PageHeader, Section, Segmented, Select, Sheet, Page } from '../components/ui'
 import { useCategories, useMoneyMutation } from '../hooks'
 
 export default function Categories() {
@@ -131,9 +131,13 @@ function CategoryForm({ cat, onDone }: { cat?: Category; onDone: () => void }) {
         Save
       </Button>
       {cat && (
-        <Button type="button" variant="danger" className="w-full" onClick={() => confirm('Delete category? Transactions become uncategorised.') && del.mutate(undefined)}>
-          Delete
-        </Button>
+        <Confirm ask="Delete this category? Its transactions become uncategorised." yes="Delete" busy={del.isPending} onYes={() => del.mutate(undefined)}>
+          {(ask) => (
+            <Button type="button" variant="danger" className="w-full" onClick={ask}>
+              Delete
+            </Button>
+          )}
+        </Confirm>
       )}
     </form>
   )

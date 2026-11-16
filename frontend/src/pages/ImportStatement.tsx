@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle, FilePdf, Question, UploadSimple, WarningCircle
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type ImportLine, type ImportResult, type LineDecision, type StatementImport } from '../api'
-import { Badge, Button, Card, Chip, cx, ErrorText, Field, Input, List, Page, PageHeader, PageSkeleton, Section, Toggle } from '../components/ui'
+import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Page, PageHeader, PageSkeleton, Section, Toggle } from '../components/ui'
 import { formatDay, money, shortDate, timeZone } from '../format'
 import { useAccounts, useMoneyMutation } from '../hooks'
 
@@ -281,8 +281,10 @@ function Review({ id }: { id: number }) {
       <div className="glass fixed inset-x-0 bottom-[calc(4rem+max(env(safe-area-inset-bottom),0.5rem))] z-40 border-t border-[var(--line)] px-4 py-3 lg:static lg:mt-8 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="mx-auto max-w-2xl">
           <ErrorText error={commit.error ?? decide.error} />
+          <Confirm ask="Discard this import? Nothing will be saved." yes="Discard" busy={cancel.isPending} onYes={() => cancel.mutate(undefined)}>
+          {(ask) => (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => confirm('Discard this import? Nothing will be saved.') && cancel.mutate(undefined)} disabled={cancel.isPending}>
+            <Button variant="secondary" onClick={ask} disabled={cancel.isPending}>
               Cancel
             </Button>
             <Button className="flex-1" disabled={!d.account || unanswered > 0 || commit.isPending} onClick={() => commit.mutate(undefined)}>
@@ -297,6 +299,8 @@ function Review({ id }: { id: number }) {
                       : `Import${adding ? ` ${adding} new` : ''}${adding && filling ? ' ·' : ''}${filling ? ` update ${filling}` : ''}`}
             </Button>
           </div>
+          )}
+          </Confirm>
         </div>
       </div>
     </Page>
