@@ -35,6 +35,12 @@ public final class AuthLog {
         log.warn("Sign-in LOCKED OUT ip={} for 15 minutes after repeated wrong passwords agent=\"{}\"", req.getRemoteAddr(), agent(req));
     }
 
+    public static void crossSiteRefused(HttpServletRequest req) {
+        log.warn("Cross-site request REFUSED {} {} ip={} origin=\"{}\" fetch-site=\"{}\" agent=\"{}\"", req.getMethod(),
+                clean(req.getRequestURI(), 100), req.getRemoteAddr(), clean(req.getHeader("Origin"), 100),
+                clean(req.getHeader("Sec-Fetch-Site"), 20), agent(req));
+    }
+
     public static void signOut(HttpServletRequest req, String user) {
         log.info("Sign-out user=\"{}\" ip={}", clean(user, 64), req.getRemoteAddr());
     }

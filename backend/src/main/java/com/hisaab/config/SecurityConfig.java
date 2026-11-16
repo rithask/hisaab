@@ -23,9 +23,10 @@ import org.springframework.security.web.context.SecurityContextRepository;
 
 /**
  * Single-user, session-cookie auth, plus named API tokens for other apps and shortcuts under /api/v1, each doing
- * one job (see ApiTokenFilter). CSRF protection relies on
- * the session cookie being SameSite=Lax (see application.yml): browsers don't send it on cross-site POST/PUT/DELETE,
- * and every state change here is one of those. The cookie is marked Secure automatically on HTTPS requests.
+ * one job (see ApiTokenFilter). CSRF protection: the session cookie is SameSite=Lax (see application.yml), so
+ * other sites' requests don't carry it, and SameOriginFilter refuses changes from any page but the app's own,
+ * which also covers my other subdomains (the same "site" to a browser). Every state change is a POST/PUT/PATCH/
+ * DELETE, sign-out included. The cookie is marked Secure automatically on HTTPS requests.
  */
 @Configuration
 public class SecurityConfig {
@@ -92,9 +93,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/**").hasRole("API")
                         .requestMatchers("/api/**").hasRole("OWNER")
                         .anyRequest().permitAll())
+                .addFilterBefore(new SameOriginFilter(), org.springframework.security.web.authentication.logout.LogoutFilter.class)
                 .addFilterBefore(new ApiTokenFilter(tokens, features), AnonymousAuthenticationFilter.class)
                 .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .logout(l -> l.logoutUrl("/api/auth/logout")
+                .logout(l -> l.logoutRequestMatcher(org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher
+                                .withDefaults().matcher(org.springframework.http.HttpMethod.POST, "/api/auth/logout"))
                         .logoutSuccessHandler((req, res, auth) -> {
                             if (auth != null) AuthLog.signOut(req, auth.getName());
                             res.setStatus(200);

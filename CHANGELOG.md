@@ -12,6 +12,10 @@ must do when upgrading (marked **Upgrade:**).
 ### Security
 - Password sign-in is limited: after 5 wrong passwords in 15 minutes, that client is locked out for 15 minutes
   (also when linking a sign-in provider account). A right password clears the count. Lockouts are logged.
+- Changes (anything but reading) are refused unless they come from the app's own pages. Before, a page on another
+  of your subdomains (the same "site" to a browser) could post a form with your session. Refusals are logged.
+  Scripts and API tokens aren't affected.
+- Signing out only works from the app (a POST), so a link elsewhere can't sign you out.
 
 ### Fixed
 - On Splits, a person's progress bar (and the "settled" total at the top) now counts what they paid for you, so
