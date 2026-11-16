@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
 ### Added
 - **Someone else paid.** When a friend pays for both of you, record your share: in the add sheet pick
   **Paid from → Someone else**, or tap **"Rahul paid"** on their page. Choose half, all of it or an exact share.
