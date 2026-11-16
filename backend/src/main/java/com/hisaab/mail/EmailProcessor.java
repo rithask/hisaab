@@ -651,12 +651,19 @@ public class EmailProcessor {
         return n;
     }
 
+    /** By the alert's last 4 digits; an account added without them learns them from its bank's first alert. */
     private Optional<Account> findAccount(ParsedTransaction p) {
         if (p.last4() == null) return Optional.empty();
-        List<Account> matches = accounts.findByLast4AndArchivedFalse(p.last4());
-        if (matches.size() <= 1) return matches.stream().findFirst();
-        return matches.stream().filter(a -> a.getInstitution() == p.institution() && a.getType() == p.accountType())
-                .findFirst().or(() -> matches.stream().filter(a -> a.getInstitution() == p.institution()).findFirst());
+        List<Account> withDigits = accounts.findByLast4AndArchivedFalse(p.last4());
+        List<Account> all = withDigits.isEmpty() ? accounts.findByArchivedFalseOrderByTypeAscNameAsc() : List.of();
+        return AccountMatch.pick(p.institution(), p.accountType(), p.last4(), withDigits, all).map(r -> {
+            if (r.learnDigits()) {
+                r.account().setLast4(p.last4());
+                accounts.save(r.account());
+                log.info("Account {} learned its last 4 digits from an alert", r.account().getId());
+            }
+            return r.account();
+        });
     }
 
     private void saveStatements(RawEmail raw, EmailContent content, List<IncomingEmail.Attachment> pdfs) {

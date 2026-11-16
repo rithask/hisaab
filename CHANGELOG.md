@@ -43,6 +43,10 @@ must do when upgrading (marked **Upgrade:**).
 - Settings → Features has four switches instead of ten: Budgets, Rewards, Automatic backups and the Data API.
   Bills, subscriptions, unusual activity, net worth, year in review and the extra Activity filters only watch
   your own data, so they're always on now. **Upgrade:** if you had turned any of those off, they come back on.
+- Adding an account is the bank (one tap) and today's balance. The name is optional ("HDFC card", "Axis
+  savings" when left empty). Last 4 digits, credit limit, statement and due days, and "as of" are under **More
+  details**. Left empty, the last 4 digits are learned from the bank's first alert, when it's your only account
+  of that kind at that bank.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked
