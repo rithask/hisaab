@@ -53,6 +53,7 @@ public class CategoryController {
 
     @DeleteMapping("/categories/{id}")
     public void deleteCategory(@PathVariable Long id) {
+        categories.findById(id).ifPresent(c -> com.hisaab.config.Audit.log("Category deleted id={} name=\"{}\"", id, com.hisaab.config.AuthLog.clean(c.getName(), 60)));
         categories.deleteById(id);
     }
 
@@ -102,6 +103,7 @@ public class CategoryController {
     @Transactional
     public void deleteRule(@PathVariable Long id) {
         rules.findById(id).ifPresent(r -> {
+            com.hisaab.config.Audit.log("Category rule deleted id={}", id);
             categorizer.ruleDeleted(r);
             rules.delete(r);
         });

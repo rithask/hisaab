@@ -36,6 +36,8 @@ import java.util.NoSuchElementException;
 @RestController
 @RequestMapping("/api")
 public class InboxController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(InboxController.class);
+
     private final RawEmailRepo emails;
     private final EmailProcessor processor;
     private final MailSyncService mail;
@@ -161,16 +163,19 @@ public class InboxController {
     @PostMapping("/sms/formats/{id}/resume")
     public void resumeFormat(@PathVariable Long id) {
         learning.resume(id);
+        com.hisaab.config.Audit.log("Learned format resumed id={}", id);
     }
 
     @DeleteMapping("/sms/formats/{id}")
     public void forgetFormat(@PathVariable Long id) {
         learning.forgetTemplate(id);
+        com.hisaab.config.Audit.log("Learned format forgotten id={}", id);
     }
 
     @DeleteMapping("/sms/payees/{id}")
     public void forgetPayee(@PathVariable Long id) {
         aliases.forget(id);
+        com.hisaab.config.Audit.log("Learned payee name forgotten id={}", id);
     }
 
     /** Retry every email waiting for review (handy right after adding an account). */
@@ -182,6 +187,7 @@ public class InboxController {
                 if (processor.reprocess(e).getStatus() == EmailStatus.PARSED) parsed++;
             }
         }
+        if (parsed > 0) log.info("Reprocessed waiting messages: {} now read", parsed);
         return Map.of("parsed", parsed);
     }
 
@@ -193,6 +199,7 @@ public class InboxController {
     @PostMapping("/emails/upload")
     public Map<String, Object> upload(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws Exception {
         boolean added = mail.ingestEml(file.getInputStream());
+        log.info("Email uploaded by hand: {}", added ? "recorded" : "not recorded (duplicate, not a transaction, or needs review)");
         return Map.of("added", added);
     }
 
@@ -284,7 +291,10 @@ public class InboxController {
 
     @PutMapping("/settings")
     public SettingsDto putSettings(@RequestBody SettingsInput in) {
-        if (in.ownerName() != null) settings.set(SettingsService.OWNER_NAME, in.ownerName().trim());
+        if (in.ownerName() != null && !in.ownerName().trim().equals(settings.ownerName())) {
+            settings.set(SettingsService.OWNER_NAME, in.ownerName().trim());
+            com.hisaab.config.Audit.log("Owner name changed");
+        }
         features.update(in.features());
         if (in.showInvestmentsOnHome() != null) settings.set(SettingsService.HOME_SHOW_INVESTMENTS, in.showInvestmentsOnHome().toString());
         return getSettings();

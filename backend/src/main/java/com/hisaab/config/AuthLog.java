@@ -77,7 +77,7 @@ public final class AuthLog {
     }
 
     /** Printable, single-line, length-capped: a username can't forge extra log lines. */
-    static String clean(String s, int max) {
+    public static String clean(String s, int max) {
         if (s == null || s.isBlank()) return "-";
         String v = s.replaceAll("[\\p{Cntrl}\\s]+", " ").trim();
         v = v.replace('"', '\'');

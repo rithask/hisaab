@@ -35,6 +35,9 @@ public final class PdfText {
                 return new Opened(s.getText(doc), pw);
             } catch (InvalidPasswordException e) {
                 if (!pw.isEmpty()) wrongGiven = true;
+            } catch (IOException e) {
+                // not a PDF, or a damaged one: the file's fault, not the server's
+                throw new StatementImportService.UnsupportedStatement("This file isn't a PDF that can be read. Upload the statement PDF as the bank sent it.");
             }
         }
         throw new PasswordRequired(wrongGiven ? "That password didn't open the statement." : "This statement is password protected.");

@@ -95,12 +95,15 @@ public class EmailProcessor {
                 raw.setHold(SenderTrust.UNVERIFIED_SENDER);
                 raw.setNote("Your mail provider couldn't confirm this really came from " + SenderTrust.domainOf(in.from())
                         + ", so its statement wasn't saved.");
+                log.warn("Statement email {} held: sender {} not confirmed by the mail provider", raw.getId(), SenderTrust.domainOf(in.from()));
                 return true;
             }
             saveStatements(raw, content, pdfs);
+            log.info("Email {} from {}: {} statement PDF(s), {}", raw.getId(), SenderTrust.domainOf(in.from()), pdfs.size(), raw.getStatus());
             return true;
         }
         classify(raw, content);
+        log.info("Email {} from {}: {}{}", raw.getId(), SenderTrust.domainOf(in.from()), raw.getStatus(), raw.getHold() == null ? "" : " (held: " + raw.getHold() + ")");
         return true;
     }
 
@@ -143,7 +146,10 @@ public class EmailProcessor {
         String body = text.strip();
         String id = "sms:" + sha256((sender == null ? "" : sender.strip().toUpperCase(Locale.ROOT)) + "\n" + body.replaceAll("\\s+", " "));
         Optional<RawEmail> seen = emails.findByMessageId(id);
-        if (seen.isPresent()) return new SmsOutcome(seen.get(), null, null, true);
+        if (seen.isPresent()) {
+            log.info("SMS from {}: duplicate of message {}", sender == null ? "-" : sender.strip(), seen.get().getId());
+            return new SmsOutcome(seen.get(), null, null, true);
+        }
 
         RawEmail raw = new RawEmail();
         raw.setMessageId(id);
@@ -156,6 +162,8 @@ public class EmailProcessor {
         raw.setStatus(EmailStatus.NEEDS_REVIEW);
         emails.save(raw);
         ClassifyResult r = classifySms(raw);
+        log.info("SMS {} from {}: {}{}", raw.getId(), raw.getSender() == null ? "-" : raw.getSender(), raw.getStatus(),
+                r.txn() == null ? "" : " (transaction " + r.txn().getId() + ")");
         return new SmsOutcome(raw, r.txn(), r.parsed(), false);
     }
 

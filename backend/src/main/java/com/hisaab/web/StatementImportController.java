@@ -133,5 +133,6 @@ public class StatementImportController {
     @DeleteMapping("/statement-imports/{id}")
     public void cancel(@PathVariable Long id) {
         service.cancel(id);
+        com.hisaab.config.Audit.log("Statement import cancelled id={}", id);
     }
 }

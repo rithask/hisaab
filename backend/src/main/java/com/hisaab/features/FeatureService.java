@@ -58,7 +58,9 @@ public class FeatureService {
         changes.forEach((k, v) -> {
             if (v == null) return;
             try {
-                set(Feature.valueOf(k.toUpperCase()), v);
+                Feature f = Feature.valueOf(k.toUpperCase());
+                if (on(f) != v) com.hisaab.config.Audit.log("Feature {} switched {}", f.name().toLowerCase(), v ? "on" : "off");
+                set(f, v);
             } catch (IllegalArgumentException ignored) {
                 // unknown feature names are ignored
             }

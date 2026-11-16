@@ -45,6 +45,7 @@ public class InvestmentController {
 
     @DeleteMapping("/holdings/{id}")
     public void delete(@PathVariable Long id) {
+        com.hisaab.config.Audit.log("Holding deleted id={}", id);
         holdings.deleteById(id);
     }
 

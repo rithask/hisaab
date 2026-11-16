@@ -221,12 +221,18 @@ public class SmsLearningService {
         after.removeAll(overruled);
         after.add(candidate);
         Check check = check(channel, before, after, flat, false);
-        if (check.blocking() > 0) return new LearnResult(Optional.empty(), check.blocking());
+        if (check.blocking() > 0) {
+            log.info("{} format not learned: it would change how {} earlier lesson(s) are read", channel, check.blocking());
+            return new LearnResult(Optional.empty(), check.blocking());
+        }
 
         // A message of a kind already learned in slightly different wording: one format for both, if that's safe.
         if (same.isEmpty()) {
             Optional<LearnResult> merged = mergeInto(channel, before, overruled, candidate, flat, text, truth, source);
-            if (merged.isPresent()) return merged.get();
+            if (merged.isPresent()) {
+                merged.get().template().ifPresent(m -> log.info("{} format taught: merged into format {} ({})", channel, m.getId(), m.getInstitution()));
+                return merged.get();
+            }
         }
 
         overruled.forEach(templates::delete);
@@ -239,6 +245,8 @@ public class SmsLearningService {
         t.setOrigin(SmsTemplate.TAUGHT);
         SmsTemplate saved = templates.save(t);
         remember(channel, flat, text, truth, source);
+        log.info("{} format taught: {} format {} ({}){}", channel, same.isPresent() ? "replaced" : "new", saved.getId(), saved.getInstitution(),
+                overruled.isEmpty() ? "" : ", " + overruled.size() + " \"not a transaction\" format(s) removed");
         return new LearnResult(Optional.of(saved), 0);
     }
 
@@ -268,7 +276,10 @@ public class SmsLearningService {
         // a skip is checked before the formats that read transactions
         after.add(0, candidate);
         Check check = check(channel, before, after, flat, false);
-        if (check.blocking() > 0) return new LearnResult(Optional.empty(), check.blocking());
+        if (check.blocking() > 0) {
+            log.info("{} \"not a transaction\" not learned: it would skip {} message(s) taught as transactions", channel, check.blocking());
+            return new LearnResult(Optional.empty(), check.blocking());
+        }
         check.apply(examples);
 
         SmsTemplate t = same.orElseGet(SmsTemplate::new);
@@ -288,6 +299,7 @@ public class SmsLearningService {
         e.setText(text.strip());
         e.setKind(LearnedExample.SKIP);
         examples.save(e);
+        log.info("{} \"not a transaction\" learned: format {}", channel, saved.getId());
         return new LearnResult(Optional.of(saved), 0);
     }
 
@@ -316,6 +328,7 @@ public class SmsLearningService {
         remember(channel, flat, text, truth, source);
         examples.findByChannel(channel).stream().filter(e -> flat(e.getText()).equals(flat))
                 .forEach(e -> e.setOrigin(SmsTemplate.AUTO));
+        log.info("{} format learned automatically: format {} ({})", channel, saved.getId(), saved.getInstitution());
         return new LearnResult(Optional.of(saved), 0);
     }
 
@@ -343,12 +356,14 @@ public class SmsLearningService {
         if (!wrong) return false;
         if (t.isAuto()) {
             // learned automatically and now corrected: it goes
+            log.info("Format {} ({}) learned automatically was corrected, so it's forgotten", t.getId(), t.getInstitution());
             templates.delete(t);
             return false;
         }
         t.setCorrections(t.getCorrections() + 1);
         if (t.getCorrections() >= PAUSE_AFTER && !t.isPaused()) {
             t.setPaused(true);
+            log.warn("Format {} ({}) paused after {} corrections: its messages now wait for review", t.getId(), t.getInstitution(), t.getCorrections());
             return true;
         }
         return false;

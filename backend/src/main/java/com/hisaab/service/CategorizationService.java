@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
  */
 @Service
 public class CategorizationService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CategorizationService.class);
     private final CategoryRuleRepo rules;
     private final TxnRepo txns;
     private final CategoryVoteRepo votes;
@@ -207,6 +208,9 @@ public class CategorizationService {
         String vpa = vpaOf(t);
         if (vpa != null) vote(CategoryVote.VPA, vpa, category, t.getAmount());
         if (nameless(t)) for (String[] k : wordingKeys(t)) vote(k[0], k[1], category, t.getAmount());
+        // what it was learned by, not the payee itself
+        log.info("Category {} learned from transaction {} by {}", category.getId(), t.getId(),
+                t.getMerchantKey() != null ? (vpa != null ? "payee and UPI ID" : "payee") : vpa != null ? "UPI ID" : learnsByWording(t) ? "message wording" : "nothing (no payee or wording)");
         if (t.getMerchantKey() == null) return 0;
         vote(CategoryVote.MERCHANT, t.getMerchantKey(), category, t.getAmount());
         // The learned rule stays as the visible record (Settings → Categories), showing the current choice.
@@ -341,6 +345,7 @@ public class CategorizationService {
             o.setCategory(t.getCategory());
             o.setCategorySuggested(false);
         });
+        if (!list.isEmpty()) log.info("Category {} applied to {} earlier transaction(s) like {}", t.getCategory().getId(), list.size(), t.getId());
         return list.size();
     }
 

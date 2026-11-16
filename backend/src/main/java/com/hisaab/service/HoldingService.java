@@ -135,6 +135,7 @@ public class HoldingService {
                 }
             }
         }
+        log.info("Holdings CSV imported: {} imported, {} removed, {} rows skipped", imported, removed, skipped.size());
         return new ImportResult(imported, removed, skipped);
     }
 
@@ -166,7 +167,9 @@ public class HoldingService {
     @Scheduled(cron = "0 */15 9-15 * * MON-FRI", zone = "Asia/Kolkata")
     @Scheduled(cron = "0 5 16 * * MON-FRI", zone = "Asia/Kolkata")
     public void scheduledStockRefresh() {
-        if (enabled) refreshAllStocks();
+        if (!enabled) return;
+        int n = refreshAllStocks();
+        log.debug("Stock prices refreshed: {} updated", n);
     }
 
     @Transactional

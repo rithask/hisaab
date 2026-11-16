@@ -24,6 +24,7 @@ import java.util.*;
 
 @Service
 public class TransactionService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransactionService.class);
     private final TxnRepo txns;
     private final CategoryRepo categories;
     private final TagRepo tags;
@@ -83,6 +84,7 @@ public class TransactionService {
             if (same.isPresent()) {
                 // the same payment's alert from the other channel: it's now paired and can't absorb another one
                 if (same.get().getSource() != source && same.get().getTwinRawEmail() == null) same.get().setTwinRawEmail(email);
+                log.info("Alert {} not recorded: transaction {} has the same reference", email.getId(), same.get().getId());
                 return Optional.empty();
             }
         }
@@ -96,6 +98,7 @@ public class TransactionService {
             }
             if (existing.getReferenceNo() == null) existing.setReferenceNo(p.reference());
             if (existing.getReportedBalance() == null) existing.setReportedBalance(p.balance());
+            log.info("Alert {} not recorded: it's transaction {}'s alert from the other channel ({})", email.getId(), existing.getId(), existing.getSource());
             return Optional.empty();
         }
         String payee = aliases.apply(p.counterparty());
@@ -384,6 +387,7 @@ public class TransactionService {
     @Transactional
     public void delete(Long id) {
         Txn t = get(id);
+        com.hisaab.config.Audit.log("Transaction deleted id={} source={}", id, t.getSource());
         if (t.getLinkedTxn() != null) transfers.unlink(t);
         txns.delete(t);
     }

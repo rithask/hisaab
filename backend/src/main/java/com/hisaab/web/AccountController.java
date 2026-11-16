@@ -42,6 +42,9 @@ public class AccountController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        repo.delete(service.get(id));
+        var a = service.get(id);
+        repo.delete(a);
+        // deleting an account deletes its transactions too
+        com.hisaab.config.Audit.log("Account deleted id={} name=\"{}\" with its transactions", id, com.hisaab.config.AuthLog.clean(a.getName(), 60));
     }
 }

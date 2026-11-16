@@ -22,6 +22,7 @@ import java.util.List;
 
 @Service
 public class SplitService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SplitService.class);
     private final SplitShareRepo shares;
     private final SettlementRepo settlements;
     private final PersonRepo people;
@@ -170,6 +171,8 @@ public class SplitService {
         s.setDirection(in ? SettlementDirection.IN : SettlementDirection.OUT);
         s.setNote("Auto-matched from " + (t.getCounterparty() == null ? (in ? "incoming payment" : "payment") : t.getCounterparty()));
         settlements.save(s);
+        log.info("Repayment suggested: transaction {} as {} person {} (by {})", t.getId(), in ? "paid back by" : "paying back",
+                p.getId(), named(p, t.getCounterparty()) ? "name" : "exact amount");
     }
 
     /** How far back to look again for money that settles up, when something about a balance changes. */
@@ -222,7 +225,10 @@ public class SplitService {
         s.setTxn(txn);
         s.setNote(note);
         s.setStatus(SettlementStatus.CONFIRMED);
-        return new Recorded(settlements.save(s), txn == null ? null : remember(p, txn));
+        Settlement saved = settlements.save(s);
+        log.info("Repayment recorded: person {} {} {}", p.getId(), s.getDirection() == SettlementDirection.OUT ? "paid back by me" : "paid me back",
+                txn == null ? "(cash or another account)" : "with transaction " + txn.getId());
+        return new Recorded(saved, txn == null ? null : remember(p, txn));
     }
 
     /** I confirmed a suggested repayment: as for {@link #record}, remember the name it came from. */
@@ -230,6 +236,7 @@ public class SplitService {
     public String confirm(Settlement s, BigDecimal amount) {
         if (amount != null && amount.signum() > 0) s.setAmount(Money.r2(amount));
         s.setStatus(SettlementStatus.CONFIRMED);
+        log.info("Repayment confirmed: suggestion {} for person {}", s.getId(), s.getPerson().getId());
         return s.getTxn() == null ? null : remember(s.getPerson(), s.getTxn());
     }
 
@@ -237,6 +244,7 @@ public class SplitService {
         String name = t.getCounterparty();
         if (p.getUpiName() != null || name == null || name.isBlank() || named(p, name)) return null;
         p.setUpiName(name.length() > 200 ? name.substring(0, 200) : name.trim());
+        log.info("Person {}'s UPI name remembered from transaction {}, so their payments match by name", p.getId(), t.getId());
         return p.getUpiName();
     }
 }

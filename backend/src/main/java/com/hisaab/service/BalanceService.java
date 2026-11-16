@@ -17,6 +17,7 @@ import java.util.Locale;
 
 @Service
 public class BalanceService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BalanceService.class);
     private static final BigDecimal TOLERANCE = new BigDecimal("0.01");
 
     private final TxnRepo txns;
@@ -57,6 +58,9 @@ public class BalanceService {
         alert.setMessage("%s: bank reports %s but the app calculated %s (difference %s). A transaction may be missing."
                 .formatted(t.getAccount().getName(), inr(t.getReportedBalance()), inr(expected), inr(diff)));
         alerts.save(alert);
+        // no figures: they're my balances
+        log.warn("Balance mismatch on account {} after transaction {}: the bank's balance differs from the app's; a transaction may be missing",
+                t.getAccount().getId(), t.getId());
     }
 
     /** Resolve a mismatch by adding an adjustment entry so the app matches the bank. */
@@ -76,6 +80,7 @@ public class BalanceService {
         adj.setTransfer(true);
         txns.save(adj);
         alert.setDismissed(true);
+        com.hisaab.config.Audit.log("Balance adjusted on account {} to match the bank (adjustment transaction {})", adj.getAccount().getId(), adj.getId());
         return adj;
     }
 

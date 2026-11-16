@@ -16,6 +16,7 @@ import java.util.List;
  */
 @Service
 public class TransferService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransferService.class);
     private static final Duration WINDOW = Duration.ofDays(3);
 
     private final TxnRepo txns;
@@ -41,7 +42,11 @@ public class TransferService {
                         || mentions(t, c.getAccount()) || mentions(c, t.getAccount()))
                 .min(Comparator.comparing(c -> Duration.between(c.getOccurredAt(), t.getOccurredAt()).abs()))
                 .ifPresentOrElse(c -> link(t, c), () -> {
-                    if (hintedCardPayment || looksLikeSelf(t)) t.setTransfer(true);
+                    if (hintedCardPayment || looksLikeSelf(t)) {
+                        t.setTransfer(true);
+                        log.info("Transaction {} marked as a transfer between my accounts ({}), other side not found yet", t.getId(),
+                                hintedCardPayment ? "card payment" : "paid to my own name");
+                    }
                 });
     }
 
@@ -70,11 +75,13 @@ public class TransferService {
             t.setTransfer(true);
             t.setCategory(null);
         }
+        log.info("Transfer linked: transaction {} (account {}) and {} (account {})", a.getId(), a.getAccount().getId(), b.getId(), b.getAccount().getId());
     }
 
     @Transactional
     public void unlink(Txn a) {
         Txn b = a.getLinkedTxn();
+        log.info("Transfer unlinked: transaction {}{}", a.getId(), b == null ? "" : " and " + b.getId());
         a.setLinkedTxn(null);
         a.setTransfer(false);
         if (b != null) {

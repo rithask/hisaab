@@ -59,6 +59,7 @@ public class FeaturesController {
 
     @DeleteMapping("/budgets/{categoryId}")
     public void removeBudget(@PathVariable long categoryId) {
+        com.hisaab.config.Audit.log("Budget removed category={}", categoryId);
         budgets.remove(categoryId);
     }
 
@@ -111,13 +112,17 @@ public class FeaturesController {
 
     @PostMapping("/backups")
     public BackupService.Backup backupNow() throws IOException {
+        com.hisaab.config.Audit.log("Backup started by hand");
         return backups.run();
     }
 
     @GetMapping("/backups/{file}")
-    public ResponseEntity<Resource> download(@PathVariable String file) {
+    public ResponseEntity<Resource> download(@PathVariable String file, jakarta.servlet.http.HttpServletRequest req) {
+        java.nio.file.Path p = backups.file(file);
+        // a full copy of the database leaving the server
+        com.hisaab.config.Audit.log("Backup downloaded file={} ip={}", p.getFileName(), req.getRemoteAddr());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file).build().toString())
-                .body(new FileSystemResource(backups.file(file)));
+                .body(new FileSystemResource(p));
     }
 }

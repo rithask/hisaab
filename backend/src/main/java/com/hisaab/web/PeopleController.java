@@ -97,6 +97,7 @@ public class PeopleController {
             throw new IllegalStateException(p.getName() + " paid for things you recorded. Delete those first, or keep " + p.getName() + ".");
         }
         people.delete(p);
+        com.hisaab.config.Audit.log("Person deleted id={} with their split history", id);
     }
 
     private static Person apply(Person p, PersonInput in) {
@@ -172,6 +173,7 @@ public class PeopleController {
     public SettlementDto reject(@PathVariable Long id) {
         Settlement s = settlements.findById(id).orElseThrow();
         s.setStatus(SettlementStatus.REJECTED);
+        org.slf4j.LoggerFactory.getLogger(SplitService.class).info("Repayment suggestion {} turned down", id);
         return SettlementDto.of(s);
     }
 
@@ -179,6 +181,7 @@ public class PeopleController {
     @Transactional
     public void deleteSettlement(@PathVariable Long id) {
         settlements.deleteById(id);
+        com.hisaab.config.Audit.log("Repayment removed id={}", id);
         settlements.flush();
         splits.rescan();
     }

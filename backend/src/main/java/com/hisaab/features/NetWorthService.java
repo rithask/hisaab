@@ -53,6 +53,7 @@ public class NetWorthService {
     private void snapshotQuietly() {
         try {
             snapshot();
+            log.debug("Net worth snapshot taken");
         } catch (RuntimeException e) {
             log.warn("Net worth snapshot failed: {}", e.toString());
         }

@@ -50,6 +50,7 @@ import java.util.*;
  */
 @Service
 public class StatementImportService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StatementImportService.class);
     private static final String PASSWORD_PREFIX = "statement.password.";
     private static final Duration WINDOW = Duration.ofDays(25);
 
@@ -108,10 +109,16 @@ public class StatementImportService {
                 .forEach(s -> candidates.add(s.getValue()));
         PdfText.Opened opened = PdfText.open(pdf, candidates);
 
-        StatementParser parser = parsers.stream().filter(p -> p.supports(opened.text())).findFirst()
-                .orElseThrow(() -> new UnsupportedStatement("This statement's format isn't supported yet. Supported: Canara Bank, Axis Bank account, Axis credit card and HDFC credit card statements."));
+        StatementParser parser = parsers.stream().filter(p -> p.supports(opened.text())).findFirst().orElse(null);
+        if (parser == null) {
+            log.warn("Statement not recognised by any parser ({} characters of text{})", opened.text().length(), fromEmail == null ? ", uploaded" : ", from email statement " + fromEmail.getId());
+            throw new UnsupportedStatement("This statement's format isn't supported yet. Supported: Canara Bank, Axis Bank account, Axis credit card and HDFC credit card statements.");
+        }
         ParsedStatement s = parser.parse(opened.text());
-        if (s.rows().isEmpty()) throw new UnsupportedStatement("No transactions were found in this statement.");
+        if (s.rows().isEmpty()) {
+            log.warn("Statement read by {} but no transactions found{}", s.parser(), fromEmail == null ? " (uploaded)" : " (email statement " + fromEmail.getId() + ")");
+            throw new UnsupportedStatement("No transactions were found in this statement.");
+        }
 
         StatementImport imp = new StatementImport();
         imp.setParser(s.parser());
@@ -152,6 +159,8 @@ public class StatementImportService {
             lines.save(l);
         }
         if (imp.getAccount() != null) reconcile(imp);
+        log.info("Statement read: import {} by {}, {} lines, {} to {}, account {}", imp.getId(), s.parser(), n,
+                s.from(), s.to(), imp.getAccount() == null ? "not matched yet" : imp.getAccount().getId());
         if (fromEmail != null) {
             fromEmail.setImportStatus("REVIEW");
             fromEmail.setImportNote(null);
@@ -479,6 +488,8 @@ public class StatementImportService {
         if (imp.getStatementFile() != null) imp.getStatementFile().setImportStatus("IMPORTED");
         imp.setStatus(ImportStatus.IMPORTED);
         imp.setCompletedAt(Instant.now());
+        log.info("Statement import {} done for account {}: {} added, {} completed, {} skipped{}", importId, account.getId(),
+                added, updated, skipped, newStart == null ? "" : ", starting balance corrected");
         return new Result(added, updated, skipped, newStart);
     }
 

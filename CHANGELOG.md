@@ -17,7 +17,22 @@ must do when upgrading (marked **Upgrade:**).
   Scripts and API tokens aren't affected.
 - Signing out only works from the app (a POST), so a link elsewhere can't sign you out.
 
+### Added
+- More useful logs, with ids and counts only, never amounts, payees or message text:
+  - an audit log (`docker compose logs app | grep audit`): features switched, owner name changed, backups
+    downloaded or started, accounts, categories, rules, people, transactions, holdings and repayments deleted,
+    balances adjusted, learned formats and payee names forgotten;
+  - one line at startup with the version, time zone and how sign-in, mail and features are set up;
+  - each email and SMS and what became of it (recorded, needs review, duplicate, matched to the other channel's
+    alert); statements read and imported, or why not; balance mismatches; holdings CSV imports;
+  - what the app learned: formats taught, merged, refused, learned automatically or paused; categories learned and
+    applied to earlier transactions; transfers linked; repayments suggested, confirmed or turned down.
+
 ### Fixed
+- An unexpected error on a screen now shows a plain message instead of "Internal Server Error", and the server
+  log records it with the request.
+- Uploading a file that isn't a PDF as a statement said "Something went wrong"; it now says the file isn't a
+  readable PDF.
 - On Splits, a person's progress bar (and the "settled" total at the top) now counts what they paid for you, so
   squaring off with "Someone else paid" fills the bar instead of leaving it empty.
 

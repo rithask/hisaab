@@ -25,6 +25,13 @@ public class ApiExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("error", String.valueOf(e.getMessage())));
     }
 
+    /** An upload that isn't a proper file upload, or is missing its file: the request's fault. */
+    @ExceptionHandler({org.springframework.web.multipart.MultipartException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    ResponseEntity<Map<String, String>> badUpload(Exception e) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Choose a file to upload."));
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     ResponseEntity<Map<String, String>> unreadable(org.springframework.http.converter.HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest().body(Map.of("error", "Invalid request: " + e.getMostSpecificCause().getMessage()));
@@ -42,5 +49,20 @@ public class ApiExceptionHandler {
         log.warn("Request refused by a database constraint: {}", e.getMostSpecificCause().getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", "That conflicts with existing data (for example a duplicate name)"));
+    }
+
+    /**
+     * Anything else. Spring's own errors (404, 405, 415…) keep their status; a real failure is logged with its
+     * stack trace and the endpoint, and the screen gets a plain message instead of the server's internals.
+     */
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<Map<String, String>> unexpected(Exception e, jakarta.servlet.http.HttpServletRequest req) {
+        if (e instanceof org.springframework.web.ErrorResponse er) {
+            String detail = er.getBody().getDetail();
+            return ResponseEntity.status(er.getStatusCode()).body(Map.of("error", detail == null ? "Request failed" : detail));
+        }
+        log.error("Request failed: {} {}", req.getMethod(), req.getRequestURI(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Something went wrong on the server. Try again; if it keeps happening, the server log says why."));
     }
 }
