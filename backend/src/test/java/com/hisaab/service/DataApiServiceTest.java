@@ -47,6 +47,14 @@ class DataApiServiceTest {
     }
 
     @Test
+    void whatAFriendPaidForMeIsNotInTheApi() {
+        Txn t = txn(Direction.DEBIT, 5L, 1, false);
+        t.setAccount(null);
+        t.setPaidBy(new com.hisaab.domain.Person());
+        assertThat(DataApiService.visible(new ApiToken(), t)).isFalse();
+    }
+
+    @Test
     void cursorsRoundTripAndBadOnesAreRefused() {
         var c = new DataApiService.Cursor(false, Instant.parse("2026-11-12T08:14:00Z"), 812);
         assertThat(DataApiService.Cursor.decode(c.encode())).isEqualTo(c);

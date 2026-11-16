@@ -48,9 +48,10 @@ public class TotalsService {
             }
         }
         PortfolioDto pf = PortfolioDto.of(holdings.findAll().stream().map(HoldingDto::of).toList());
-        BigDecimal receivable = people.findAll().stream().map(splits::outstanding)
-                .filter(v -> v.signum() > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal net = cash.add(pf.currentValue()).add(receivable).subtract(owed);
+        List<BigDecimal> balances = people.findAll().stream().map(splits::outstanding).toList();
+        BigDecimal receivable = balances.stream().filter(v -> v.signum() > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal payable = balances.stream().filter(v -> v.signum() < 0).reduce(BigDecimal.ZERO, BigDecimal::add); // negative
+        BigDecimal net = cash.add(pf.currentValue()).add(receivable).add(payable).subtract(owed);
         return new Totals(cash, owed, limit, pf.currentValue(), pf.invested(), receivable, net);
     }
 }

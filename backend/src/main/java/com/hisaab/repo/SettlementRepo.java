@@ -1,5 +1,6 @@
 package com.hisaab.repo;
 
+import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.domain.Person;
 import com.hisaab.domain.Settlement;
@@ -22,11 +23,18 @@ public interface SettlementRepo extends JpaRepository<Settlement, Long> {
 
     @Query("""
             select coalesce(sum(s.amount), 0) from Settlement s
-            where s.person = :person and s.status = :status
+            where s.person = :person and s.status = :status and s.direction = :direction
             """)
-    BigDecimal totalPaid(@Param("person") Person person, @Param("status") SettlementStatus status);
+    BigDecimal total(@Param("person") Person person, @Param("status") SettlementStatus status,
+                     @Param("direction") SettlementDirection direction);
 
+    /** What they've paid me back (confirmed). */
     default BigDecimal totalPaid(Person person) {
-        return totalPaid(person, SettlementStatus.CONFIRMED);
+        return total(person, SettlementStatus.CONFIRMED, SettlementDirection.IN);
+    }
+
+    /** What I've paid them back (confirmed). */
+    default BigDecimal totalPaidBack(Person person) {
+        return total(person, SettlementStatus.CONFIRMED, SettlementDirection.OUT);
     }
 }

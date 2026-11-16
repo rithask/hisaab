@@ -101,4 +101,12 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
     List<Txn> findByTwinRawEmail(com.hisaab.domain.RawEmail email);
 
     java.util.Optional<Txn> findByApiTokenAndRequestKey(com.hisaab.domain.ApiToken apiToken, String requestKey);
+
+    /** My share of everything this person paid for. */
+    @Query("select coalesce(sum(t.amount), 0) from Txn t where t.paidBy = :person")
+    BigDecimal totalPaidBy(@Param("person") com.hisaab.domain.Person person);
+
+    List<Txn> findByPaidByOrderByOccurredAtDesc(com.hisaab.domain.Person person);
+
+    boolean existsByPaidBy(com.hisaab.domain.Person person);
 }

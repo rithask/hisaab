@@ -1,5 +1,6 @@
 package com.hisaab.service;
 
+import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.domain.Enums.SplitMethod;
 import com.hisaab.domain.Person;
@@ -9,6 +10,7 @@ import com.hisaab.domain.Txn;
 import com.hisaab.repo.PersonRepo;
 import com.hisaab.repo.SettlementRepo;
 import com.hisaab.repo.SplitShareRepo;
+import com.hisaab.repo.TxnRepo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +25,13 @@ public class SplitService {
     private final SplitShareRepo shares;
     private final SettlementRepo settlements;
     private final PersonRepo people;
+    private final TxnRepo txns;
 
-    public SplitService(SplitShareRepo shares, SettlementRepo settlements, PersonRepo people) {
+    public SplitService(SplitShareRepo shares, SettlementRepo settlements, PersonRepo people, TxnRepo txns) {
         this.shares = shares;
         this.settlements = settlements;
         this.people = people;
+        this.txns = txns;
     }
 
     public record Participant(Long personId, BigDecimal value) {}
@@ -93,8 +97,26 @@ public class SplitService {
         return s;
     }
 
+    /**
+     * Where I stand with someone.
+     *
+     * @param owed        their shares of what I paid for
+     * @param paid        what they paid me back
+     * @param paidForMe   my shares of what they paid for
+     * @param paidBack    what I paid them back
+     * @param outstanding what they owe me: positive, they owe me; negative, I owe them
+     */
+    public record Balance(BigDecimal owed, BigDecimal paid, BigDecimal paidForMe, BigDecimal paidBack, BigDecimal outstanding) {}
+
+    public Balance balance(Person p) {
+        BigDecimal owed = shares.totalOwed(p), paid = settlements.totalPaid(p);
+        BigDecimal forMe = txns.totalPaidBy(p), back = settlements.totalPaidBack(p);
+        return new Balance(owed, paid, forMe, back, owed.subtract(forMe).subtract(paid).add(back));
+    }
+
+    /** What they owe me: positive, they owe me; negative, I owe them. */
     public BigDecimal outstanding(Person p) {
-        return shares.totalOwed(p).subtract(settlements.totalPaid(p));
+        return balance(p).outstanding();
     }
 
     /**
@@ -103,7 +125,7 @@ public class SplitService {
      */
     @Transactional
     public void suggestSettlement(Txn credit) {
-        if (credit.isTransfer() || credit.isDebit()) return;
+        if (credit.isTransfer() || credit.isDebit() || credit.isPaidByPerson()) return;
         if (!settlements.findByTxn(credit).isEmpty()) return;
         List<Person> owing = people.findAll().stream().filter(p -> outstanding(p).signum() > 0).toList();
         if (owing.isEmpty()) return;
@@ -124,13 +146,15 @@ public class SplitService {
         s.setAmount(credit.getAmount().min(outstanding(p)));
         s.setSettledAt(credit.getOccurredAt());
         s.setStatus(SettlementStatus.SUGGESTED);
+        s.setDirection(SettlementDirection.IN);
         s.setNote("Auto-matched from " + (credit.getCounterparty() == null ? "incoming payment" : credit.getCounterparty()));
         settlements.save(s);
     }
 
     @Transactional
-    public Settlement record(Person p, BigDecimal amount, Instant at, Txn txn, String note) {
+    public Settlement record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Txn txn, String note) {
         Settlement s = new Settlement();
+        s.setDirection(direction == null ? SettlementDirection.IN : direction);
         s.setPerson(p);
         s.setAmount(Money.r2(amount));
         s.setSettledAt(at == null ? Instant.now() : at);

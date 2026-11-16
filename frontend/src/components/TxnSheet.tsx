@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsLeftRight, Bank, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { ArrowsLeftRight, Bank, Users, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
@@ -7,6 +7,7 @@ import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '.
 import { useAccounts, useCategories, useFeature, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DatePicker, DateTimePicker } from './DatePicker'
+import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
 import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney } from './ui'
 
@@ -33,6 +34,9 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   // Fixing an alert that was read wrong teaches the parser its format
   const [fixing, setFixing] = useState(false)
   const [fixed, setFixed] = useState<TeachResult | null>(null)
+  const [editingShare, setEditingShare] = useState(false)
+  // A friend paid and this is my share: no account, no learning, no splitting or transfers.
+  const paidBy = t.paidBy
   const fromAlert = (t.source === 'EMAIL' || t.source === 'SMS') && !!t.rawEmailId
   const onFixed = async (r: TeachResult) => {
     setFixing(false)
@@ -45,7 +49,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
     (r, body) => {
       setT(r.txn)
       setSimilar(r.similarCount)
-      if (typeof body.categoryId === 'number' && r.txn.category) setLearned({ payee: r.txn.counterparty ?? undefined, byWording: r.learnedWording, category: r.txn.category.name })
+      if (typeof body.categoryId === 'number' && r.txn.category && !r.txn.paidBy) setLearned({ payee: r.txn.counterparty ?? undefined, byWording: r.learnedWording, category: r.txn.category.name })
       if (typeof body.counterparty === 'string') {
         setRenaming(false)
         // Alerts teach the parser; hand-entered transactions are just renamed.
@@ -109,10 +113,10 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           </p>
         )}
         <p className="ink-2 text-sm">
-          {t.account.name} · {dateTime(t.occurredAt)}
+          {paidBy ? `Paid by ${paidBy.name}` : t.account?.name} · {dateTime(t.occurredAt)}
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-          <Badge>{t.source === 'EMAIL' ? 'From email' : t.source === 'SMS' ? 'From SMS' : t.source === 'STATEMENT' ? 'From statement' : t.source === 'ADJUSTMENT' ? 'Adjustment' : t.addedBy ? `Added by ${t.addedBy}` : 'Manual'}</Badge>
+          <Badge>{t.source === 'EMAIL' ? 'From email' : t.source === 'SMS' ? 'From SMS' : t.source === 'STATEMENT' ? 'From statement' : t.source === 'ADJUSTMENT' ? 'Adjustment' : t.source === 'PERSON' ? 'Your share' : t.addedBy ? `Added by ${t.addedBy}` : 'Manual'}</Badge>
           {t.referenceNo && <Badge>Ref {t.referenceNo}</Badge>}
           {t.reportedBalance != null && <Badge tone="blue">Bal {money(t.reportedBalance)}</Badge>}
         </div>
@@ -135,6 +139,32 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       )}
       <Sheet open={fixing} onClose={() => setFixing(false)} title="Fix what it read">
         {fixing && t.rawEmailId && <TeachForm id={t.rawEmailId} onDone={onFixed} />}
+      </Sheet>
+
+      {paidBy && (
+        <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">
+          <Users size={18} className="mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              {paidBy.name} paid {money(t.paidTotal ?? t.amount)}, your share {money(t.amount)}
+            </p>
+            <p className="ink-2">Counted in your spending, and taken off what {paidBy.name} owes you. No account of yours was charged.</p>
+            <button className="link mt-2 font-semibold text-[var(--accent)]" onClick={() => setEditingShare(true)}>
+              Change amounts
+            </button>
+          </div>
+        </div>
+      )}
+      <Sheet open={editingShare} onClose={() => setEditingShare(false)} title="Someone else paid">
+        {editingShare && (
+          <PaidByForm
+            txn={t}
+            onDone={async () => {
+              setEditingShare(false)
+              setT(await api<Txn>(`/transactions/${t.id}`))
+            }}
+          />
+        )}
       </Sheet>
 
       {t.transfer ? (
@@ -201,14 +231,16 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
               )}
             </div>
           )}
-          <button className="ink-2 mt-3 px-1 text-sm font-medium" onClick={() => update.mutate({ transfer: true })}>
-            Mark as transfer between my accounts
-          </button>
+          {!paidBy && (
+            <button className="ink-2 mt-3 px-1 text-sm font-medium" onClick={() => update.mutate({ transfer: true })}>
+              Mark as transfer between my accounts
+            </button>
+          )}
         </div>
       )}
 
-      {t.direction === 'DEBIT' && !t.transfer && <SplitEditor txn={t} />}
-      {t.direction === 'DEBIT' && !t.transfer && <RefundWatcher txnId={t.id} />}
+      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} />}
+      {t.direction === 'DEBIT' && !t.transfer && !paidBy && <RefundWatcher txnId={t.id} />}
 
       <div className="grid gap-3">
         <Field label="Tags" hint="Comma separated, e.g. trip-goa, office">
@@ -402,6 +434,12 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const [notes, setNotes] = useState('')
   const [transfer, setTransfer] = useState(false)
   const [more, setMore] = useState(false)
+  // "Someone else paid": a friend paid; I record my share, with no account of mine
+  const people = usePeople()
+  const [someone, setSomeone] = useState(false)
+  const [personId, setPersonId] = useState<number | ''>('')
+  const [shareMode, setShareMode] = useState<ShareMode>('HALF')
+  const [exactShare, setExactShare] = useState('')
 
   const active = (accounts.data ?? []).filter((a) => !a.archived)
   useEffect(() => {
@@ -411,13 +449,16 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const kind = direction === 'DEBIT' ? 'EXPENSE' : 'INCOME'
   const kindCats = (cats.data ?? []).filter((c) => c.kind === kind)
   const value = Number(amount)
-  const valid = value > 0 && accountId !== ''
+  const paidByOther = someone && direction === 'DEBIT'
+  const share = shareOf(value, shareMode, exactShare)
+  const payer = (people.data ?? []).find((p) => p.id === personId)
+  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== ''
 
   // People and shops I've paid before (or been paid by): one tap fills payee, category and account.
   const payees = useMemo(() => {
     const seen = new Map<string, Txn>()
     for (const t of recent.data?.items ?? []) {
-      if (t.transfer || t.direction !== direction || !t.counterparty) continue
+      if (t.transfer || t.paidBy || t.direction !== direction || !t.counterparty) continue
       const k = t.counterparty.toLowerCase()
       if (!seen.has(k)) seen.set(k, t)
     }
@@ -428,7 +469,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const pickPayee = (t: Txn) => {
     setCounterparty(t.counterparty!)
     if (t.category) setCategoryId(t.category.id)
-    if (active.some((a) => a.id === t.account.id) && defaultAccountId == null) setAccountId(t.account.id)
+    if (t.account && active.some((a) => a.id === t.account!.id) && defaultAccountId == null) setAccountId(t.account.id)
   }
   const switchDirection = (d: 'DEBIT' | 'CREDIT') => {
     setDirection(d)
@@ -441,9 +482,12 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
     setAmount(v.replace(/^0+(?=\d)/, '').slice(0, 12))
   }
 
+  const occurredAt = () => (whenMode === 'custom' ? fromLocalInput(when) : new Date(Date.now() - (whenMode === 'yesterday' ? 864e5 : 0)).toISOString())
   const save = useMoneyMutation(
     () =>
-      api('/transactions', {
+      paidByOther
+        ? api('/transactions/paid-by', { body: { personId, total: value, share, categoryId: categoryId || null, where: counterparty, occurredAt: occurredAt(), notes } })
+        : api('/transactions', {
         body: {
           accountId,
           direction,
@@ -451,7 +495,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           currency,
           counterparty,
           categoryId: transfer ? null : categoryId || null,
-          occurredAt: whenMode === 'custom' ? fromLocalInput(when) : new Date(Date.now() - (whenMode === 'yesterday' ? 864e5 : 0)).toISOString(),
+          occurredAt: occurredAt(),
           notes,
           transfer,
         },
@@ -499,7 +543,8 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           />
         </span>
       </label>
-      <div className="mt-2 flex justify-center">
+      {paidByOther && <p className="ink-2 mt-1 text-center text-[13px]">What {payer?.name ?? 'they'} paid altogether</p>}
+      <div className={cx('mt-2 flex justify-center', paidByOther && 'hidden')}>
         <span className="relative">
           <select
             aria-label="Currency"
@@ -522,7 +567,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           <input
             value={counterparty}
             onChange={(e) => setCounterparty(e.target.value)}
-            placeholder={direction === 'DEBIT' ? 'Paid to (optional)' : 'Received from (optional)'}
+            placeholder={paidByOther ? 'Where (optional)' : direction === 'DEBIT' ? 'Paid to (optional)' : 'Received from (optional)'}
             aria-label={direction === 'DEBIT' ? 'Paid to' : 'Received from'}
             className="h-[52px] min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-[var(--ink-3)]"
           />
@@ -545,13 +590,29 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         {active.map((a) => {
           const Icon = a.type === 'CREDIT_CARD' ? CreditCard : a.type === 'CASH' ? Wallet : Bank
           return (
-            <Choice key={a.id} on={a.id === accountId} onClick={() => setAccountId(a.id)}>
-              <Icon size={17} weight={a.id === accountId ? 'fill' : 'regular'} />
+            <Choice key={a.id} on={!paidByOther && a.id === accountId} onClick={() => (setAccountId(a.id), setSomeone(false))}>
+              <Icon size={17} weight={!paidByOther && a.id === accountId ? 'fill' : 'regular'} />
               {a.name}
             </Choice>
           )
         })}
+        {direction === 'DEBIT' && (
+          <Choice on={paidByOther} onClick={() => (setSomeone(true), setCurrency('INR'), setTransfer(false))}>
+            <Users size={17} weight={paidByOther ? 'fill' : 'regular'} />
+            Someone else
+          </Choice>
+        )}
       </ChipRow>
+      <Fold open={paidByOther}>
+        <div className="space-y-4 pt-4">
+          <PersonChips people={people.data ?? []} value={personId} onChange={setPersonId} />
+          <div>
+            <p className="ink-2 mb-2 px-1 text-[13px] font-medium">Your share</p>
+            <ShareFields total={value} mode={shareMode} setMode={setShareMode} exact={exactShare} setExact={setExactShare} />
+          </div>
+          {payer && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
+        </div>
+      </Fold>
 
       {/* 4. What for */}
       {!transfer && (
@@ -560,7 +621,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           <ChipRow rows={2}>
             <Choice on={categoryId === ''} onClick={() => setCategoryId('')}>
               <Sparkle size={17} weight={categoryId === '' ? 'fill' : 'regular'} />
-              Auto
+              {paidByOther ? 'None' : 'Auto'}
             </Choice>
             {kindCats.map((c) => {
               const Icon = categoryIcon(c)
@@ -609,9 +670,11 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <Fold open={more}>
         <div className="space-y-2.5 pt-1">
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note" aria-label="Notes" />
-          <div className="rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
-            <Toggle checked={transfer} onChange={setTransfer} label="Transfer between my own accounts" />
-          </div>
+          {!paidByOther && (
+            <div className="rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
+              <Toggle checked={transfer} onChange={setTransfer} label="Transfer between my own accounts" />
+            </div>
+          )}
         </div>
       </Fold>
 
@@ -619,7 +682,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <div className="sticky bottom-0 z-10 -mx-5 mt-4 bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving…' : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}` : 'Enter an amount'}
+          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}` : 'Enter an amount'}
         </Button>
       </div>
     </form>

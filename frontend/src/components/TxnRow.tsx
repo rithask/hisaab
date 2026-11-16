@@ -17,7 +17,7 @@ export default function TxnRow({ t, onClick, showDate }: { t: Txn; onClick: () =
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium">{title}</span>
         <span className="ink-2 block truncate text-[13px]">
-          {sub} · {t.account.name}
+          {sub} · {t.paidBy ? `Paid by ${t.paidBy.name}` : t.account?.name}
         </span>
       </span>
       <span className="shrink-0 text-right">

@@ -13,7 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Where money goes and comes from. Transfers are excluded; split bills only count my share; money people
+ * Where money goes and comes from. Transfers are excluded; split bills only count my share (and what a friend paid
+ * for me counts as my share of it, with no account); paying a friend back isn't spending again; money people
  * paid me back (confirmed settlements) isn't counted as income.
  */
 @Service
@@ -42,8 +43,10 @@ public class ReportService {
               select t.id, t.direction, t.occurred_at, t.category_id, t.account_id, t.counterparty,
                      case when t.direction = 'DEBIT'
                           then t.amount - coalesce((select sum(s.amount) from split_share s where s.txn_id = t.id), 0)
+                                        - coalesce((select sum(st.amount) from settlement st
+                                                    where st.txn_id = t.id and st.status = 'CONFIRMED' and st.direction = 'OUT'), 0)
                           else t.amount - coalesce((select sum(st.amount) from settlement st
-                                                    where st.txn_id = t.id and st.status = 'CONFIRMED'), 0)
+                                                    where st.txn_id = t.id and st.status = 'CONFIRMED' and st.direction = 'IN'), 0)
                      end as amt
               from txn t
               where t.transfer = false and t.occurred_at >= :from and t.occurred_at < :to

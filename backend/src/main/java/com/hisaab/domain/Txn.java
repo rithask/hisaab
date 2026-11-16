@@ -20,8 +20,15 @@ public class Txn {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    /** Null only when someone else paid ({@link #paidBy}): no money left an account of mine. */
+    @ManyToOne(fetch = FetchType.LAZY)
     private Account account;
+    /** The person who paid, when this is my share of something they paid for. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "paid_by_person_id")
+    private Person paidBy;
+    /** What they paid altogether (the amount is my share of it). */
+    private BigDecimal paidTotal;
 
     @Enumerated(EnumType.STRING)
     private Direction direction;
@@ -95,6 +102,11 @@ public class Txn {
     /** When it last changed; set by the database (V11), never by the app. */
     @Column(insertable = false, updatable = false)
     private Instant updatedAt;
+
+    /** Someone else paid; this is my share. Not a bank transaction: nothing is learned from it or matched to it. */
+    public boolean isPaidByPerson() {
+        return paidBy != null;
+    }
 
     public boolean isDebit() {
         return direction == Direction.DEBIT;

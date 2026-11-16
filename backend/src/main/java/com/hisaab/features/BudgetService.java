@@ -37,7 +37,9 @@ public class BudgetService {
         double fraction = Math.max(1, elapsed) / ym.lengthOfMonth();
         return jdbc.query("""
                 select b.category_id, c.name, c.color, b.monthly_limit,
-                       coalesce((select sum(t.amount - coalesce((select sum(s.amount) from split_share s where s.txn_id = t.id), 0))
+                       coalesce((select sum(t.amount - coalesce((select sum(s.amount) from split_share s where s.txn_id = t.id), 0)
+                                                     - coalesce((select sum(st.amount) from settlement st where st.txn_id = t.id
+                                                                 and st.status = 'CONFIRMED' and st.direction = 'OUT'), 0))
                                  from txn t
                                  where t.category_id = b.category_id and t.direction = 'DEBIT' and t.transfer = false
                                    and t.occurred_at >= :from and t.occurred_at < :to), 0) spent

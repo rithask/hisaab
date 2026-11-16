@@ -17,6 +17,7 @@ export default function People() {
   if (!people.data) return <PageSkeleton />
   const list = [...people.data].sort((a, b) => b.outstanding - a.outstanding)
   const owed = list.reduce((s, p) => s + Math.max(0, p.outstanding), 0)
+  const iOwe = list.reduce((s, p) => s + Math.max(0, -p.outstanding), 0)
   const shared = list.reduce((s, p) => s + p.owed, 0)
   const paid = list.reduce((s, p) => s + p.paid, 0)
 
@@ -34,6 +35,11 @@ export default function People() {
               <span className="tabular font-semibold text-[var(--ink)]">{money0(paid)}</span> of {money0(shared)} paid back
             </p>
           </>
+        )}
+        {iOwe > 0 && (
+          <p className="ink-2 mt-3 border-t border-[var(--line)] pt-3 text-[13px]">
+            You owe others <span className="tabular font-semibold text-[var(--negative)]">{money0(iOwe)}</span>
+          </p>
         )}
       </Card>
 
@@ -74,11 +80,11 @@ export default function People() {
                 <Avatar name={p.name} size={44} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold">{p.name}</p>
-                  {p.owed > 0 ? <Meter pct={(p.paid / p.owed) * 100} className="mt-1.5 max-w-[140px]" /> : <p className="ink-3 text-xs">No splits yet</p>}
+                  {p.owed > 0 && p.outstanding >= 0 ? <Meter pct={(p.paid / p.owed) * 100} className="mt-1.5 max-w-[140px]" /> : <p className="ink-3 text-xs">{p.owed > 0 || p.paidForMe > 0 ? '' : 'No splits yet'}</p>}
                 </div>
                 <div className="text-right">
-                  <p className={p.outstanding > 0 ? 'tabular text-[15px] font-bold' : 'tabular ink-3 text-[15px] font-semibold'}>{money(Math.abs(p.outstanding))}</p>
-                  <p className="ink-3 text-[11px] font-medium">{p.outstanding > 0 ? 'owes you' : p.outstanding < 0 ? 'overpaid' : 'settled'}</p>
+                  <p className={p.outstanding > 0 ? 'tabular text-[15px] font-bold' : p.outstanding < 0 ? 'tabular text-[15px] font-bold text-[var(--negative)]' : 'tabular ink-3 text-[15px] font-semibold'}>{money(Math.abs(p.outstanding))}</p>
+                  <p className="ink-3 text-[11px] font-medium">{p.outstanding > 0 ? 'owes you' : p.outstanding < 0 ? 'you owe' : 'settled'}</p>
                 </div>
                 <CaretRight size={16} className="ink-3" />
               </Link>

@@ -100,7 +100,8 @@ export interface Category {
 
 export interface Txn {
   id: number
-  account: AccountRef
+  /** null when someone else paid (see paidBy) */
+  account: AccountRef | null
   direction: Direction
   amount: number
   originalAmount?: number
@@ -114,7 +115,7 @@ export interface Txn {
   category?: Category
   tags: string[]
   notes?: string
-  source: 'EMAIL' | 'SMS' | 'STATEMENT' | 'MANUAL' | 'ADJUSTMENT'
+  source: 'EMAIL' | 'SMS' | 'STATEMENT' | 'MANUAL' | 'ADJUSTMENT' | 'PERSON'
   rawEmailId?: number
   transfer: boolean
   linkedTxnId?: number
@@ -124,6 +125,9 @@ export interface Txn {
   categorySuggested?: boolean
   /** name of the API token that added it, when an app did */
   addedBy?: string
+  /** someone else paid; amount is my share of paidTotal */
+  paidBy?: { id: number; name: string }
+  paidTotal?: number
 }
 
 export interface Page<T> {
@@ -156,8 +160,15 @@ export interface Person {
   upiName?: string
   phone?: string
   notes?: string
+  /** their shares of what I paid for */
   owed: number
+  /** what they paid me back */
   paid: number
+  /** my shares of what they paid for */
+  paidForMe: number
+  /** what I paid them back */
+  paidBack: number
+  /** what they owe me; negative when I owe them */
   outstanding: number
 }
 
@@ -165,6 +176,8 @@ export interface Settlement {
   id: number
   personId: number
   personName: string
+  /** IN: they paid me back; OUT: I paid them back */
+  direction: 'IN' | 'OUT'
   amount: number
   settledAt: string
   status: 'SUGGESTED' | 'CONFIRMED' | 'REJECTED'

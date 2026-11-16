@@ -90,6 +90,19 @@ public class TransactionController {
         return dto(service.createManual(req, accounts.get(req.accountId())));
     }
 
+    /** My share of something a friend paid for (see TransactionService#createPaidBy). */
+    @PostMapping("/paid-by")
+    @Transactional
+    public TxnDto createPaidBy(@RequestBody TransactionService.PaidByInput in) {
+        return dto(service.createPaidBy(in));
+    }
+
+    @PutMapping("/{id}/paid-by")
+    @Transactional
+    public TxnDto updatePaidBy(@PathVariable Long id, @RequestBody TransactionService.PaidByInput in) {
+        return dto(service.updatePaidBy(id, in));
+    }
+
     public record UpdateResponse(TxnDto txn, int similarCount, int renamedCount, boolean learnedWording) {}
 
     @PatchMapping("/{id}")
@@ -108,7 +121,9 @@ public class TransactionController {
     @PostMapping("/{id}/apply-to-similar")
     @Transactional
     public Map<String, Integer> applyToSimilar(@PathVariable Long id) {
-        return Map.of("updated", categorizer.applyToSimilar(service.get(id)));
+        Txn t = service.get(id);
+        if (t.isPaidByPerson()) return Map.of("updated", 0); // nothing is learned from these
+        return Map.of("updated", categorizer.applyToSimilar(t));
     }
 
     public record LinkRequest(Long otherId) {}
@@ -116,8 +131,9 @@ public class TransactionController {
     @PostMapping("/{id}/link")
     @Transactional
     public TxnDto link(@PathVariable Long id, @RequestBody LinkRequest req) {
-        Txn t = service.get(id);
-        transfers.link(t, service.get(req.otherId()));
+        Txn t = service.get(id), other = service.get(req.otherId());
+        if (t.isPaidByPerson() || other.isPaidByPerson()) throw new IllegalArgumentException("Someone else paid for this, so it isn't a transfer");
+        transfers.link(t, other);
         return dto(t);
     }
 
@@ -147,6 +163,7 @@ public class TransactionController {
     public SplitDto setSplit(@PathVariable Long id, @RequestBody SplitRequest req) {
         Txn t = service.get(id);
         if (!t.isDebit()) throw new IllegalArgumentException("Only money I paid out can be split");
+        if (t.isPaidByPerson()) throw new IllegalArgumentException("Someone else paid for this; change your share instead");
         var saved = splits.setSplit(t, req.method() == null ? SplitMethod.EQUAL : req.method(),
                 Boolean.TRUE.equals(req.includeMe()),
                 req.participants());

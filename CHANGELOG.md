@@ -9,6 +9,16 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- **Someone else paid.** When a friend pays for both of you, record your share: in the add sheet pick
+  **Paid from → Someone else**, or tap **"Rahul paid"** on their page. Choose half, all of it or an exact share.
+  Your share counts in Insights and budgets, no account of yours is touched, and it comes off what they owe you.
+  Nothing is learned from it (categories, payee names), so it never affects how bank alerts are sorted.
+- Balances with people now go both ways: "Rahul owes you ₹300" or "You owe Rahul ₹150", and you can record paying
+  someone back. A person's page shows one history of what each of you paid and paid back, with **I paid** and
+  **Rahul paid** buttons. What you owe people is taken off your net worth.
+- **Upgrade:** take a backup first; this release changes the database, so going back means restoring it.
+
 ## [0.8.1] - 2026-11-13
 
 ### Changed

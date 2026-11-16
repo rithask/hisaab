@@ -179,6 +179,7 @@ public class DataApiService {
     private static List<Predicate> limits(ApiToken token, jakarta.persistence.criteria.Root<Txn> root, jakarta.persistence.criteria.CriteriaBuilder cb) {
         List<Predicate> ps = new ArrayList<>();
         ps.add(cb.isFalse(root.get("transfer")));
+        ps.add(cb.isNull(root.get("paidBy"))); // what a friend paid for me isn't in the API
         if (!token.isMoneyIn()) ps.add(cb.equal(root.get("direction"), Direction.DEBIT));
         Set<String> cats = token.categoryLimit();
         if (cats != null) {
@@ -194,7 +195,7 @@ public class DataApiService {
     }
 
     static boolean visible(ApiToken token, Txn t) {
-        return !t.isTransfer() && (token.isMoneyIn() || t.getDirection() == Direction.DEBIT)
+        return !t.isTransfer() && !t.isPaidByPerson() && (token.isMoneyIn() || t.getDirection() == Direction.DEBIT)
                 && token.allowsCategory(t.getCategory() == null ? null : t.getCategory().getId())
                 && token.allowsAccount(t.getAccount().getId());
     }
@@ -338,7 +339,7 @@ public class DataApiService {
                 .addValue("from", Timestamp.from(first.atStartOfDay(Money.ZONE).toInstant()))
                 .addValue("to", Timestamp.from(last.plusDays(1).atStartOfDay(Money.ZONE).toInstant()))
                 .addValue("dir", dir.toUpperCase(Locale.ROOT));
-        StringBuilder where = new StringBuilder("e.direction = :dir and e.amt > 0");
+        StringBuilder where = new StringBuilder("e.direction = :dir and e.amt > 0 and e.account_id is not null");
         Set<String> cats = token.categoryLimit();
         if (cats != null) {
             List<Long> ids = cats.stream().filter(c -> !c.equals(ApiToken.UNCATEGORISED)).map(Long::valueOf).toList();

@@ -10,7 +10,8 @@ public final class Enums {
 
     public enum Direction { DEBIT, CREDIT }
 
-    public enum TxnSource { EMAIL, SMS, STATEMENT, MANUAL, ADJUSTMENT }
+    /** PERSON: a friend paid, and this is my share of it (no account of mine; see Txn#paidBy). */
+    public enum TxnSource { EMAIL, SMS, STATEMENT, MANUAL, ADJUSTMENT, PERSON }
 
     /** How a bank alert reached the app. */
     public enum Channel { EMAIL, SMS }
@@ -26,6 +27,9 @@ public final class Enums {
     public enum SplitMethod { EQUAL, EXACT, PERCENT }
 
     public enum SettlementStatus { SUGGESTED, CONFIRMED, REJECTED }
+
+    /** Which way a repayment went: IN, they paid me back; OUT, I paid them back. */
+    public enum SettlementDirection { IN, OUT }
 
     public enum AssetType { STOCK, MF }
 

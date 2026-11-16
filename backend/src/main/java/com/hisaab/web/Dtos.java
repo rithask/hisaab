@@ -21,6 +21,7 @@ public final class Dtos {
 
     public record AccountRef(Long id, String name, AccountType type, Institution institution, String last4) {
         static AccountRef of(Account a) {
+            if (a == null) return null;
             return new AccountRef(a.getId(), a.getName(), a.getType(), a.getInstitution(), a.getLast4());
         }
     }
@@ -31,7 +32,9 @@ public final class Dtos {
                          BigDecimal reportedBalance, CategoryDto category, List<String> tags, String notes,
                          TxnSource source, Long rawEmailId, boolean transfer, Long linkedTxnId,
                          AccountRef linkedAccount, BigDecimal sharedAmount, boolean categorySuggested,
-                         /* name of the API token that added it, when an app did */ String addedBy) {
+                         /* name of the API token that added it, when an app did */ String addedBy,
+                         /* someone else paid (account is null): who, and what they paid altogether */
+                         PersonRef paidBy, BigDecimal paidTotal) {
         static TxnDto of(Txn t, BigDecimal shared) {
             return new TxnDto(t.getId(), AccountRef.of(t.getAccount()), t.getDirection(), t.getAmount(),
                     t.getOriginalAmount(), t.getOriginalCurrency(), t.isAmountEstimated(), t.getOccurredAt(),
@@ -42,9 +45,12 @@ public final class Dtos {
                     t.getLinkedTxn() == null ? null : t.getLinkedTxn().getId(),
                     t.getLinkedTxn() == null ? null : AccountRef.of(t.getLinkedTxn().getAccount()), shared,
                     t.isCategorySuggested() && t.getCategory() != null,
-                    t.getApiToken() == null ? null : t.getApiToken().getName());
+                    t.getApiToken() == null ? null : t.getApiToken().getName(),
+                    t.getPaidBy() == null ? null : new PersonRef(t.getPaidBy().getId(), t.getPaidBy().getName()), t.getPaidTotal());
         }
     }
+
+    public record PersonRef(Long id, String name) {}
 
     public record RuleDto(Long id, RuleMatch matchType, String pattern, CategoryDto category, RuleSource source,
                           int priority, int hits) {
@@ -91,18 +97,27 @@ public final class Dtos {
         }
     }
 
-    public record SettlementDto(Long id, Long personId, String personName, BigDecimal amount, Instant settledAt,
-                                SettlementStatus status, String note, Long txnId, String txnCounterparty) {
+    /** @param direction IN: they paid me back; OUT: I paid them back */
+    public record SettlementDto(Long id, Long personId, String personName, SettlementDirection direction, BigDecimal amount,
+                                Instant settledAt, SettlementStatus status, String note, Long txnId, String txnCounterparty) {
         static SettlementDto of(Settlement s) {
-            return new SettlementDto(s.getId(), s.getPerson().getId(), s.getPerson().getName(), s.getAmount(),
+            return new SettlementDto(s.getId(), s.getPerson().getId(), s.getPerson().getName(), s.getDirection(), s.getAmount(),
                     s.getSettledAt(), s.getStatus(), s.getNote(),
                     s.getTxn() == null ? null : s.getTxn().getId(),
                     s.getTxn() == null ? null : s.getTxn().getCounterparty());
         }
     }
 
+    /**
+     * @param owed        their shares of what I paid for
+     * @param paid        what they paid me back
+     * @param paidForMe   my shares of what they paid for
+     * @param paidBack    what I paid them back
+     * @param outstanding what they owe me: negative when I owe them
+     */
     public record PersonDto(Long id, String name, String upiName, String phone, String notes,
-                            BigDecimal owed, BigDecimal paid, BigDecimal outstanding) {}
+                            BigDecimal owed, BigDecimal paid, BigDecimal paidForMe, BigDecimal paidBack,
+                            BigDecimal outstanding) {}
 
     public record HoldingDto(Long id, AssetType assetType, String symbol, String exchange, String name,
                              BigDecimal quantity, BigDecimal avgPrice, BigDecimal lastPrice, BigDecimal prevClose,

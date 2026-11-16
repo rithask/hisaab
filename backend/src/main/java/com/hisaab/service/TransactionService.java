@@ -33,11 +33,13 @@ public class TransactionService {
     private final SplitService splits;
     private final PriceService prices;
     private final PayeeAliasService aliases;
+    private final com.hisaab.repo.PersonRepo people;
 
     public TransactionService(TxnRepo txns, CategoryRepo categories, TagRepo tags, CategorizationService categorizer,
                               TransferService transfers, BalanceService balances, SplitService splits,
-                              PriceService prices, PayeeAliasService aliases) {
+                              PriceService prices, PayeeAliasService aliases, com.hisaab.repo.PersonRepo people) {
         this.aliases = aliases;
+        this.people = people;
         this.txns = txns;
         this.categories = categories;
         this.tags = tags;
@@ -250,6 +252,59 @@ public class TransactionService {
         return t;
     }
 
+    /**
+     * Something a friend paid for, with my share of it.
+     *
+     * @param total what they paid altogether
+     * @param share my part of it; what goes into my spending, and comes off what they owe me
+     * @param where where it was spent (shown as the payee); never learned from
+     */
+    public record PaidByInput(Long personId, BigDecimal total, BigDecimal share, Long categoryId, String where,
+                              Instant occurredAt, String notes, List<String> tags) {}
+
+    /**
+     * Records my share of something a friend paid for. It's not a bank transaction: it has no account, nothing
+     * is learned from it (category, payee) and nothing is matched to it (duplicates, transfers, repayments).
+     */
+    @Transactional
+    public Txn createPaidBy(PaidByInput in) {
+        Txn t = new Txn();
+        t.setDirection(Direction.DEBIT);
+        t.setSource(TxnSource.PERSON);
+        applyPaidBy(t, in);
+        if (in.tags() != null) t.setTags(resolveTags(in.tags()));
+        return txns.save(t);
+    }
+
+    @Transactional
+    public Txn updatePaidBy(Long id, PaidByInput in) {
+        Txn t = get(id);
+        if (!t.isPaidByPerson()) throw new IllegalArgumentException("This wasn't paid by someone else");
+        applyPaidBy(t, in);
+        if (in.tags() != null) t.setTags(resolveTags(in.tags()));
+        return t;
+    }
+
+    private void applyPaidBy(Txn t, PaidByInput in) {
+        com.hisaab.domain.Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
+        if (who == null) throw new IllegalArgumentException("Choose who paid");
+        if (in.total() == null || in.total().signum() <= 0) throw new IllegalArgumentException("Enter what they paid");
+        if (in.share() == null || in.share().signum() <= 0) throw new IllegalArgumentException("Your share must be more than zero");
+        BigDecimal total = Money.r2(in.total()), share = Money.r2(in.share());
+        if (share.compareTo(total) > 0) throw new IllegalArgumentException("Your share can't be more than they paid");
+        t.setPaidBy(who);
+        t.setPaidTotal(total);
+        t.setAmount(share);
+        t.setAccount(null);
+        t.setOccurredAt(in.occurredAt() == null ? Instant.now() : in.occurredAt());
+        t.setCounterparty(blankToNull(in.where()));
+        t.setMerchantKey(null); // never matched to bank payments, so never learned from
+        t.setNotes(blankToNull(in.notes()));
+        if (in.categoryId() == null) t.setCategory(null);
+        else t.setCategory(categories.findById(in.categoryId()).orElseThrow(() -> new IllegalArgumentException("Unknown category")));
+        t.setCategorySuggested(false);
+    }
+
     public record TxnUpdate(Long categoryId, Boolean clearCategory, List<String> tags, String notes, String counterparty,
                             Boolean transfer, BigDecimal amount, Instant occurredAt, Boolean learn) {}
 
@@ -262,6 +317,7 @@ public class TransactionService {
     @Transactional
     public UpdateResult update(Long id, TxnUpdate u) {
         Txn t = get(id);
+        if (t.isPaidByPerson()) return new UpdateResult(updateOwn(t, u), 0, 0, false);
         int similar = 0;
         int renamed = 0;
         boolean learnedWording = false;
@@ -303,6 +359,26 @@ public class TransactionService {
             }
         }
         return new UpdateResult(t, similar, renamed, learnedWording);
+    }
+
+    /** Edits to my share of something a friend paid for: plain changes, nothing learned or matched. */
+    private Txn updateOwn(Txn t, TxnUpdate u) {
+        if (Boolean.TRUE.equals(u.transfer())) throw new IllegalArgumentException("Someone else paid for this, so it isn't a transfer");
+        if (u.counterparty() != null) t.setCounterparty(blankToNull(u.counterparty()));
+        if (u.amount() != null) {
+            if (u.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+            if (u.amount().compareTo(t.getPaidTotal()) > 0) throw new IllegalArgumentException("Your share can't be more than they paid");
+            t.setAmount(Money.r2(u.amount()));
+        }
+        if (u.occurredAt() != null) t.setOccurredAt(u.occurredAt());
+        if (u.notes() != null) t.setNotes(blankToNull(u.notes()));
+        if (u.tags() != null) t.setTags(resolveTags(u.tags()));
+        if (Boolean.TRUE.equals(u.clearCategory())) t.setCategory(null);
+        else if (u.categoryId() != null) {
+            t.setCategory(categories.findById(u.categoryId()).orElseThrow(() -> new IllegalArgumentException("Unknown category")));
+        }
+        t.setCategorySuggested(false);
+        return t;
     }
 
     @Transactional
@@ -366,7 +442,8 @@ public class TransactionService {
                         cb.like(cb.lower(cb.coalesce(root.get("counterparty"), "")), like),
                         cb.like(cb.lower(cb.coalesce(root.get("description"), "")), like),
                         cb.like(cb.lower(cb.coalesce(root.get("notes"), "")), like),
-                        cb.like(cb.coalesce(root.get("referenceNo"), ""), like)));
+                        cb.like(cb.coalesce(root.get("referenceNo"), ""), like),
+                        cb.like(cb.lower(cb.coalesce(root.join("paidBy", jakarta.persistence.criteria.JoinType.LEFT).get("name"), "")), like)));
             }
             return cb.and(ps.toArray(Predicate[]::new));
         };

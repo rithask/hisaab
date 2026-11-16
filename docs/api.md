@@ -31,7 +31,8 @@ Nothing in the API can edit or delete a transaction, or change settings.
   ([RFC 8288](https://www.rfc-editor.org/rfc/rfc8288)).
 - **Limits:** 60 requests a minute per client. 10 wrong tokens in 15 minutes lock the client out for 15 minutes.
   Both answer `429` with `Retry-After` ([RFC 6585](https://www.rfc-editor.org/rfc/rfc6585)).
-- Transfers between your own accounts are never included.
+- Transfers between your own accounts are never included, nor your share of things a friend paid for (they have no
+  account of yours).
 
 ## Send SMS
 
@@ -216,7 +217,8 @@ card's limit or due day isn't set. These are the same figures as the Accounts sc
 }
 ```
 
-Totals are counted like the app's own screens: your share of split payments, no transfers. So they match Insights.
+Totals are counted like the app's own screens: your share of split payments, no transfers. So they match Insights,
+except for things a friend paid for you: those have no account of yours, so the API leaves them out everywhere.
 `key` is the category or account id, the month (`2026-11`) or the day (`2026-11-12`); `null` for uncategorised.
 
 ## Lists for menus

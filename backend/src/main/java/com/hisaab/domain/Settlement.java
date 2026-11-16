@@ -31,4 +31,7 @@ public class Settlement {
     private SettlementStatus status;
 
     private String note;
+
+    @Enumerated(EnumType.STRING)
+    private com.hisaab.domain.Enums.SettlementDirection direction = com.hisaab.domain.Enums.SettlementDirection.IN;
 }

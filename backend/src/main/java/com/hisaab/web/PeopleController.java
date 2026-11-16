@@ -1,5 +1,6 @@
 package com.hisaab.web;
 
+import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.domain.Person;
 import com.hisaab.domain.Settlement;
@@ -38,10 +39,9 @@ public class PeopleController {
     }
 
     PersonDto dto(Person p) {
-        BigDecimal owed = shares.totalOwed(p);
-        BigDecimal paid = settlements.totalPaid(p);
-        return new PersonDto(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), owed, paid,
-                owed.subtract(paid));
+        SplitService.Balance b = splits.balance(p);
+        return new PersonDto(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), b.owed(), b.paid(),
+                b.paidForMe(), b.paidBack(), b.outstanding());
     }
 
     Person person(Long id) {
@@ -67,7 +67,12 @@ public class PeopleController {
 
     @DeleteMapping("/people/{id}")
     public void delete(@PathVariable Long id) {
-        people.delete(person(id));
+        Person p = person(id);
+        // what they paid for me is part of my spending: don't let it vanish with them
+        if (txns.existsByPaidBy(p)) {
+            throw new IllegalStateException(p.getName() + " paid for things you recorded. Delete those first, or keep " + p.getName() + ".");
+        }
+        people.delete(p);
     }
 
     private static Person apply(Person p, PersonInput in) {
@@ -81,7 +86,9 @@ public class PeopleController {
 
     public record ShareLine(Long shareId, BigDecimal amount, TxnDto txn) {}
 
-    public record PersonDetail(PersonDto person, List<ShareLine> shares, List<SettlementDto> settlements) {}
+    /** @param paidForMe things they paid for, with my share as the amount */
+    public record PersonDetail(PersonDto person, List<ShareLine> shares, List<SettlementDto> settlements,
+                               List<TxnDto> paidForMe) {}
 
     @GetMapping("/people/{id}")
     @Transactional(readOnly = true)
@@ -90,7 +97,8 @@ public class PeopleController {
         return new PersonDetail(dto(p),
                 shares.findByPersonOrderByTxnOccurredAtDesc(p).stream()
                         .map(s -> new ShareLine(s.getId(), s.getAmount(), TxnDto.of(s.getTxn(), null))).toList(),
-                settlements.findByPersonOrderBySettledAtDesc(p).stream().map(SettlementDto::of).toList());
+                settlements.findByPersonOrderBySettledAtDesc(p).stream().map(SettlementDto::of).toList(),
+                txns.findByPaidByOrderByOccurredAtDesc(p).stream().map(t -> TxnDto.of(t, null)).toList());
     }
 
     // ---- settlements -------------------------------------------------------------------------------------
@@ -102,13 +110,15 @@ public class PeopleController {
                 .map(SettlementDto::of).toList();
     }
 
-    public record SettlementInput(Long personId, BigDecimal amount, Instant settledAt, Long txnId, String note) {}
+    /** @param direction IN (default): they paid me back; OUT: I paid them back */
+    public record SettlementInput(Long personId, SettlementDirection direction, BigDecimal amount, Instant settledAt,
+                                  Long txnId, String note) {}
 
     @PostMapping("/settlements")
     @Transactional
     public SettlementDto record(@RequestBody SettlementInput in) {
         if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-        return SettlementDto.of(splits.record(person(in.personId()), in.amount(), in.settledAt(),
+        return SettlementDto.of(splits.record(person(in.personId()), in.direction(), in.amount(), in.settledAt(),
                 in.txnId() == null ? null : txns.findById(in.txnId()).orElse(null), in.note()));
     }
 
