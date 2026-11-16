@@ -2,10 +2,19 @@ import { useQuery } from '@tanstack/react-query'
 import { CaretRight, Check, HandCoins, UserPlus, Users, X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Settlement } from '../api'
+import { api, type Person, type Settlement } from '../api'
 import { Avatar, Button, Card, Empty, ErrorText, Field, IconButton, Input, List, Meter, PageHeader, PageSkeleton, Section, Sheet, Page, BigMoney } from '../components/ui'
 import { dateTime, money, money0 } from '../format'
 import { useMoneyMutation, usePeople } from '../hooks'
+
+/**
+ * How much of what someone owed me is settled. It builds up with their shares of what I paid (and with what I
+ * paid them back); it's cleared by what they paid me back and by my shares of what they paid for.
+ */
+const progress = (p: Person) => {
+  const due = p.owed + p.paidBack
+  return { due, cleared: Math.min(due, p.paid + p.paidForMe) }
+}
 
 export default function People() {
   const people = usePeople()
@@ -18,8 +27,8 @@ export default function People() {
   const list = [...people.data].sort((a, b) => b.outstanding - a.outstanding)
   const owed = list.reduce((s, p) => s + Math.max(0, p.outstanding), 0)
   const iOwe = list.reduce((s, p) => s + Math.max(0, -p.outstanding), 0)
-  const shared = list.reduce((s, p) => s + p.owed, 0)
-  const paid = list.reduce((s, p) => s + p.paid, 0)
+  const shared = list.reduce((s, p) => s + progress(p).due, 0)
+  const paid = list.reduce((s, p) => s + progress(p).cleared, 0)
 
   return (
     <Page>
@@ -32,7 +41,7 @@ export default function People() {
           <>
             <Meter pct={(paid / shared) * 100} className="mt-3 h-2" />
             <p className="ink-2 mt-2 text-xs">
-              <span className="tabular font-semibold text-[var(--ink)]">{money0(paid)}</span> of {money0(shared)} paid back
+              <span className="tabular font-semibold text-[var(--ink)]">{money0(paid)}</span> of {money0(shared)} settled
             </p>
           </>
         )}
@@ -80,7 +89,7 @@ export default function People() {
                 <Avatar name={p.name} size={44} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold">{p.name}</p>
-                  {p.owed > 0 && p.outstanding >= 0 ? <Meter pct={(p.paid / p.owed) * 100} className="mt-1.5 max-w-[140px]" /> : <p className="ink-3 text-xs">{p.owed > 0 || p.paidForMe > 0 ? '' : 'No splits yet'}</p>}
+                  {progress(p).due > 0 && p.outstanding >= 0 ? <Meter pct={(progress(p).cleared / progress(p).due) * 100} className="mt-1.5 max-w-[140px]" /> : <p className="ink-3 text-xs">{p.owed > 0 || p.paidForMe > 0 ? '' : 'No splits yet'}</p>}
                 </div>
                 <div className="text-right">
                   <p className={p.outstanding > 0 ? 'tabular text-[15px] font-bold' : p.outstanding < 0 ? 'tabular text-[15px] font-bold text-[var(--negative)]' : 'tabular ink-3 text-[15px] font-semibold'}>{money(Math.abs(p.outstanding))}</p>

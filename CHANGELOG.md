@@ -9,6 +9,10 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Fixed
+- On Splits, a person's progress bar (and the "settled" total at the top) now counts what they paid for you, so
+  squaring off with "Someone else paid" fills the bar instead of leaving it empty.
+
 ## [0.9.0] - 2026-11-16
 
 ### Added
