@@ -252,7 +252,7 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
                   value={r.by}
                   onChange={(by) => set(i, { by })}
                   options={[
-                    { value: 'merchant', label: 'Merchant' },
+                    { value: 'merchant', label: 'Shop or payee' },
                     { value: 'category', label: 'Category' },
                   ]}
                 />

@@ -17,7 +17,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: PhIcon; hint: string }[]
   { key: 'general', label: 'General', icon: SlidersHorizontal, hint: 'Your name, Home, install the app' },
   { key: 'features', label: 'Features', icon: ToggleRight, hint: 'Turn optional parts of the app on or off' },
   { key: 'mail', label: 'Mail & SMS', icon: Envelope, hint: 'Alerts mailbox, forwarding bank SMS' },
-  { key: 'teaching', label: 'Teaching', icon: GraduationCap, hint: 'What it learned from your corrections' },
+  { key: 'teaching', label: 'What it learned', icon: GraduationCap, hint: 'From your corrections: wordings, payee names' },
   { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, API tokens, signing out' },
   { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups' },
 ]
@@ -110,7 +110,7 @@ function GeneralSection() {
   return (
     <>
       <Card className="space-y-4 p-5">
-        <Field label="Your name, as banks show it" hint="Used to spot transfers to yourself, e.g. UPI to ARJUN RAVI K">
+        <Field label="Your name, as banks show it" hint="Used to spot money you move to yourself, e.g. UPI to ARJUN RAVI K">
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
         </Field>
         <Button onClick={() => save.mutate(undefined)} disabled={save.isPending}>
@@ -288,7 +288,7 @@ function LearnedCard() {
         <div className="min-w-0 flex-1">
           <p className="font-semibold">What it has learned</p>
           <p className="ink-2 text-xs">
-            {l ? `${l.formats.length} message format${l.formats.length === 1 ? '' : 's'} · ${l.payees.length} payee name${l.payees.length === 1 ? '' : 's'} · ${l.senders} sender${l.senders === 1 ? '' : 's'}` : ' '}
+            {l ? `${l.formats.length} message wording${l.formats.length === 1 ? '' : 's'} · ${l.payees.length} payee name${l.payees.length === 1 ? '' : 's'} · ${l.senders} sender${l.senders === 1 ? '' : 's'}` : ' '}
           </p>
         </div>
       </div>
@@ -300,11 +300,11 @@ function LearnedCard() {
         <div className="mt-4 space-y-4">
           {l!.formats.length > 0 && (
             <div>
-              <p className="eyebrow ink-3 mb-2">Message formats</p>
+              <p className="eyebrow ink-3 mb-2">How messages are worded</p>
               <ul className="space-y-2">
                 {l!.formats.map((f) => (
                   <li key={f.id} className="flex items-start gap-2 rounded-[16px] bg-[var(--surface-2)] p-3">
-                    <Confirm ask="Forget this format?" yes="Forget" busy={forgetFormat.isPending} onYes={() => forgetFormat.mutate(f.id)}>
+                    <Confirm ask="Forget this wording?" yes="Forget" busy={forgetFormat.isPending} onYes={() => forgetFormat.mutate(f.id)}>
                     {(ask) => (<>
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-mono text-[11px] leading-relaxed">{f.skeleton}</p>
@@ -324,7 +324,7 @@ function LearnedCard() {
                         </p>
                       )}
                     </div>
-                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this format" onClick={ask}>
+                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this wording" onClick={ask}>
                       <X size={14} weight="bold" />
                     </button>
                     </>)}

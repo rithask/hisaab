@@ -428,7 +428,7 @@ function AccountPicker({ imp, onPicked }: { imp: StatementImport; onPicked: (v: 
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <Field
-              label={card ? 'Outstanding today (₹)' : 'Balance today (₹)'}
+              label={card ? 'What you owe today (₹)' : 'Balance today (₹)'}
               hint={card ? `The statement says ${money(imp.closing ?? 0)} was due. Check your bank app for today's figure; payments since then aren't on the statement.` : undefined}
             >
               <Input inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value.replace(/[^\d.]/g, ''))} />

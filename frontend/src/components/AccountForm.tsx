@@ -81,7 +81,7 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
         </div>
       )}
       {type !== 'CASH' && <p className="ink-3 -mt-2 px-1 text-xs">Alert emails are matched to this account by the last 4 digits.</p>}
-      <Field label={isCard ? 'Current outstanding (amount you owe)' : 'Current balance'}>
+      <Field label={isCard ? 'What you owe on it today' : 'Current balance'}>
         <Input required inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" />
       </Field>
       <Field label="As of" hint="Transactions before this moment are ignored for the balance.">

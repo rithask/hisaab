@@ -44,7 +44,7 @@ export default function Budgets() {
                   </button>
                 ))}
               </List>
-              <p className="ink-3 mt-2 px-1 text-[13px]">Tap one to change or remove it. Only your share of split bills counts, and transfers never do.</p>
+              <p className="ink-3 mt-2 px-1 text-[13px]">Tap one to change or remove it. Only your share of split bills counts, and money moved between your own accounts never does.</p>
             </Section>
           </>
         )}

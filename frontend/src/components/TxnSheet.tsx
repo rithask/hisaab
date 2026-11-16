@@ -133,7 +133,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           {fixed.learnedFormat
             ? 'Learned from it, so the next message like this is read right.'
             : fixed.conflicts > 0
-              ? `Not learned as a format: it would change how ${fixed.conflicts} message${fixed.conflicts > 1 ? 's' : ''} you taught earlier ${fixed.conflicts > 1 ? 'are' : 'is'} read.`
+              ? `Not learned: it would change how ${fixed.conflicts} message${fixed.conflicts > 1 ? 's' : ''} you taught earlier ${fixed.conflicts > 1 ? 'are' : 'is'} read.`
               : ''}
         </p>
       )}

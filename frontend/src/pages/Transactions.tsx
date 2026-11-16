@@ -109,7 +109,7 @@ export default function Transactions() {
           <MagnifyingGlass size={17} className="ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             className="surface h-11 w-full rounded-full pl-11 pr-10 text-[15px] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--ink-3)] hover:border-[var(--line-strong)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
-            placeholder="Search merchant, notes, ref no."
+            placeholder="Search payee, notes, ref no."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onBlur={() => set('q', q.trim() || undefined)}
@@ -144,10 +144,10 @@ export default function Transactions() {
             Money in
           </Chip>
           <Chip active={filters.uncategorized === 'true'} onClick={() => set('uncategorized', filters.uncategorized ? undefined : 'true')}>
-            Uncategorised
+            No category
           </Chip>
           <Chip active={filters.includeTransfers} onClick={() => set('includeTransfers', filters.includeTransfers ? undefined : 'true')}>
-            Transfers
+            Between my accounts
           </Chip>
           {filters.tag && (
             <Chip active onClick={() => set('tag', undefined)}>

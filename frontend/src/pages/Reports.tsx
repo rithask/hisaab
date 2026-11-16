@@ -236,7 +236,7 @@ export default function Reports() {
         </Section>
       )}
 
-      <p className="ink-3 mt-6 px-1 text-[12px]">Transfers between your accounts are left out. Split bills count only your share, and repayments aren't income.</p>
+      <p className="ink-3 mt-6 px-1 text-[12px]">Money moved between your own accounts is left out. Split bills count only your share, and repayments aren't income.</p>
       <TxnSheet txn={open} onClose={() => setOpen(null)} />
     </Page>
   )

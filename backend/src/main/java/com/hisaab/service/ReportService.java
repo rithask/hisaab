@@ -67,7 +67,7 @@ public class ReportService {
 
     private List<CategoryTotal> byCategory(MapSqlParameterSource p, String dir) {
         return jdbc.query(EFFECTIVE + """
-                        select c.id, coalesce(c.name, 'Uncategorised') name, coalesce(c.color, '#94a3b8') color,
+                        select c.id, coalesce(c.name, 'No category') name, coalesce(c.color, '#94a3b8') color,
                                sum(e.amt) total, count(*) cnt
                         from eff e left join category c on c.id = e.category_id
                         where e.direction = :dir and e.amt > 0

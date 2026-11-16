@@ -16,7 +16,8 @@ const tone: Record<EmailStatus, 'green' | 'amber' | 'red' | 'neutral' | 'blue'> 
   DUPLICATE: 'neutral',
   STATEMENT: 'blue',
 }
-const label = (s: EmailStatus) => s.replace('_', ' ').toLowerCase()
+// In plain words, for the badges and filters.
+const label = (s: EmailStatus) => ({ PARSED: 'recorded', NEEDS_REVIEW: 'needs you', ERROR: "couldn't read", IGNORED: 'skipped', DUPLICATE: 'already recorded', STATEMENT: 'statement' })[s]
 
 export default function Inbox() {
   const [filter, setFilter] = useState<EmailStatus | ''>('')
@@ -157,19 +158,19 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
         <Notice tone="green">
           {taught.txnId ? 'Recorded.' : 'Already recorded.'}
           {taught.learnedFormat && taught.mergedFormat
-            ? ' Merged it with a format it already knew for this kind of message, so wording that differs between them is read too.'
+            ? ' Combined it with a similar message it already knew, so both wordings are read from now on.'
             : taught.learnedFormat
-            ? ' Learned this message format, so the next one like it is read automatically.'
+            ? ' Learned how this message is worded, so the next one like it is read automatically.'
             : taught.conflicts > 0
-              ? ` Didn't learn this format: it would change how ${taught.conflicts} message${taught.conflicts > 1 ? 's' : ''} you taught earlier ${taught.conflicts > 1 ? 'are' : 'is'} read.`
-              : ' The amount isn\'t in the text, so no format could be learned from it.'}
+              ? ` Didn't learn this wording: it would change how ${taught.conflicts} message${taught.conflicts > 1 ? 's' : ''} you taught earlier ${taught.conflicts > 1 ? 'are' : 'is'} read.`
+              : ' The amount isn\'t in the text, so there was nothing to learn from it.'}
           {taught.learnedAccount ? ' Remembered which account it belongs to.' : ''}
           {taught.category
             ? taught.categoryByWording
               ? ` Filed under ${taught.category}; messages worded like this will be too.`
               : ` Filed under ${taught.category}.`
             : ''}
-          {taught.pausedFormat ? ' The format that misread it has been corrected too often and is paused (Settings → Teaching).' : ''}
+          {taught.pausedFormat ? ' The wording that misread it was corrected too often, so it\'s paused (Settings → What it learned).' : ''}
           {taught.alsoFixed > 0 ? ` ${taught.alsoFixed} other waiting message${taught.alsoFixed > 1 ? 's were' : ' was'} recorded too.` : ''}
         </Notice>
       )}
@@ -221,8 +222,8 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
       )}
       <p className="ink-3 text-xs">
         {sms
-          ? 'Correcting an SMS teaches the parser: it remembers the wording and the account, and re-checks everything else waiting for review.'
-          : 'Correcting an email teaches the parser its format, so the next alert like it is read automatically. Its sender is trusted from then on.'}
+          ? 'Correcting an SMS teaches the app: it remembers the wording and the account, and re-checks everything else waiting for you.'
+          : 'Correcting an email teaches the app how it\'s worded, so the next alert like it is read automatically. Its sender is trusted from then on.'}
       </p>
     </div>
   )

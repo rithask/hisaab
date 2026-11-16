@@ -118,7 +118,7 @@ public class EmailProcessor {
         raw.setReceivedAt(in.receivedAt());
         raw.setBodyText(in.text());
         raw.setStatus(EmailStatus.ERROR);
-        raw.setNote("Processing failed: " + error.getMessage());
+        raw.setNote("Couldn't process it: " + error.getMessage());
         emails.save(raw);
     }
 
@@ -211,7 +211,7 @@ public class EmailProcessor {
         } catch (RuntimeException e) {
             log.warn("SMS parser failed on message {}: {}", raw.getId(), e.toString());
             raw.setStatus(EmailStatus.ERROR);
-            raw.setNote("Parser error: " + e.getMessage());
+            raw.setNote("Couldn't read it: " + e.getMessage());
             return new ClassifyResult(null, null);
         }
 
@@ -573,7 +573,7 @@ public class EmailProcessor {
             Optional<Account> account = smsAccount(p);
             if (account.isEmpty()) {
                 raw.setStatus(EmailStatus.NEEDS_REVIEW);
-                raw.setNote("Read with a format you taught, but there's no matching account. Open it and pick the account.");
+                raw.setNote("Read the way you taught, but no account matches. Open it and pick the account.");
                 return;
             }
             raw.setStatus(txns.createFromEmail(p, account.get(), raw).isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
@@ -588,7 +588,7 @@ public class EmailProcessor {
                 log.warn("Parser {} failed on email {}: {}", parser.name(), raw.getId(), e.toString());
                 raw.setStatus(EmailStatus.ERROR);
                 raw.setParser(parser.name());
-                raw.setNote("Parser error: " + e.getMessage());
+                raw.setNote("Couldn't read it: " + e.getMessage());
                 return;
             }
             if (parsed.isEmpty()) continue;
@@ -604,7 +604,7 @@ public class EmailProcessor {
             Optional<Account> account = findAccount(p);
             if (account.isEmpty()) {
                 raw.setStatus(EmailStatus.NEEDS_REVIEW);
-                raw.setNote("No %s account ending %s. Add it under Accounts, then reprocess."
+                raw.setNote("No %s account ending %s. Add it under Accounts & cards, then tap Try again."
                         .formatted(p.institution(), p.last4()));
                 return;
             }
@@ -616,7 +616,7 @@ public class EmailProcessor {
         String hay = content.haystack();
         if (!NOISE.matcher(hay).find() && MONEY.matcher(hay).find() && TXN_WORDS.matcher(hay).find()) {
             raw.setStatus(EmailStatus.NEEDS_REVIEW);
-            raw.setNote("Looks like a transaction but no parser understood it.");
+            raw.setNote("Looks like a payment, but the app couldn't read it. Tell it what this is.");
         } else {
             raw.setStatus(EmailStatus.IGNORED);
         }

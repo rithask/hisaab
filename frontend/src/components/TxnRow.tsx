@@ -8,7 +8,7 @@ export default function TxnRow({ t, onClick, showDate }: { t: Txn; onClick: () =
   const title = t.counterparty ?? t.description ?? (t.direction === 'CREDIT' ? 'Money received' : 'Payment')
   const Icon = txnIcon(t)
   const color = t.transfer ? '#8a8a92' : (t.category?.color ?? (t.direction === 'CREDIT' ? '#16a34a' : '#8a8a92'))
-  const sub = t.transfer ? `Transfer${t.linkedAccount ? ` · ${t.linkedAccount.name}` : ''}` : (t.category?.name ?? 'Uncategorised')
+  const sub = t.transfer ? `Between my accounts${t.linkedAccount ? ` · ${t.linkedAccount.name}` : ''}` : (t.category?.name ?? 'No category')
   return (
     <button onClick={onClick} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left row', t.transfer && 'opacity-60')}>
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: tint(color, 0.13), color }}>

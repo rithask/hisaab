@@ -108,7 +108,7 @@ No AI is involved; it learns from evidence.
 - **Self-correction.** When an SMS prints the balance, the arithmetic decides the direction: if the balance only fits the opposite direction, it is flipped and the message is annotated.
 - **Senders.** Sender ids of parsed messages are remembered, so a text that doesn't name its bank is still attributed.
 
-Review or remove anything learned under **Settings → Teaching**.
+Review or remove anything learned under **Settings → What it learned**.
 
 ## Statement import
 

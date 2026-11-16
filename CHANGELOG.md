@@ -32,6 +32,10 @@ must do when upgrading (marked **Upgrade:**).
   Settle up says where you stand, picks the money that most likely settled it (their name, or exactly the
   amount due) and offers one button; the amount, another payment, cash, and the direction are there to change.
   Repayments to confirm moved to To check.
+- Plainer words throughout: "Between my accounts" instead of transfer, "You owe" instead of outstanding, "No
+  category" instead of uncategorised, how a message is "worded" instead of its format, and messages are
+  "recorded", "needs you", "couldn't read" or "skipped". Settings → Teaching is now **What it learned**. Notes on
+  messages the app couldn't read say what to do instead of naming a parser.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked

@@ -24,7 +24,7 @@ export default function BankCard({ a, onClick, className }: { a: Account; onClic
         {c?.dueDate && a.balance > 0 && <p className={cx('shrink-0 text-[13px]', dueSoon ? 'font-semibold text-[var(--negative)]' : 'ink-2')}>Due {shortDate(c.dueDate)}</p>}
       </div>
 
-      <p className="ink-2 mt-4 text-[13px]">Outstanding</p>
+      <p className="ink-2 mt-4 text-[13px]">You owe</p>
       <p className="display text-[28px] leading-tight">{money0(a.balance)}</p>
 
       {c?.creditLimit != null ? (
