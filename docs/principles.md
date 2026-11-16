@@ -23,8 +23,8 @@ counted in the time zone set with `TZ` (section 3.3).
    than to guess wrong. Unsure results become a card in Home → *To check*: one question, one-tap answers.
    Never silently drop data.
 4. **Nothing is deleted without asking.** Destructive actions confirm first, in place with `<Confirm>` (never the
-   browser's `confirm()`, which Safari and the installed app can block without a word). Turning a feature off hides it; it
-   doesn't delete its data.
+   browser's `confirm()`, which Safari and the installed app can block without a word). Turning a feature off
+   hides it; it doesn't delete its data.
 5. **Every optional feature has a switch.** Bills, budgets, net worth, year in review, advanced search,
    subscription watch, unusual activity and rewards (and backups) can each be turned off in Settings → Features;
    the Data API, which lets other apps in, starts off and waits to be turned on. A feature that's off is hidden from every screen,

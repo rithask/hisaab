@@ -28,6 +28,10 @@ must do when upgrading (marked **Upgrade:**).
 - Adding a transaction is amount and where; the app fills in the account, category and time as one line of
   guesses you tap only to change. "Someone else paid", "Split with friends" (equally, you included), a note and
   "Between my accounts" are chips under **Also**.
+- Splits: each person is one line ("owes you ₹300", "you owe ₹200", "all square") with a **Settle up** button.
+  Settle up says where you stand, picks the money that most likely settled it (their name, or exactly the
+  amount due) and offers one button; the amount, another payment, cash, and the direction are there to change.
+  Repayments to confirm moved to To check.
 
 ### Fixed
 - Deleting a transaction could do nothing: the browser's "Delete this transaction?" pop-up can be blocked

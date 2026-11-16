@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
-import { CaretRight, Check, HandCoins, UserPlus, Users, X } from '@phosphor-icons/react'
+import { CaretRight, HandCoins, UserPlus, Users } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Person, type Settlement } from '../api'
-import { Avatar, Button, Card, Empty, ErrorText, Field, IconButton, Input, List, Meter, PageHeader, PageSkeleton, Section, Sheet, Page, BigMoney } from '../components/ui'
-import { dateTime, money, money0 } from '../format'
+import { api, type Person } from '../api'
+import { SettleSheet } from './PersonDetail'
+import { Avatar, Button, Card, cx, Empty, ErrorText, Field, IconButton, Input, List, Meter, PageHeader, PageSkeleton, Section, Sheet, Page, BigMoney } from '../components/ui'
+import { money, money0 } from '../format'
 import { useMoneyMutation, usePeople } from '../hooks'
 
 /**
@@ -18,10 +18,8 @@ const progress = (p: Person) => {
 
 export default function People() {
   const people = usePeople()
-  const suggested = useQuery({ queryKey: ['settlements', 'suggested'], queryFn: () => api<Settlement[]>('/settlements/suggested') })
   const [adding, setAdding] = useState(false)
-  const confirm = useMoneyMutation((s: Settlement) => api(`/settlements/${s.id}/confirm`, { method: 'POST' }))
-  const reject = useMoneyMutation((s: Settlement) => api(`/settlements/${s.id}/reject`, { method: 'POST' }))
+  const [settling, setSettling] = useState<Person | null>(null)
 
   if (!people.data) return <PageSkeleton />
   const list = [...people.data].sort((a, b) => b.outstanding - a.outstanding)
@@ -52,31 +50,6 @@ export default function People() {
         )}
       </Card>
 
-      {(suggested.data ?? []).length > 0 && (
-        <Section title="Settling up?">
-          <div className="space-y-2">
-            {suggested.data!.map((s) => (
-              <Card key={s.id} className="anim-pop flex items-center gap-3">
-                <Avatar name={s.personName} size={44} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold">
-                    {s.direction === 'OUT' ? `You → ${s.personName}` : s.personName} · <span className="tabular">{money(s.amount)}</span>
-                  </p>
-                  <p className="ink-2 truncate text-xs">
-                    {s.txnCounterparty ? `From “${s.txnCounterparty}” · ` : ''}
-                    {dateTime(s.settledAt)}
-                  </p>
-                </div>
-                <IconButton icon={X} label="Not a repayment" onClick={() => reject.mutate(s)} />
-                <button className="pressable flex h-10 w-10 items-center justify-center rounded-full accent-fill" onClick={() => confirm.mutate(s)} aria-label="Confirm repayment">
-                  <Check size={19} />
-                </button>
-              </Card>
-            ))}
-          </div>
-        </Section>
-      )}
-
       <Section title="People">
         {list.length === 0 ? (
           <Empty icon={Users} title="No one here yet" action={<Button onClick={() => setAdding(true)}>Add a person</Button>}>
@@ -84,24 +57,36 @@ export default function People() {
           </Empty>
         ) : (
           <List>
-            {list.map((p) => (
-              <Link key={p.id} to={`/people/${p.id}`} className="flex items-center gap-3 px-4 py-3.5 row">
-                <Avatar name={p.name} size={44} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold">{p.name}</p>
-                  {progress(p).due > 0 && p.outstanding >= 0 ? <Meter pct={(progress(p).cleared / progress(p).due) * 100} className="mt-1.5 max-w-[140px]" /> : <p className="ink-3 text-xs">{p.owed > 0 || p.paidForMe > 0 ? '' : 'No splits yet'}</p>}
+            {list.map((p) => {
+              const v = Math.round(p.outstanding * 100) / 100
+              return (
+                <div key={p.id} className="row flex items-center gap-3 px-4 py-3.5">
+                  <Link to={`/people/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar name={p.name} size={44} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-semibold">{p.name}</p>
+                      {/* One sentence: where you stand. */}
+                      <p className={cx('truncate text-[13.5px]', v > 0 ? 'text-[var(--ink)]' : v < 0 ? 'text-[var(--negative)]' : 'ink-3')}>
+                        {v > 0 ? `owes you ${money(v)}` : v < 0 ? `you owe ${money(-v)}` : p.owed > 0 || p.paidForMe > 0 ? 'all square' : 'no splits yet'}
+                      </p>
+                      {progress(p).due > 0 && v > 0 && <Meter pct={(progress(p).cleared / progress(p).due) * 100} className="mt-1.5 max-w-[140px]" />}
+                    </div>
+                  </Link>
+                  {v !== 0 ? (
+                    <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setSettling(p)}>
+                      Settle up
+                    </Button>
+                  ) : (
+                    <CaretRight size={16} className="ink-3 shrink-0" />
+                  )}
                 </div>
-                <div className="text-right">
-                  <p className={p.outstanding > 0 ? 'tabular text-[15px] font-bold' : p.outstanding < 0 ? 'tabular text-[15px] font-bold text-[var(--negative)]' : 'tabular ink-3 text-[15px] font-semibold'}>{money(Math.abs(p.outstanding))}</p>
-                  <p className="ink-3 text-[11px] font-medium">{p.outstanding > 0 ? 'owes you' : p.outstanding < 0 ? 'you owe' : 'settled'}</p>
-                </div>
-                <CaretRight size={16} className="ink-3" />
-              </Link>
-            ))}
+              )
+            })}
           </List>
         )}
       </Section>
       <PersonSheet open={adding} onClose={() => setAdding(false)} />
+      <SettleSheet person={settling} onClose={() => setSettling(null)} />
     </Page>
   )
 }

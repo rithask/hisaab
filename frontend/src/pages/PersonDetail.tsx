@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, PencilSimple, Receipt, Trash, Users, Wallet, X } from '@phosphor-icons/react'
+import { Check, HandCoins, PencilSimple, Receipt, Trash, Users, Wallet, X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type Person, type Settlement, type Txn } from '../api'
-import { Avatar, BigMoney, Button, Card, Confirm, Empty, ErrorText, Field, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Segmented, Sheet, cx } from '../components/ui'
+import { Avatar, BigMoney, Button, Card, Confirm, Empty, ErrorText, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
 import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from '../components/DatePicker'
@@ -87,7 +87,12 @@ export default function PersonDetail() {
       <Card className="mt-5 p-5 text-center">
         <p className="ink-2 text-[13px] font-medium">{v > 0 ? `${first} owes you` : v < 0 ? `You owe ${first}` : 'All square'}</p>
         <BigMoney value={Math.abs(v)} className={v < 0 ? 'mt-1 text-[40px] leading-tight text-[var(--negative)]' : 'mt-1 text-[40px] leading-tight'} />
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        {v !== 0 && (
+          <Button className="mt-4 w-full" onClick={() => setSheet('payment')}>
+            Settle up
+          </Button>
+        )}
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => setSheet('iPaid')}>
             <Receipt size={17} /> I paid
           </Button>
@@ -95,11 +100,6 @@ export default function PersonDetail() {
             <Users size={17} /> {first} paid
           </Button>
         </div>
-        {v !== 0 && (
-          <Button className="mt-2 w-full" onClick={() => setSheet('payment')}>
-            {v > 0 ? `${first} paid you back` : `You paid ${first} back`}
-          </Button>
-        )}
       </Card>
 
       <Section title="History">
@@ -160,9 +160,7 @@ export default function PersonDetail() {
       </Confirm>
       <ErrorText error={remove.error} />
 
-      <Sheet open={sheet === 'payment'} onClose={() => setSheet(null)} title="Record a payment">
-        {sheet === 'payment' && <PaymentForm onClose={() => setSheet(null)} person={p} />}
-      </Sheet>
+      <SettleSheet person={sheet === 'payment' ? p : null} onClose={() => setSheet(null)} />
       <Sheet open={sheet === 'theyPaid'} onClose={() => setSheet(null)} title={`${first} paid`}>
         {sheet === 'theyPaid' && <PaidByForm person={p} onDone={() => setSheet(null)} />}
       </Sheet>
@@ -192,29 +190,42 @@ function PickPayment({ first, onPick }: { first: string; onPick: (t: Txn) => voi
   )
 }
 
+/** "Settle up" with someone, from the Splits list or their page. */
+export function SettleSheet({ person, onClose }: { person: Person | null; onClose: () => void }) {
+  return (
+    <Sheet open={!!person} onClose={onClose} title={person ? `Settle up with ${person.name.split(' ')[0]}` : ''}>
+      {person && <SettleForm person={person} onClose={onClose} />}
+    </Sheet>
+  )
+}
+
 /**
- * Record a repayment. Pick the money it came in (or went out) with, so it stops counting as income or spending,
- * or "Cash or another account" for money the app never saw.
+ * Settling up is one tap: it says where things stand, picks the money that most likely settled it (the app's best
+ * match by sender name, then by amount), and offers one button. The amount, the direction, a different payment or
+ * cash are there to change, but folded away. Linking the payment stops it counting as income or spending.
  */
-function PaymentForm({ onClose, person }: { onClose: () => void; person: Person }) {
+function SettleForm({ onClose, person }: { onClose: () => void; person: Person }) {
   const first = person.name.split(' ')[0]
   const [direction, setDirection] = useState<'IN' | 'OUT'>(person.outstanding < 0 ? 'OUT' : 'IN')
   const due = Math.abs(person.outstanding)
-  const [txn, setTxn] = useState<Txn | null>(null)
-  const [amount, setAmount] = useState(String(due))
+  const open = useQuery({ queryKey: ['open-payments', person.id, direction], queryFn: () => api<Txn[]>(`/people/${person.id}/open-payments?direction=${direction}`) })
+  // undefined: not chosen yet (use the best match); null: cash or another account
+  const [picked, setPicked] = useState<Txn | null | undefined>(undefined)
+  const best = (open.data ?? []).find((t) => matches(t, person, due))
+  const txn = picked === undefined ? (best ?? null) : picked
+  const [amount, setAmount] = useState<string | null>(null)
+  const value = amount != null ? Number(amount) : txn ? Math.min(txn.amount, due || txn.amount) : due
+  const [changing, setChanging] = useState<'amount' | 'payment' | null>(null)
   const [when, setWhen] = useState(toLocalInput())
   const [note, setNote] = useState('')
-  const open = useQuery({ queryKey: ['open-payments', person.id, direction], queryFn: () => api<Txn[]>(`/people/${person.id}/open-payments?direction=${direction}`) })
-  const value = Number(amount)
-  const choose = (t: Txn | null) => {
-    setTxn(t)
-    setAmount(String(t ? Math.min(t.amount, due || t.amount) : due))
-  }
-  const switchDirection = (d: 'IN' | 'OUT') => (setDirection(d), choose(null))
   const save = useMoneyMutation(
     () => api('/settlements', { body: { personId: person.id, direction, amount: value, txnId: txn?.id, settledAt: txn ? undefined : fromLocalInput(when), note } }),
     onClose,
   )
+  const flip = () => (setDirection(direction === 'IN' ? 'OUT' : 'IN'), setPicked(undefined), setAmount(null))
+  if (!open.data) return <div className="h-48 animate-pulse rounded-[20px] bg-[var(--surface-2)]" />
+
+  const others = open.data.filter((t) => t.id !== txn?.id).slice(0, 6)
   return (
     <form
       className="space-y-4"
@@ -223,19 +234,37 @@ function PaymentForm({ onClose, person }: { onClose: () => void; person: Person 
         save.mutate(undefined)
       }}
     >
-      <Segmented<'IN' | 'OUT'>
-        value={direction}
-        onChange={switchDirection}
-        options={[
-          { value: 'IN', label: `${first} paid you` },
-          { value: 'OUT', label: `You paid ${first}` },
-        ]}
-      />
-      <div>
-        <p className="ink-2 mb-2 px-1 text-[13px] font-medium">{direction === 'IN' ? 'Which money was it?' : 'Which payment was it?'}</p>
-        <List>
-          {(open.data ?? []).slice(0, 8).map((t) => (
-            <button key={t.id} type="button" onClick={() => choose(t)} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left row', txn?.id === t.id && 'bg-[var(--surface-2)]')}>
+      <div className="text-center">
+        <p className="ink-2 text-[15px]">{direction === 'IN' ? `${first} pays you` : `You pay ${first}`}</p>
+        <button type="button" onClick={() => setChanging(changing === 'amount' ? null : 'amount')} className="mt-1 inline-flex items-baseline gap-2">
+          <BigMoney value={value} className="text-[44px] leading-tight" />
+          <PencilSimple size={16} className="ink-3" />
+        </button>
+        {changing === 'amount' && (
+          <div className="anim-pop mx-auto mt-2 max-w-[200px]">
+            <Input autoFocus inputMode="decimal" aria-label="Amount" className="text-center" value={amount ?? String(value)} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+        )}
+        <p className="ink-2 mt-1 text-[13px]">
+          {standing(person.outstanding, first)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
+        </p>
+      </div>
+
+      {/* The money it was: the best match is picked already; anything else is one tap away. */}
+      <button type="button" onClick={() => setChanging(changing === 'payment' ? null : 'payment')} className="row flex w-full items-center gap-3 rounded-[20px] bg-[var(--surface-2)] px-4 py-3 text-left">
+        {txn ? <HandCoins size={20} className="shrink-0" /> : <Wallet size={20} className="shrink-0" />}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-medium">{txn ? (txn.counterparty ?? txn.description ?? 'Payment') : 'Cash or another account'}</span>
+          <span className="ink-2 block truncate text-[12.5px]">
+            {txn ? `${money(txn.amount)} · ${dateTime(txn.occurredAt)} · ${txn.account?.name ?? ''}` : 'Money the app didn\'t see'}
+          </span>
+        </span>
+        <span className="shrink-0 text-[14px] font-medium text-[var(--accent)]">Change</span>
+      </button>
+      {changing === 'payment' && (
+        <List className="anim-pop">
+          {others.map((t) => (
+            <button key={t.id} type="button" onClick={() => (setPicked(t), setAmount(null), setChanging(null))} className="row flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium">{t.counterparty ?? t.description ?? (direction === 'IN' ? 'Money received' : 'Payment')}</span>
                 <span className="ink-2 block truncate text-xs">
@@ -243,38 +272,38 @@ function PaymentForm({ onClose, person }: { onClose: () => void; person: Person 
                 </span>
               </span>
               <span className="tabular shrink-0 text-[15px] font-semibold">{money(t.amount)}</span>
-              {txn?.id === t.id && <Check size={18} className="shrink-0" />}
             </button>
           ))}
-          <button type="button" onClick={() => choose(null)} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left row', !txn && 'bg-[var(--surface-2)]')}>
-            <Wallet size={19} className="ink-2 shrink-0" />
-            <span className="flex-1 text-[15px] font-medium">Cash or another account</span>
-            {!txn && <Check size={18} className="shrink-0" />}
-          </button>
+          {txn && (
+            <button type="button" onClick={() => (setPicked(null), setAmount(null), setChanging(null))} className="row flex w-full items-center gap-3 px-4 py-3 text-left">
+              <Wallet size={19} className="ink-2 shrink-0" />
+              <span className="flex-1 text-[15px] font-medium">Cash or another account</span>
+            </button>
+          )}
         </List>
-      </div>
-      <Field label="Amount">
-        <Input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </Field>
+      )}
       {!txn && (
-        <>
-          <Field label="When">
-            <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />
-          </Field>
-          <Field label="Note">
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cash, GPay…" />
-          </Field>
-        </>
+        <div className="space-y-2">
+          <DateTimePicker value={when} onChange={setWhen} max={toLocalInput()} label="When" />
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional): cash, GPay…" aria-label="Note" />
+        </div>
       )}
-      {value > 0 && (
-        <p className="ink-2 rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-[13px]">
-          {standing(person.outstanding, first)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
-        </p>
-      )}
+
       <ErrorText error={save.error} />
       <Button type="submit" className="w-full" disabled={save.isPending || !(value > 0) || (!!txn && value > txn.amount)}>
-        Save payment
+        Settle {money(value)}
       </Button>
+      <button type="button" className="link ink-2 mx-auto block text-[13px] font-medium" onClick={flip}>
+        {direction === 'IN' ? `It was you paying ${first}` : `It was ${first} paying you`}
+      </button>
     </form>
   )
+}
+
+/** A payment the app is confident settles it: from someone with their name, or exactly the amount due. */
+function matches(t: Txn, p: Person, due: number) {
+  const who = (t.counterparty ?? '').trim().toLowerCase()
+  const names = [p.name, p.upiName].filter((n): n is string => !!n).map((n) => n.toLowerCase())
+  const named = who.length >= 3 && names.some((n) => who.includes(n) || n.includes(who))
+  return named || Math.abs(t.amount - due) < 0.01
 }
