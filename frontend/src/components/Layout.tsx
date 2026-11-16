@@ -21,18 +21,17 @@ const main: Item[] = [
  * pages are reached from where they belong (unusual payments from To check, net worth from Home's number, rewards
  * from each card, categories and messages from Settings). Optional features hide when switched off.
  */
-export const secondary: (Item & { hint: string; features?: Feature[] })[] = [
+export const secondary: (Item & { hint: string })[] = [
   { to: '/accounts', label: 'Accounts & cards', hint: 'Balances, limits, due dates, rewards', icon: Bank, match: (p) => p.startsWith('/accounts') || p.startsWith('/rewards') },
   { to: '/reports', label: 'Insights', hint: 'Where money goes and comes from', icon: ChartBar, match: (p) => p.startsWith('/reports') },
-  { to: '/repeating', label: 'Repeating', hint: 'Bills and subscriptions', icon: Repeat, match: (p) => ['/repeating', '/bills', '/subscriptions'].some((x) => p.startsWith(x)), features: ['bills', 'subscriptions'] },
+  { to: '/repeating', label: 'Repeating', hint: 'Bills and subscriptions', icon: Repeat, match: (p) => ['/repeating', '/bills', '/subscriptions'].some((x) => p.startsWith(x)) },
   { to: '/budgets', label: 'Budgets', hint: 'Monthly limits per category', icon: Target, match: (p) => p.startsWith('/budgets'), feature: 'budgets' },
   { to: '/statements', label: 'Statements', hint: 'Import a statement PDF, saved ones', icon: FileText, match: (p) => p.startsWith('/statements') || p.startsWith('/import') },
   { to: '/settings', label: 'Settings', hint: 'Mail, categories, backups', icon: GearSix, match: (p) => ['/settings', '/more', '/categories', '/inbox'].some((x) => p.startsWith(x)) },
 ]
 
-/** Whether a menu item's feature (or, for a merged page, any of its features) is switched on. */
-export const shown = (i: (typeof secondary)[number], f: Partial<Record<Feature, boolean>> | undefined) =>
-  i.features ? i.features.some((x) => f?.[x] !== false) : !i.feature || f?.[i.feature] !== false
+/** Whether a menu item's feature, if it has one, is switched on. */
+export const shown = (i: (typeof secondary)[number], f: Partial<Record<Feature, boolean>> | undefined) => !i.feature || f?.[i.feature] !== false
 
 const AddContext = createContext<(accountId?: number) => void>(() => {})
 export const useAddTransaction = () => useContext(AddContext)

@@ -8,7 +8,7 @@ import TxnSheet from '../components/TxnSheet'
 import { DatePicker } from '../components/DatePicker'
 import { Button, Chip, Empty, Field, Input, List, PillSelect, Segmented, Sheet, Skeleton, Page, Rise } from '../components/ui'
 import { dateLabel, dayKey, money, money0, ymd, zonedInstant } from '../format'
-import { useAccounts, useCategories, useFeature } from '../hooks'
+import { useAccounts, useCategories } from '../hooks'
 
 export default function Transactions() {
   const [params, setParams] = useSearchParams()
@@ -32,7 +32,6 @@ export default function Transactions() {
     maxAmount: params.get('max') ?? undefined,
     sort: params.get('sort') ?? undefined,
   }
-  const advanced = useFeature('search')
   const [filtering, setFiltering] = useState(false)
   const setMany = (kv: Record<string, string | undefined>) => {
     const n = new URLSearchParams(params)
@@ -154,12 +153,10 @@ export default function Transactions() {
               #{filters.tag} <X size={13} />
             </Chip>
           )}
-          {advanced && (
-            <Chip active={activeAdvanced.length > 0} onClick={() => setFiltering(true)}>
-              <Sliders size={14} /> {activeAdvanced.length ? `Filters · ${describeAdvanced(params)}` : 'More filters'}
-            </Chip>
-          )}
-          {advanced && activeAdvanced.length > 0 && (
+          <Chip active={activeAdvanced.length > 0} onClick={() => setFiltering(true)}>
+            <Sliders size={14} /> {activeAdvanced.length ? `Filters · ${describeAdvanced(params)}` : 'More filters'}
+          </Chip>
+          {activeAdvanced.length > 0 && (
             <Chip onClick={() => setMany({ from: undefined, to: undefined, min: undefined, max: undefined, sort: undefined })}>
               <X size={13} /> Clear
             </Chip>

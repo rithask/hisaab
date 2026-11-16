@@ -8,13 +8,15 @@ import java.util.Map;
 
 /**
  * Optional features I can switch off in Settings. Off means: hidden in the app, and any background job for it
- * (backups, net-worth snapshots) doesn't run. Everything is on by default, except what lets other apps in (the
- * Data API), which waits until I turn it on.
+ * (backups) doesn't run. Only real choices are switches: what costs setup or space (budgets, rewards, backups) and
+ * what lets other apps in (the Data API, off until I turn it on). Things that only watch my own data (bills,
+ * subscriptions, unusual activity, net worth, year in review, search) are always on; switching them off saved
+ * nothing and only hid useful answers. Their old stored switches are ignored.
  */
 @Service
 public class FeatureService {
     public enum Feature {
-        BACKUPS, BILLS, BUDGETS, NETWORTH, REVIEW, SEARCH, SUBSCRIPTIONS, UNUSUAL, REWARDS, DATA_API(false);
+        BACKUPS, BUDGETS, REWARDS, DATA_API(false);
 
         final boolean onByDefault;
 

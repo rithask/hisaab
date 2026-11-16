@@ -2,23 +2,21 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, type YearReview } from '../api'
 import { CategoryList, PeriodBars } from '../components/charts'
-import { BigMoney, Card, Chip, Delta, FeatureGate, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
+import { BigMoney, Card, Chip, Delta, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
 import { formatDay, money, money0, shortDate } from '../format'
-import { useFeature } from '../hooks'
 
 const monthName = (m: string) => formatDay(m + '-01', { month: 'long' })
 
 /** The year at a glance. */
 export default function Review() {
-  const on = useFeature('review')
   const [params, setParams] = useSearchParams()
   const year = Number(params.get('year') ?? new Date().getFullYear())
   const nav = useNavigate()
-  const q = useQuery({ queryKey: ['review', year], queryFn: () => api<YearReview>('/review?year=' + year), enabled: on === true })
+  const q = useQuery({ queryKey: ['review', year], queryFn: () => api<YearReview>('/review?year=' + year) })
   const r = q.data
 
   return (
-    <FeatureGate on={on} name="Year in review">
+    <>
       <Page>
         <PageHeader up={{ to: '/reports', label: 'Insights' }} title={`${year} in review`} subtitle={r?.partial ? 'So far this year' : undefined} />
         {r && r.years.length > 1 && (
@@ -104,7 +102,7 @@ export default function Review() {
           </>
         )}
       </Page>
-    </FeatureGate>
+    </>
   )
 }
 

@@ -20,8 +20,6 @@ export default function Home() {
   const recent = useQuery({ queryKey: ['transactions', 'recent'], queryFn: () => api<Paged<Txn>>('/transactions' + qs({ size: 6 })) })
   const [open, setOpen] = useState<Txn | null>(null)
   const nav = useNavigate()
-  // Optional features (Settings → Features): their links appear only while they're on.
-  const f = settings.data?.features
 
   if (!dash.data) return <PageSkeleton />
   const d = dash.data
@@ -77,23 +75,17 @@ export default function Home() {
             <span className="ink-2">Spent this month</span> <span className="tabular font-semibold">{money0(d.month.expense)}</span>
             {prev && <Delta now={d.month.expense} before={prev.expense} goodWhenUp={false} />}
           </Link>
-          {f?.networth ? (
-            <Link to="/networth" className="link flex items-center gap-1">
-              <span className="ink-2">Net worth</span> <span className="tabular font-semibold">{money0(worth)}</span>
-              <CaretRight size={12} className="ink-3" />
-            </Link>
-          ) : (
-            <span className="flex items-center gap-1">
-              <span className="ink-2">Net worth</span> <span className="tabular font-semibold">{money0(worth)}</span>
-            </span>
-          )}
+          <Link to="/networth" className="link flex items-center gap-1">
+            <span className="ink-2">Net worth</span> <span className="tabular font-semibold">{money0(worth)}</span>
+            <CaretRight size={12} className="ink-3" />
+          </Link>
         </div>
       </section>
 
       <ToCheck d={d} />
 
       {/* Year in review comes to Home at the turn of the year, instead of living in the menu. */}
-      {f?.review && (new Date().getMonth() === 11 || new Date().getMonth() === 0) && (
+      {(new Date().getMonth() === 11 || new Date().getMonth() === 0) && (
         <Link to={`/review?year=${new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()}`} className="pressable surface mt-4 flex items-center gap-3 rounded-[20px] p-4">
           <Sparkle size={22} weight="fill" className="text-[var(--accent)]" />
           <span className="min-w-0 flex-1 text-[15px] font-medium">Your {new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()} in review</span>

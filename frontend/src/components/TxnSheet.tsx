@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '../format'
-import { useAccounts, useCategories, useFeature, useMoneyMutation, usePeople } from '../hooks'
+import { useAccounts, useCategories, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
@@ -881,20 +881,18 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }) {
 
 /**
  * "I'm expecting money back" for a payment (a return, a cancelled order). Unusual activity warns if it hasn't
- * arrived by the date; it's marked arrived when a matching credit shows up. Only with Unusual activity on.
+ * arrived by the date; it's marked arrived when a matching credit shows up.
  */
 function RefundWatcher({ txnId, part }: { txnId: number; part: 'linked' | 'ask' }) {
-  const on = useFeature('unusual')
   const q = useQuery({
     queryKey: ['refund', txnId],
     queryFn: () => api<RefundWatch>(`/refunds/${txnId}`).catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
-    enabled: on === true,
   })
   const [by, setBy] = useState(() => ymd(new Date(Date.now() + 14 * 864e5)))
   const [editing, setEditing] = useState(false)
   const start = useMoneyMutation(() => api('/refunds', { body: { txnId, expectedBy: by } }), () => setEditing(false))
   const stop = useMoneyMutation(() => api(`/refunds/${txnId}`, { method: 'DELETE' }))
-  if (on !== true || q.data === undefined) return null
+  if (q.data === undefined) return null
   const r = q.data
   if (part === 'linked' ? !r : !!r) return null
   const today = ymd()

@@ -2,23 +2,21 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, type NetWorthPoint } from '../api'
 import { NetWorthChart } from '../components/charts'
-import { BigMoney, Card, Delta, FeatureGate, Page, PageHeader, PageSkeleton, Section, Segmented } from '../components/ui'
+import { BigMoney, Card, Delta, Page, PageHeader, PageSkeleton, Section, Segmented } from '../components/ui'
 import { money0, shortDate } from '../format'
-import { useFeature } from '../hooks'
 
 type Range = '1m' | '3m' | '6m' | '1y' | 'all'
 
 /** Net worth over time, from daily snapshots (earlier days rebuilt from transactions). */
 export default function NetWorth() {
-  const on = useFeature('networth')
   const [range, setRange] = useState<Range>('3m')
-  const q = useQuery({ queryKey: ['networth', range], queryFn: () => api<NetWorthPoint[]>('/networth?range=' + range), enabled: on === true })
+  const q = useQuery({ queryKey: ['networth', range], queryFn: () => api<NetWorthPoint[]>('/networth?range=' + range) })
   const pts = q.data ?? []
   const first = pts[0], last = pts[pts.length - 1]
   const estimated = pts.filter((p) => p.estimated)
 
   return (
-    <FeatureGate on={on} name="Net worth">
+    <>
       <Page>
         <PageHeader up={{ to: '/', label: 'Home' }} title="Net worth" />
         {!q.data ? (
@@ -69,7 +67,7 @@ export default function NetWorth() {
           </>
         )}
       </Page>
-    </FeatureGate>
+    </>
   )
 }
 

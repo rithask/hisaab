@@ -25,11 +25,11 @@ counted in the time zone set with `TZ` (section 3.3).
 4. **Nothing is deleted without asking.** Destructive actions confirm first, in place with `<Confirm>` (never the
    browser's `confirm()`, which Safari and the installed app can block without a word). Turning a feature off
    hides it; it doesn't delete its data.
-5. **Every optional feature has a switch.** Bills, budgets, net worth, year in review, advanced search,
-   subscription watch, unusual activity and rewards (and backups) can each be turned off in Settings → Features;
-   the Data API, which lets other apps in, starts off and waits to be turned on. A feature that's off is hidden from every screen,
-   its endpoints refuse requests, and its background jobs don't run. New optional features follow the same
-   pattern (section 3.6).
+5. **A switch only for a real choice.** Something that just watches your own data (bills, subscriptions, unusual
+   activity, net worth, year in review, search) is always on: turning it off saves nothing and hides answers.
+   Only what takes setup, space or trust gets a switch in Settings → Features: budgets, rewards, backups, and the
+   Data API (which lets other apps in, so it starts off). A feature that's off is hidden from every screen, its
+   endpoints refuse requests, and its background jobs don't run. New switches follow section 3.6.
 6. **Private by default.** Personal data stays on the user's server. No analytics or third-party calls apart
    from the price feeds for investments, which can be turned off with `PRICES_ENABLED=false`. Other apps get
    data only through tokens the owner creates, limited to what the owner chose.
@@ -86,7 +86,7 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 |---|---|---|
 | `web` | REST controllers, DTOs (`Dtos.java`, records), `ApiExceptionHandler` | Thin: parse input, call a service, return a DTO. No business logic, never return entities. |
 | `service` | Core logic: transactions, balances, categorisation, splits, transfers, prices, settings | Transaction boundaries (`@Transactional`) live here. |
-| `features` | Optional features (backups, bills, budgets, net worth, review) and `FeatureService` | Each checks its switch first. May use `NamedParameterJdbcTemplate` for reporting SQL. |
+| `features` | Bills, budgets, net worth, review, backups, and `FeatureService` | Switchable ones check their switch first. May use `NamedParameterJdbcTemplate` for reporting SQL. |
 | `mail`, `mail/parser` | IMAP sync, email processing, bank email parsers, `SmsParser`, SMS learning | One parser per bank and format, behind `BankEmailParser`. |
 | `statement` | PDF text extraction and statement parsers, the review-then-import flow | One parser per bank and card, behind `StatementParser`. |
 | `domain`, `repo` | JPA entities and Spring Data repositories | Entities only change through services. |
@@ -155,6 +155,8 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
   folder ownership.
 
 ### 3.6 Adding an optional feature (checklist)
+
+First ask whether it needs a switch at all (principle 5). If it only reads your data, it doesn't.
 
 1. Add it to `FeatureService.Feature` (on by default unless it's risky).
 2. Backend: call `features.require(Feature.X)` (or check `on`) at the top of every endpoint, and skip scheduled

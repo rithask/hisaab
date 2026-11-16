@@ -38,19 +38,16 @@ public class WatchController {
 
     @GetMapping("/subscriptions")
     public SubscriptionService.Overview subscriptions() {
-        features.require(Feature.SUBSCRIPTIONS);
         return subscriptions.overview();
     }
 
     @PostMapping("/subscriptions/hide")
     public void hide(@RequestBody KeyInput in) {
-        features.require(Feature.SUBSCRIPTIONS);
         subscriptions.hide(key(in));
     }
 
     @PostMapping("/subscriptions/unhide")
     public void unhide(@RequestBody KeyInput in) {
-        features.require(Feature.SUBSCRIPTIONS);
         subscriptions.unhide(key(in));
     }
 
@@ -70,7 +67,6 @@ public class WatchController {
 
     @GetMapping("/unusual")
     public UnusualService.Overview unusual() {
-        features.require(Feature.UNUSUAL);
         return unusual.overview();
     }
 
@@ -78,13 +74,11 @@ public class WatchController {
 
     @GetMapping("/refunds/{txnId}")
     public ResponseEntity<UnusualService.Refund> refund(@PathVariable long txnId) {
-        features.require(Feature.UNUSUAL);
         return unusual.refund(txnId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/refunds")
     public UnusualService.Refund expectRefund(@RequestBody RefundInput in) {
-        features.require(Feature.UNUSUAL);
         if (in.expectedBy() != null && in.expectedBy().isBefore(LocalDate.now(com.hisaab.service.Money.ZONE)))
             throw new IllegalArgumentException("Pick a date from today on");
         unusual.expectRefund(in.txnId(), in.expectedBy());
@@ -93,7 +87,6 @@ public class WatchController {
 
     @DeleteMapping("/refunds/{txnId}")
     public void stopWaiting(@PathVariable long txnId) {
-        features.require(Feature.UNUSUAL);
         unusual.stopWaiting(txnId);
     }
 

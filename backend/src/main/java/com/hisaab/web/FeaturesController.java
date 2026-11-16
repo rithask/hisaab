@@ -66,7 +66,6 @@ public class FeaturesController {
     // ---- bills
     @GetMapping("/bills")
     public List<BillService.Bill> bills(@RequestParam(required = false) Integer within) {
-        require(Feature.BILLS);
         return within == null ? bills.all() : bills.upcoming(within);
     }
 
@@ -85,7 +84,6 @@ public class FeaturesController {
     // ---- net worth
     @GetMapping("/networth")
     public List<NetWorthService.Point> networth(@RequestParam(defaultValue = "6m") String range) {
-        require(Feature.NETWORTH);
         LocalDate today = LocalDate.now(Money.ZONE);
         LocalDate from = switch (range) {
             case "1m" -> today.minusMonths(1);
@@ -100,7 +98,6 @@ public class FeaturesController {
     // ---- year in review
     @GetMapping("/review")
     public ReviewService.Review review(@RequestParam(required = false) Integer year) {
-        require(Feature.REVIEW);
         return review.year(year == null ? LocalDate.now(Money.ZONE).getYear() : year);
     }
 

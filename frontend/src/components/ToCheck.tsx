@@ -53,8 +53,8 @@ export default function ToCheck({ d }: { d: Dashboard }) {
     enabled: d.counts.emailsToReview > 0,
   })
   const loose = useQuery({ queryKey: ['transactions', 'uncategorized', since.slice(0, 10)], queryFn: () => api<Paged<Txn>>('/transactions' + qs({ uncategorized: true, direction: 'DEBIT', from: since, size: 10 })) })
-  const unusual = useQuery({ queryKey: ['unusual'], queryFn: () => api<Unusual>('/unusual'), enabled: f?.unusual === true })
-  const subs = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<Subscriptions>('/subscriptions'), enabled: f?.subscriptions === true })
+  const unusual = useQuery({ queryKey: ['unusual'], queryFn: () => api<Unusual>('/unusual') })
+  const subs = useQuery({ queryKey: ['subscriptions'], queryFn: () => api<Subscriptions>('/subscriptions') })
   const budgets = useQuery({ queryKey: ['budgets'], queryFn: () => api<Budget[]>('/budgets'), enabled: f?.budgets === true })
   const backup = useQuery({ queryKey: ['backups'], queryFn: () => api<BackupStatus>('/backups'), enabled: f?.backups === true })
 
@@ -89,7 +89,7 @@ export default function ToCheck({ d }: { d: Dashboard }) {
       body: <RepayAnswers id={x.id} />,
     })
   }
-  for (const i of f?.unusual ? (unusual.data?.items ?? []) : [])
+  for (const i of unusual.data?.items ?? [])
     items.push({
       key: `odd-${i.key}`,
       icon: ShieldWarning,
@@ -98,7 +98,7 @@ export default function ToCheck({ d }: { d: Dashboard }) {
       detail: `${shortDate(i.at)} · ${reasonText(i.reasons[0], i)}`,
       body: <OddAnswers k={i.key} onOpen={() => setTxn(i.txnId)} />,
     })
-  for (const r of f?.unusual ? (unusual.data?.refunds ?? []).filter((x) => x.status === 'LATE') : [])
+  for (const r of (unusual.data?.refunds ?? []).filter((x) => x.status === 'LATE'))
     items.push({ key: `refund-${r.txnId}`, icon: ShieldWarning, urgent: true, title: `Refund from ${r.name ?? 'a payment'} is late`, detail: `Expected by ${shortDate(r.expectedBy)}. Worth chasing up.`, body: <Answers><Button size="sm" onClick={() => setTxn(r.txnId)}>Open payment</Button></Answers> })
   for (const e of emails.data ?? [])
     items.push({
@@ -117,8 +117,8 @@ export default function ToCheck({ d }: { d: Dashboard }) {
       body: <CategoryAnswers txn={t} options={top} onOther={() => setTxn(t.id)} />,
     })
   // A subscription charged twice is already a card from Unusual activity; one card is enough.
-  const doubled = new Set((f?.unusual ? (unusual.data?.items ?? []) : []).filter((i) => i.reasons.some((r) => r.kind === 'DOUBLE_CHARGE')).map((i) => i.name?.toLowerCase()))
-  for (const a of f?.subscriptions ? (subs.data?.alerts ?? []).filter((x) => !(x.kind === 'DOUBLE' && doubled.has(x.name.toLowerCase()))) : []) {
+  const doubled = new Set((unusual.data?.items ?? []).filter((i) => i.reasons.some((r) => r.kind === 'DOUBLE_CHARGE')).map((i) => i.name?.toLowerCase()))
+  for (const a of (subs.data?.alerts ?? []).filter((x) => !(x.kind === 'DOUBLE' && doubled.has(x.name.toLowerCase())))) {
     const text = alertText(a)
     items.push({ key: `sub-${a.key}`, icon: Repeat, urgent: a.kind === 'DOUBLE', title: text.title, detail: text.detail, body: <Dismiss k={a.key} /> })
   }

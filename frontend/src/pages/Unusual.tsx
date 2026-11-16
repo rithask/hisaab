@@ -3,9 +3,9 @@ import { ArrowCounterClockwise, Copy, CurrencyCircleDollar, Moon, ShieldCheck, S
 import { useState } from 'react'
 import { api, type RefundWatch, type Unusual as Data, type UnusualItem, type UnusualReason } from '../api'
 import { TxnSheetById } from '../components/TxnSheet'
-import { Badge, Card, Empty, FeatureGate, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
+import { Badge, Card, Empty, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
 import { count, dateTime, moneyAuto, shortDate, time } from '../format'
-import { useFeature, useMoneyMutation } from '../hooks'
+import { useMoneyMutation } from '../hooks'
 
 const reasonIcon = { DOUBLE_CHARGE: Copy, BIG_FOR_MERCHANT: TrendUp, NEW_PAYEE_BIG: Storefront, FOREIGN: CurrencyCircleDollar, LATE_NIGHT: Moon } as const
 
@@ -27,15 +27,14 @@ export function reasonText(r: UnusualReason, item: UnusualItem): string {
 
 /** Recent payments that look wrong or risky, judged against my own history, and refunds I'm waiting for. */
 export default function Unusual() {
-  const on = useFeature('unusual')
-  const q = useQuery({ queryKey: ['unusual'], queryFn: () => api<Data>('/unusual'), enabled: on === true })
+  const q = useQuery({ queryKey: ['unusual'], queryFn: () => api<Data>('/unusual') })
   const [txn, setTxn] = useState<number | null>(null)
   const d = q.data
   const waiting = d?.refunds.filter((r) => r.status !== 'ARRIVED') ?? []
   const arrived = d?.refunds.filter((r) => r.status === 'ARRIVED') ?? []
 
   return (
-    <FeatureGate on={on} name="Unusual activity">
+    <>
       <Page>
         <PageHeader up={{ to: '/', label: 'Home' }} title="Unusual activity" subtitle="Recent payments worth a second look" />
         {!d ? (
@@ -71,7 +70,7 @@ export default function Unusual() {
         )}
         <TxnSheetById id={txn} onClose={() => setTxn(null)} />
       </Page>
-    </FeatureGate>
+    </>
   )
 }
 

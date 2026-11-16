@@ -369,14 +369,8 @@ function Segmented3({ value, onChange }: { value: 'ios' | 'android' | 'curl'; on
 
 const FEATURES: { key: Feature; name: string; hint: string; off?: boolean }[] = [
   { key: 'backups', name: 'Automatic backups', hint: 'Nightly copy of everything, kept on the server' },
-  { key: 'bills', name: 'Upcoming bills', hint: 'Learned from payments that repeat' },
   { key: 'budgets', name: 'Budgets', hint: 'Monthly limits per category' },
-  { key: 'subscriptions', name: 'Subscription watch', hint: 'Price rises, double charges, new and stopped subscriptions' },
-  { key: 'unusual', name: 'Unusual activity', hint: 'Double charges, odd amounts, foreign and late-night spends, refunds' },
   { key: 'rewards', name: 'Rewards', hint: 'Cashback and points on your credit cards' },
-  { key: 'networth', name: 'Net worth over time', hint: 'Daily snapshot and chart' },
-  { key: 'review', name: 'Year in review', hint: 'Your year at a glance' },
-  { key: 'search', name: 'Advanced search', hint: 'Date range, amount and sort in Activity' },
   { key: 'data_api', name: 'Data API', hint: 'Let other apps read or add transactions with a token (Security → API tokens)', off: true },
 ]
 

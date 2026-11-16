@@ -306,7 +306,7 @@ export interface Settings {
   features: Record<Feature, boolean>
 }
 
-export type Feature = 'backups' | 'bills' | 'budgets' | 'networth' | 'review' | 'search' | 'subscriptions' | 'unusual' | 'rewards' | 'data_api'
+export type Feature = 'backups' | 'budgets' | 'rewards' | 'data_api'
 
 export interface Bill {
   key: string

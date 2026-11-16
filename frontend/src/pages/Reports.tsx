@@ -9,7 +9,6 @@ import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
 import { Card, cx, Delta, Empty, List, Page, PageHeader, Section, Segmented, Skeleton } from '../components/ui'
 import { money, money0, ymd, zonedInstant } from '../format'
-import { useFeature } from '../hooks'
 
 type View = 'day' | 'week' | 'month'
 
@@ -55,7 +54,6 @@ const report = (from: string, to: string) => api<Report>('/reports' + qs({ from:
  * page to that day (totals, its transactions, where the money went); tapping it again returns to the period.
  */
 export default function Reports() {
-  const review = useFeature('review')
   const [params, setParams] = useSearchParams()
   const view = (params.get('view') as View) || 'month'
   const anchor = params.get('at') ?? (params.get('month') ? params.get('month') + '-01' : today())
@@ -94,14 +92,12 @@ export default function Reports() {
     <Page>
       <PageHeader back title="Insights" />
       {/* Year in review lives here all year (it also comes to Home in December and January). */}
-      {review && (
-        <Link to="/review" className="row surface -mt-1 mb-4 flex items-center gap-3 rounded-[20px] px-4 py-3">
-          <Sparkle size={20} weight="fill" className="text-[var(--accent)]" />
-          <span className="min-w-0 flex-1 text-[15px] font-medium">{new Date().getFullYear()} in review</span>
-          <span className="ink-2 text-[13px]">so far</span>
-          <CaretRight size={15} className="ink-3" />
-        </Link>
-      )}
+      <Link to="/review" className="row surface -mt-1 mb-4 flex items-center gap-3 rounded-[20px] px-4 py-3">
+        <Sparkle size={20} weight="fill" className="text-[var(--accent)]" />
+        <span className="min-w-0 flex-1 text-[15px] font-medium">{new Date().getFullYear()} in review</span>
+        <span className="ink-2 text-[13px]">so far</span>
+        <CaretRight size={15} className="ink-3" />
+      </Link>
 
       <Segmented<View>
         value={view}

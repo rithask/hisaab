@@ -1,6 +1,5 @@
 package com.hisaab.features;
 
-import com.hisaab.features.FeatureService.Feature;
 import com.hisaab.service.Money;
 import com.hisaab.web.TotalsService;
 import org.slf4j.Logger;
@@ -29,12 +28,10 @@ public class NetWorthService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final TotalsService totals;
-    private final FeatureService features;
 
-    public NetWorthService(NamedParameterJdbcTemplate jdbc, TotalsService totals, FeatureService features) {
+    public NetWorthService(NamedParameterJdbcTemplate jdbc, TotalsService totals) {
         this.jdbc = jdbc;
         this.totals = totals;
-        this.features = features;
     }
 
     public record Point(LocalDate day, BigDecimal netWorth, BigDecimal cash, BigDecimal cardDues, BigDecimal investments,
@@ -42,12 +39,12 @@ public class NetWorthService {
 
     @EventListener(ApplicationReadyEvent.class)
     public void atStartup() {
-        if (features.on(Feature.NETWORTH)) snapshotQuietly();
+        snapshotQuietly();
     }
 
     @Scheduled(cron = "0 55 23 * * *")   // just before your midnight (TZ)
     public void nightly() {
-        if (features.on(Feature.NETWORTH)) snapshotQuietly();
+        snapshotQuietly();
     }
 
     private void snapshotQuietly() {
