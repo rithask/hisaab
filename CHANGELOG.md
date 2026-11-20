@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-21
+
 ### Added
 - **Reset** in Settings → Import & backups. Choose what to clear: money data (accounts, transactions, people,
   statements, investments, budgets, saved messages), what the app learned, categories (the built-in ones come
