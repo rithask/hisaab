@@ -9,6 +9,14 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- **Reset** in Settings → Import & backups. Choose what to clear: money data (accounts, transactions, people,
+  statements, investments, budgets, saved messages), what the app learned, categories (the built-in ones come
+  back), settings, or connected apps (API tokens and the Pocket ID link). Each choice says what it would remove,
+  the next step warns that it can't be undone, and you type "reset" to confirm. A backup is taken first, and if it
+  fails nothing is reset. Your sign-in, your backups and how far mail reading has got are always kept, so old
+  emails aren't imported again (Import older emails still brings them back).
+
 ## [0.11.0] - 2026-11-16
 
 ### Changed

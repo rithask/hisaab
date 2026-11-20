@@ -397,6 +397,24 @@ export interface BackupStatus {
   backups: { file: string; sizeBytes: number; createdAt: string }[]
 }
 
+export type ResetPart = 'DATA' | 'LEARNED' | 'CATEGORIES' | 'SETTINGS' | 'CONNECTIONS'
+
+/** What each part of a reset would remove (Settings → Import & backups → Reset). */
+export interface ResetPreview {
+  accounts: number
+  transactions: number
+  people: number
+  statements: number
+  holdings: number
+  messages: number
+  learned: number
+  categories: number
+  settings: number
+  tokens: number
+  pocketIdLinked: boolean
+  backupsOn: boolean
+}
+
 export interface MfScheme {
   code: string
   name: string

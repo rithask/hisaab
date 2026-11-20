@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, LockSimple, SignOut, SlidersHorizontal, Tag, ToggleRight, Tray, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, CaretRight, ChatText, CloudArrowUp, Database, DeviceMobile, Export, PlusSquare, DownloadSimple, Envelope, GraduationCap, IdentificationCard, LockSimple, SignOut, SlidersHorizontal, Tag, ToggleRight, Tray, X, type Icon as PhIcon } from '@phosphor-icons/react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { api, type BackupStatus, type Feature, type Learned, type MailImport } from '../api'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { api, type BackupStatus, type Feature, type Learned, type MailImport, type ResetPart, type ResetPreview } from '../api'
 import { TokenList } from '../components/ApiTokens'
 import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
-import { isIos, useInstall } from '../pwa'
-import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Toggle, Page } from '../components/ui'
+import { clearSavedData, isIos, useInstall } from '../pwa'
+import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Sheet, Toggle, Page } from '../components/ui'
 import { count, dateTime, shortDate, ymd } from '../format'
 import { useMoneyMutation, useSettings, useSignOut } from '../hooks'
 
@@ -19,7 +19,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: PhIcon; hint: string }[]
   { key: 'mail', label: 'Mail & SMS', icon: Envelope, hint: 'Alerts mailbox, forwarding bank SMS' },
   { key: 'teaching', label: 'What it learned', icon: GraduationCap, hint: 'From your corrections: wordings, payee names' },
   { key: 'security', label: 'Security', icon: LockSimple, hint: 'Sign-in, API tokens, signing out' },
-  { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups' },
+  { key: 'data', label: 'Import & backups', icon: Database, hint: 'Older emails, nightly backups, reset' },
 ]
 
 /** Pages of their own that belong with the settings, listed after the sections. */
@@ -187,6 +187,7 @@ function DataSection() {
     <>
       <ImportOlderMail configured={!!s.data?.mail.configured} />
       {s.data?.features?.backups !== false && <BackupsCard />}
+      <ResetCard />
     </>
   )
 }
@@ -440,6 +441,202 @@ function BackupsCard() {
         <p className="ink-3 mt-3 text-[12.5px]">Each backup is one zip with the database and saved statements, plus restore steps inside. They're kept on the server at {b?.dir ?? 'the backups folder'}; copy them elsewhere too for safety.</p>
       </Card>
     </Section>
+  )
+}
+
+const plural = (n: number, one: string, many = one + 's') => `${count(n)} ${n === 1 ? one : many}`
+/** "a, b and c", leaving out empty parts. */
+const listOf = (parts: (string | false)[]) => {
+  const p = parts.filter(Boolean) as string[]
+  return p.length <= 1 ? (p[0] ?? '') : `${p.slice(0, -1).join(', ')} and ${p[p.length - 1]}`
+}
+
+/** Each choice in the reset sheet: what it's called and what it would remove right now. */
+const RESET_PARTS: { key: ResetPart; label: string; detail: (p: ResetPreview) => string }[] = [
+  {
+    key: 'DATA',
+    label: 'Money data',
+    detail: (p) =>
+      listOf([
+        p.accounts > 0 && plural(p.accounts, 'account'),
+        p.transactions > 0 && plural(p.transactions, 'transaction'),
+        p.people > 0 && plural(p.people, 'person', 'people'),
+        p.statements > 0 && plural(p.statements, 'statement'),
+        p.holdings > 0 && plural(p.holdings, 'investment'),
+        p.messages > 0 && plural(p.messages, 'saved message'),
+      ]) || 'Nothing saved yet',
+  },
+  { key: 'LEARNED', label: 'What the app learned', detail: (p) => (p.learned > 0 ? `${plural(p.learned, 'thing')} learned from your corrections: rules, payee names, SMS formats` : 'Nothing learned yet') },
+  { key: 'CATEGORIES', label: 'Categories', detail: (p) => `${plural(p.categories, 'category', 'categories')} now; the built-in ones come back` },
+  { key: 'SETTINGS', label: 'Settings', detail: (p) => (p.settings > 0 ? 'Feature switches, your name and Home options go back to the defaults' : 'Already at the defaults') },
+  {
+    key: 'CONNECTIONS',
+    label: 'Connected apps',
+    detail: (p) => listOf([p.tokens > 0 && plural(p.tokens, 'API token'), p.pocketIdLinked && 'the Pocket ID link']) || 'Nothing connected',
+  },
+]
+
+/** Parts a choice can't go without (same rule as the server): the data takes what was learned, categories need the data. */
+const needed = (chosen: Set<ResetPart>) => {
+  const s = new Set(chosen)
+  if (s.has('CATEGORIES')) s.add('DATA')
+  if (s.has('DATA')) s.add('LEARNED')
+  return s
+}
+const lockedBy = (key: ResetPart, chosen: Set<ResetPart>) =>
+  key === 'DATA' && chosen.has('CATEGORIES') ? 'Goes with Categories' : key === 'LEARNED' && (chosen.has('DATA') || chosen.has('CATEGORIES')) ? 'Goes with Money data' : null
+
+/** Settings → Import & backups → Reset: choose what to clear, read what it means, type "reset". */
+function ResetCard() {
+  const [open, setOpen] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  return (
+    <Section title="Reset">
+      <Card className="p-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+            <ArrowCounterClockwise size={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Start again</p>
+            <p className="ink-2 text-[13px]">Clear your data, what the app learned, or your settings. You choose which.</p>
+          </div>
+          <Button variant="danger" size="sm" onClick={() => {
+              setDone(null)
+              setOpen(true)
+            }}>
+            Reset…
+          </Button>
+        </div>
+        {done && (
+          <div className="mt-3">
+            <Notice>{done}</Notice>
+          </div>
+        )}
+      </Card>
+      <ResetSheet open={open} onClose={() => setOpen(false)} onDone={setDone} />
+    </Section>
+  )
+}
+
+function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (msg: string) => void }) {
+  const nav = useNavigate()
+  const [step, setStep] = useState<'choose' | 'confirm'>('choose')
+  const [chosen, setChosen] = useState<Set<ResetPart>>(new Set())
+  const [word, setWord] = useState('')
+  const [withoutBackup, setWithoutBackup] = useState(false)
+  const q = useQuery({ queryKey: ['reset'], queryFn: () => api<ResetPreview>('/reset'), enabled: open })
+  const p = q.data
+  const parts = needed(chosen)
+  const run = useMoneyMutation(
+    () => api<{ backup?: string }>('/reset', { body: { parts: [...parts], word, withoutBackup } }),
+    async (r) => {
+      await clearSavedData()
+      close()
+      onDone(r.backup ? `Reset done. A backup from just before is saved as ${r.backup}.` : 'Reset done.')
+      if (parts.has('DATA')) nav('/')
+    },
+  )
+
+  // start fresh each time it opens
+  useEffect(() => {
+    if (open) {
+      setStep('choose')
+      setChosen(new Set())
+      setWord('')
+      setWithoutBackup(false)
+      run.reset()
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function close() {
+    if (!run.isPending) onClose()
+  }
+  const toggle = (k: ResetPart, on: boolean) =>
+    setChosen((c) => {
+      const n = new Set(c)
+      if (on) n.add(k)
+      else n.delete(k)
+      return n
+    })
+
+  const shown = RESET_PARTS.filter((x) => parts.has(x.key))
+  const backupOk = !!p?.backupsOn || withoutBackup
+  const ready = word.trim().toLowerCase() === 'reset' && backupOk
+
+  return (
+    <Sheet open={open} onClose={close} title="Reset">
+      {!p ? (
+        <div className="py-6">{q.error ? <ErrorText error={q.error} /> : <p className="ink-2 text-sm">Checking what's saved…</p>}</div>
+      ) : step === 'choose' ? (
+        <div className="space-y-4 pb-2">
+          <p className="ink-2 text-[14px]">Choose what to clear. Your sign-in, your backups and where mail reading got to are always kept.</p>
+          <Card className="divide-y divide-[var(--line)] px-4">
+            {RESET_PARTS.map((x) => {
+              const lock = lockedBy(x.key, chosen)
+              return (
+                <div key={x.key} className={cx('py-3', lock && 'pointer-events-none opacity-60')}>
+                  <Toggle
+                    checked={parts.has(x.key)}
+                    onChange={(v) => toggle(x.key, v)}
+                    label={
+                      <span className="block">
+                        <span className="block font-medium">{x.label}</span>
+                        <span className="ink-2 block text-[13px]">{lock ?? x.detail(p)}</span>
+                      </span>
+                    }
+                  />
+                </div>
+              )
+            })}
+          </Card>
+          <Button className="w-full" variant="danger" disabled={parts.size === 0} onClick={() => setStep('confirm')}>
+            Continue
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 pb-2">
+          <div className="anim-pop rounded-2xl bg-[color-mix(in_oklab,var(--negative)_13%,transparent)] px-4 py-3 text-[14px] text-[var(--negative)]">
+            <p className="font-semibold">This can't be undone.</p>
+            <ul className="mt-1.5 space-y-1">
+              {shown.map((x) => (
+                <li key={x.key}>
+                  <b>{x.label}:</b> {x.detail(p)}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {p.backupsOn ? (
+            <p className="ink-2 text-[13px]">A backup is taken first. If it fails, nothing is reset.</p>
+          ) : (
+            <Card className="px-4 py-3">
+              <Toggle
+                checked={withoutBackup}
+                onChange={setWithoutBackup}
+                label={
+                  <span className="block">
+                    <span className="block font-medium">Reset without a backup</span>
+                    <span className="ink-2 block text-[13px]">Backups are off, so there won't be a copy to go back to.</span>
+                  </span>
+                }
+              />
+            </Card>
+          )}
+          <Field label="Type “reset” to confirm">
+            <Input value={word} onChange={(e) => setWord(e.target.value)} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="done" />
+          </Field>
+          <ErrorText error={run.error} />
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" disabled={run.isPending} onClick={() => setStep('choose')}>
+              Back
+            </Button>
+            <Button variant="danger" className="flex-1" disabled={!ready || run.isPending} onClick={() => run.mutate(undefined)}>
+              {run.isPending ? (p.backupsOn ? 'Backing up…' : 'Resetting…') : 'Reset now'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Sheet>
   )
 }
 
