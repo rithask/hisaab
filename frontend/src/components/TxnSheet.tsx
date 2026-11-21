@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowCounterClockwise, ArrowsLeftRight, Bank, HandCoins, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
-import { motion } from 'motion/react'
+import { ArrowCounterClockwise, ArrowsLeftRight, Bank, Check, HandCoins, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, shortDate, toLocalInput, ymd } from '../format'
@@ -438,13 +438,21 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
       <div className="space-y-1">
         {(people.data ?? []).map((p) => (
           <div key={p.id} className="flex items-center gap-2">
+            {/* No shrink and no weight change on tap (both made the row jump); only the circle fills and the tick pops in. */}
             <button
               type="button"
+              aria-pressed={p.id in values}
               onClick={() => toggle(p.id)}
-              className={cx('pressable flex flex-1 items-center gap-3 rounded-2xl px-2 py-2 text-left text-[15px]', p.id in values && 'font-semibold')}
+              className="row flex min-h-11 flex-1 select-none items-center gap-3 rounded-2xl px-2 py-2 text-left text-[15px] [-webkit-touch-callout:none]"
             >
-              <span className={cx('flex h-6 w-6 items-center justify-center rounded-full border-2 text-[11px] transition-colors duration-150', p.id in values ? 'border-[var(--ink)] accent-fill' : 'border-[var(--line-strong)]')}>
-                {p.id in values && '✓'}
+              <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150', p.id in values ? 'border-[var(--ink)] accent-fill' : 'border-[var(--line-strong)]')}>
+                <AnimatePresence initial={false}>
+                  {p.id in values && (
+                    <motion.span key="tick" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }} className="flex">
+                      <Check size={13} weight="bold" />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </span>
               {p.name}
             </button>

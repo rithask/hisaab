@@ -18,6 +18,10 @@ must do when upgrading (marked **Upgrade:**).
 - Splitting a payment while adding it can be **by amounts or percent**, not only equally. The form shows each
   share as you type and won't save a split that adds up to more than the payment.
 
+### Fixed
+- Picking people for a split no longer shrinks the row or selects the name on a long press; the circle just
+  fills in with a tick.
+
 ## [0.12.0] - 2026-11-21
 
 ### Added
