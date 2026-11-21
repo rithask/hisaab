@@ -1,30 +1,34 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { lazy, useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { api } from './api'
 import Layout from './components/Layout'
 import { PageSkeleton } from './components/ui'
-import Accounts from './pages/Accounts'
-import Categories from './pages/Categories'
-import Budgets from './pages/Budgets'
 import Home from './pages/Home'
-import NetWorth from './pages/NetWorth'
-import Review from './pages/Review'
-import Rewards from './pages/Rewards'
-import Repeating, { ToRepeating } from './pages/Repeating'
-import Unusual from './pages/Unusual'
-import ImportStatement from './pages/ImportStatement'
-import Inbox from './pages/Inbox'
-import Invest from './pages/Invest'
 import Login from './pages/Login'
-import More from './pages/More'
-import People from './pages/People'
-import PersonDetail from './pages/PersonDetail'
-import Reports from './pages/Reports'
-import Settings from './pages/Settings'
-import Setup from './pages/Setup'
-import Statements from './pages/Statements'
-import Transactions from './pages/Transactions'
+
+// Every page but Home and sign-in is its own file, loaded the first time it's opened (Layout shows a skeleton
+// meanwhile). The service worker keeps them all for offline use.
+const Accounts = lazy(() => import('./pages/Accounts'))
+const Categories = lazy(() => import('./pages/Categories'))
+const Budgets = lazy(() => import('./pages/Budgets'))
+const NetWorth = lazy(() => import('./pages/NetWorth'))
+const Review = lazy(() => import('./pages/Review'))
+const Rewards = lazy(() => import('./pages/Rewards'))
+const Repeating = lazy(() => import('./pages/Repeating'))
+const ToRepeating = lazy(() => import('./pages/Repeating').then((m) => ({ default: m.ToRepeating })))
+const Unusual = lazy(() => import('./pages/Unusual'))
+const ImportStatement = lazy(() => import('./pages/ImportStatement'))
+const Inbox = lazy(() => import('./pages/Inbox'))
+const Invest = lazy(() => import('./pages/Invest'))
+const More = lazy(() => import('./pages/More'))
+const People = lazy(() => import('./pages/People'))
+const PersonDetail = lazy(() => import('./pages/PersonDetail'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Setup = lazy(() => import('./pages/Setup'))
+const Statements = lazy(() => import('./pages/Statements'))
+const Transactions = lazy(() => import('./pages/Transactions'))
 
 export default function App() {
   const qc = useQueryClient()

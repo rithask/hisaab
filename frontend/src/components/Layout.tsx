@@ -1,11 +1,11 @@
 import { ArrowsLeftRight, Bank, Repeat, ChartBar, ChartLineUp, FileText, GearSix, House, Plus, Target, Users, type Icon as PhIcon } from '@phosphor-icons/react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, Suspense, useContext, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import type { Feature } from '../api'
 import { useSettings } from '../hooks'
 import { useOnline } from '../pwa'
 import { AddTxnSheet } from './TxnSheet'
-import { cx } from './ui'
+import { cx, PageSkeleton } from './ui'
 
 type Item = { to: string; label: string; icon: PhIcon; match: (p: string) => boolean; feature?: Feature }
 
@@ -83,7 +83,9 @@ export default function Layout() {
         )}
         {/* Each page mounts fresh and plays its own short fade (see <Page>). */}
         <main key={pathname} className="mx-auto w-full max-w-2xl px-4 pb-28 pt-[max(env(safe-area-inset-top),1rem)] sm:px-6 lg:max-w-3xl lg:px-10 lg:pb-12 lg:pt-10">
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
 
         {/* Bottom tab bar (phones and tablets) */}
