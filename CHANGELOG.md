@@ -29,6 +29,8 @@ must do when upgrading (marked **Upgrade:**).
   The Reset button reads just "Reset".
 - The date and time fields in Add transaction ran off the screen on iPhone; they now share the row. On iPhone
   and iPad, dates use Safari's own date picker.
+- **Upgrade:** take a backup first; this release changes the database (it adds the Gifts category), so going
+  back means restoring it.
 
 ## [0.12.0] - 2026-11-21
 
