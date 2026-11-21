@@ -9,6 +9,10 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- **Gifts**, a spending category for presents you buy ("Gift" was only for money coming in). Reset puts it back
+  with the other built-in categories.
+
 ## [0.12.0] - 2026-11-21
 
 ### Added

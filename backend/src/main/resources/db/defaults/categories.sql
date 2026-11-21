@@ -1,4 +1,4 @@
--- The built-in categories and their auto-filing rules, as V1__init.sql creates them. Used by Settings → Reset
+-- The built-in categories and their auto-filing rules, as the migrations create them (V1, V13 Gifts). Used by Settings → Reset
 -- to put the default categories back. Keep in step with any migration that changes the built-in ones.
 
 insert into category (name, kind, color, system) values
@@ -16,6 +16,7 @@ insert into category (name, kind, color, system) values
     ('Subscriptions', 'EXPENSE', '#d946ef', false),
     ('Investments', 'EXPENSE', '#22c55e', false),
     ('Fees & Charges', 'EXPENSE', '#ef4444', false),
+    ('Gifts', 'EXPENSE', '#f59e0b', false),
     ('Other Expense', 'EXPENSE', '#64748b', false),
     ('Salary', 'INCOME', '#22c55e', false),
     ('Interest', 'INCOME', '#10b981', false),
