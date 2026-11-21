@@ -175,8 +175,8 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 First ask whether it needs a switch at all (principle 5). If it only reads your data, it doesn't.
 
 1. Add it to `FeatureService.Feature` (on by default unless it's risky).
-2. Backend: call `features.require(Feature.X)` (or check `on`) at the top of every endpoint, and skip scheduled
-   work when it's off.
+2. Backend: mark its controller or each endpoint `@RequiresFeature(Feature.X)` (requests are refused while it's
+   off), and check `features.on(Feature.X)` before any scheduled work.
 3. Frontend: add the key to the `Feature` type in `api.ts` and a row in `FEATURES` in `Settings.tsx`; wrap the
    page in `<FeatureGate on={useFeature('x')} name="…">`; hide its entries when off; only enable its queries when
    it's on. The menu is short on purpose (`secondary` in `Layout.tsx`): reach the page from where it belongs (a

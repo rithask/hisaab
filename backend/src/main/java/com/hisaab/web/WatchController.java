@@ -1,6 +1,6 @@
 package com.hisaab.web;
 
-import com.hisaab.features.FeatureService;
+import com.hisaab.features.RequiresFeature;
 import com.hisaab.features.FeatureService.Feature;
 import com.hisaab.features.RewardService;
 import com.hisaab.features.SubscriptionService;
@@ -18,15 +18,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class WatchController {
-    private final FeatureService features;
     private final SubscriptionService subscriptions;
     private final UnusualService unusual;
     private final RewardService rewards;
     private final WatchDismissals dismissals;
 
-    public WatchController(FeatureService features, SubscriptionService subscriptions, UnusualService unusual,
+    public WatchController(SubscriptionService subscriptions, UnusualService unusual,
                            RewardService rewards, WatchDismissals dismissals) {
-        this.features = features;
         this.subscriptions = subscriptions;
         this.unusual = unusual;
         this.rewards = rewards;
@@ -94,21 +92,21 @@ public class WatchController {
     // ---- rewards
 
     @GetMapping("/rewards")
+    @RequiresFeature(Feature.REWARDS)
     public List<RewardService.CardRewards> rewards() {
-        features.require(Feature.REWARDS);
         return rewards.all();
     }
 
     @PutMapping("/rewards/{accountId}")
+    @RequiresFeature(Feature.REWARDS)
     public Map<String, Boolean> saveRewards(@PathVariable long accountId, @RequestBody RewardService.ProgramInput in) {
-        features.require(Feature.REWARDS);
         rewards.save(accountId, in);
         return Map.of("saved", true);
     }
 
     @DeleteMapping("/rewards/{accountId}")
+    @RequiresFeature(Feature.REWARDS)
     public void removeRewards(@PathVariable long accountId) {
-        features.require(Feature.REWARDS);
         rewards.remove(accountId);
     }
 

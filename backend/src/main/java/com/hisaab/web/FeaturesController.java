@@ -23,16 +23,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 public class FeaturesController {
-    private final FeatureService features;
     private final BudgetService budgets;
     private final BillService bills;
     private final NetWorthService networth;
     private final ReviewService review;
     private final BackupService backups;
 
-    public FeaturesController(FeatureService features, BudgetService budgets, BillService bills, NetWorthService networth,
+    public FeaturesController(BudgetService budgets, BillService bills, NetWorthService networth,
                               ReviewService review, BackupService backups) {
-        this.features = features;
         this.budgets = budgets;
         this.bills = bills;
         this.networth = networth;
@@ -40,26 +38,23 @@ public class FeaturesController {
         this.backups = backups;
     }
 
-    private void require(Feature f) {
-        features.require(f);
-    }
-
     // ---- budgets
     @GetMapping("/budgets")
+    @RequiresFeature(Feature.BUDGETS)
     public List<BudgetService.Budget> budgets(@RequestParam(required = false) String month) {
-        require(Feature.BUDGETS);
         return budgets.month(month == null ? YearMonth.now(Money.ZONE) : YearMonth.parse(month));
     }
 
     public record BudgetIn(BigDecimal limit) {}
 
     @PutMapping("/budgets/{categoryId}")
+    @RequiresFeature(Feature.BUDGETS)
     public void setBudget(@PathVariable long categoryId, @RequestBody BudgetIn in) {
-        require(Feature.BUDGETS);
         budgets.set(categoryId, in.limit());
     }
 
     @DeleteMapping("/budgets/{categoryId}")
+    @RequiresFeature(Feature.BUDGETS)
     public void removeBudget(@PathVariable long categoryId) {
         Audit.log("Budget removed category={}", categoryId);
         budgets.remove(categoryId);
@@ -105,17 +100,20 @@ public class FeaturesController {
 
     // ---- backups
     @GetMapping("/backups")
+    @RequiresFeature(Feature.BACKUPS)
     public BackupService.Status backupStatus() throws IOException {
         return backups.status();
     }
 
     @PostMapping("/backups")
+    @RequiresFeature(Feature.BACKUPS)
     public BackupService.Backup backupNow() throws IOException {
         Audit.log("Backup started by hand");
         return backups.run();
     }
 
     @GetMapping("/backups/{file}")
+    @RequiresFeature(Feature.BACKUPS)
     public ResponseEntity<Resource> download(@PathVariable String file, jakarta.servlet.http.HttpServletRequest req) {
         Path p = backups.file(file);
         // a full copy of the database leaving the server
