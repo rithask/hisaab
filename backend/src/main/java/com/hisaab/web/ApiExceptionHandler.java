@@ -1,5 +1,6 @@
 package com.hisaab.web;
 
+import com.hisaab.statement.PdfText.PasswordRequired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,8 +39,8 @@ public class ApiExceptionHandler {
     }
 
     /** A statement PDF needs (another) password: the client asks for one and retries. */
-    @ExceptionHandler(com.hisaab.statement.PdfText.PasswordRequired.class)
-    ResponseEntity<Map<String, String>> password(com.hisaab.statement.PdfText.PasswordRequired e) {
+    @ExceptionHandler(PasswordRequired.class)
+    ResponseEntity<Map<String, String>> password(PasswordRequired e) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of("error", e.getMessage(), "code", "PASSWORD"));
     }
 

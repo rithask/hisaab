@@ -61,8 +61,8 @@ public class TransactionController {
                                 @RequestParam(required = false) Instant to,
                                 @RequestParam(required = false) Direction direction,
                                 @RequestParam(defaultValue = "false") boolean includeTransfers,
-                                @RequestParam(required = false) java.math.BigDecimal minAmount,
-                                @RequestParam(required = false) java.math.BigDecimal maxAmount,
+                                @RequestParam(required = false) BigDecimal minAmount,
+                                @RequestParam(required = false) BigDecimal maxAmount,
                                 @RequestParam(defaultValue = "newest") String sort,
                                 @RequestParam(defaultValue = "0") int page,
                                 @RequestParam(defaultValue = "50") int size) {

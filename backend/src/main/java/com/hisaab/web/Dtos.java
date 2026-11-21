@@ -2,6 +2,8 @@ package com.hisaab.web;
 
 import com.hisaab.domain.*;
 import com.hisaab.domain.Enums.*;
+import com.hisaab.domain.Enums.Channel;
+import com.hisaab.mail.SenderTrust;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -81,14 +83,14 @@ public final class Dtos {
         }
     }
 
-    public record EmailDto(Long id, com.hisaab.domain.Enums.Channel channel, String fromAddress, String subject,
+    public record EmailDto(Long id, Channel channel, String fromAddress, String subject,
                            Instant receivedAt, EmailStatus status, String parser, String note, String bodyText,
                            String hold, String senderDomain) {
         static EmailDto of(RawEmail e, boolean withBody) {
-            boolean sms = e.getChannel() == com.hisaab.domain.Enums.Channel.SMS;
+            boolean sms = e.getChannel() == Channel.SMS;
             return new EmailDto(e.getId(), e.getChannel(), e.getFromAddress(), e.getSubject(), e.getReceivedAt(), e.getStatus(),
                     e.getParser(), e.getNote(), withBody || sms ? e.getBodyText() : null, e.getHold(),
-                    sms ? null : com.hisaab.mail.SenderTrust.domainOf(e.getFromAddress()));
+                    sms ? null : SenderTrust.domainOf(e.getFromAddress()));
         }
     }
 

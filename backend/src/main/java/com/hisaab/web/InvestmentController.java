@@ -1,5 +1,6 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.Holding;
 import com.hisaab.domain.MfScheme;
 import com.hisaab.repo.HoldingRepo;
@@ -10,10 +11,12 @@ import com.hisaab.web.Dtos.PortfolioDto;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 @RestController
 @RequestMapping("/api")
@@ -40,12 +43,12 @@ public class InvestmentController {
 
     @PutMapping("/holdings/{id}")
     public HoldingDto update(@PathVariable Long id, @RequestBody HoldingInput in) {
-        return HoldingDto.of(service.save(holdings.findById(id).orElseThrow(() -> new NoSuchElementException("Holding not found")), in));
+        return HoldingDto.of(service.save(holdings.findById(id).orElseThrow(notFound("Holding")), in));
     }
 
     @DeleteMapping("/holdings/{id}")
     public void delete(@PathVariable Long id) {
-        com.hisaab.config.Audit.log("Holding deleted id={}", id);
+        Audit.log("Holding deleted id={}", id);
         holdings.deleteById(id);
     }
 

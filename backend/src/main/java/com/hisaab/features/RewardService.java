@@ -9,12 +9,15 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
+
+import static com.hisaab.service.NotFound.notFound;
 
 /**
  * Card rewards: I describe how each card earns (cashback % or points per ₹100, special rates for some merchants or
@@ -237,7 +240,7 @@ public class RewardService {
 
     @Transactional
     public void save(long accountId, ProgramInput in) {
-        Account a = accounts.findById(accountId).orElseThrow(() -> new NoSuchElementException("Card not found"));
+        Account a = accounts.findById(accountId).orElseThrow(notFound("Card"));
         if (a.getType() != AccountType.CREDIT_CARD) throw new IllegalArgumentException("Rewards are for credit cards");
         if (!"CASHBACK".equals(in.kind()) && !"POINTS".equals(in.kind())) throw new IllegalArgumentException("Choose cashback or points");
         boolean points = in.kind().equals("POINTS");

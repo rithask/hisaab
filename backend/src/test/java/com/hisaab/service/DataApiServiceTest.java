@@ -4,6 +4,7 @@ import com.hisaab.domain.Account;
 import com.hisaab.domain.ApiToken;
 import com.hisaab.domain.Category;
 import com.hisaab.domain.Enums.Direction;
+import com.hisaab.domain.Person;
 import com.hisaab.domain.Txn;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +51,7 @@ class DataApiServiceTest {
     void whatAFriendPaidForMeIsNotInTheApi() {
         Txn t = txn(Direction.DEBIT, 5L, 1, false);
         t.setAccount(null);
-        t.setPaidBy(new com.hisaab.domain.Person());
+        t.setPaidBy(new Person());
         assertThat(DataApiService.visible(new ApiToken(), t)).isFalse();
     }
 

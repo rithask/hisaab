@@ -1,15 +1,16 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.LineDecision;
 import com.hisaab.domain.Enums.LineKind;
 import com.hisaab.domain.StatementFile;
 import com.hisaab.domain.StatementImport;
-import com.hisaab.domain.StatementImportLine;
 import com.hisaab.domain.Txn;
 import com.hisaab.mail.StatementStorage;
 import com.hisaab.repo.StatementFileRepo;
+import com.hisaab.service.Money;
 import com.hisaab.statement.ParsedStatement;
 import com.hisaab.statement.StatementImportService;
 import com.hisaab.statement.StatementImportService.BalanceCheck;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -26,7 +28,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 /** Statement import: upload → review (with my decisions) → import. */
 @RestController
@@ -72,7 +75,7 @@ public class StatementImportController {
         return new ImportView(imp.getId(), imp.getStatus().name(), imp.getLabel(), imp.getFileName(), imp.getInstitution().name(),
                 imp.getAccountType().name(), imp.getLast4(), imp.getPeriodFrom(), imp.getPeriodTo(), imp.getOpeningBalance(),
                 imp.getClosingBalance(), imp.getCreditLimit(), a == null ? null : AccountRef.of(a),
-                a == null ? null : a.getOpeningDate().atZone(com.hisaab.service.Money.ZONE).toLocalDate(),
+                a == null ? null : a.getOpeningDate().atZone(Money.ZONE).toLocalDate(),
                 StatementImportService.decodeChecks(imp.getChecks()), service.balanceCheck(imp).orElse(null), ls,
                 service.notInStatement(imp).stream().map(TxnBrief::of).toList());
     }
@@ -89,7 +92,7 @@ public class StatementImportController {
     /** Import a statement that arrived by email and was saved under Statements. */
     @PostMapping("/statements/{id}/import")
     public ImportView fromSaved(@PathVariable Long id, @RequestBody(required = false) FromStatementFile in) throws IOException {
-        StatementFile f = statementFiles.findById(id).orElseThrow(() -> new NoSuchElementException("Statement not found"));
+        StatementFile f = statementFiles.findById(id).orElseThrow(notFound("Statement"));
         var open = service.openReviewFor(f);
         if (open.isPresent()) return view(open.get());
         byte[] pdf = Files.readAllBytes(storage.resolve(f.getStoredPath()));
@@ -133,6 +136,6 @@ public class StatementImportController {
     @DeleteMapping("/statement-imports/{id}")
     public void cancel(@PathVariable Long id) {
         service.cancel(id);
-        com.hisaab.config.Audit.log("Statement import cancelled id={}", id);
+        Audit.log("Statement import cancelled id={}", id);
     }
 }

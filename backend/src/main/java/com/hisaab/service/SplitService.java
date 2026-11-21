@@ -16,9 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SplitService {
@@ -118,15 +122,15 @@ public class SplitService {
     }
 
     /** {@link #balance} for everyone, with four grouped queries instead of four per person; keyed by person id. */
-    public java.util.Map<Long, Balance> balances(java.util.List<Person> people) {
+    public Map<Long, Balance> balances(List<Person> people) {
         var owed = byPerson(shares.totalOwedByPerson());
         var forMe = byPerson(txns.totalPaidByPerson());
-        var paid = new java.util.HashMap<Long, BigDecimal>();
-        var back = new java.util.HashMap<Long, BigDecimal>();
+        var paid = new HashMap<Long, BigDecimal>();
+        var back = new HashMap<Long, BigDecimal>();
         for (Object[] row : settlements.totalsByPerson(SettlementStatus.CONFIRMED)) {
             (row[1] == SettlementDirection.IN ? paid : back).put((Long) row[0], (BigDecimal) row[2]);
         }
-        java.util.Map<Long, Balance> out = new java.util.HashMap<>();
+        Map<Long, Balance> out = new HashMap<>();
         for (Person p : people) {
             BigDecimal o = owed.getOrDefault(p.getId(), BigDecimal.ZERO), pd = paid.getOrDefault(p.getId(), BigDecimal.ZERO);
             BigDecimal f = forMe.getOrDefault(p.getId(), BigDecimal.ZERO), b = back.getOrDefault(p.getId(), BigDecimal.ZERO);
@@ -135,8 +139,8 @@ public class SplitService {
         return out;
     }
 
-    private static java.util.Map<Long, BigDecimal> byPerson(java.util.List<Object[]> rows) {
-        java.util.Map<Long, BigDecimal> m = new java.util.HashMap<>();
+    private static Map<Long, BigDecimal> byPerson(List<Object[]> rows) {
+        Map<Long, BigDecimal> m = new HashMap<>();
         for (Object[] row : rows) m.put((Long) row[0], (BigDecimal) row[1]);
         return m;
     }
@@ -175,7 +179,7 @@ public class SplitService {
         if (t.getId() != null && shares.totalForTxn(t).signum() > 0) return; // a bill I split isn't me paying someone back
         boolean in = !t.isDebit();
         // what's open, from my side of this money: what they owe me (in) or what I owe them (out)
-        java.util.Map<Person, BigDecimal> due = new java.util.LinkedHashMap<>();
+        Map<Person, BigDecimal> due = new LinkedHashMap<>();
         for (Person p : people.findAll()) {
             BigDecimal v = in ? open(p) : open(p).negate();
             if (v.signum() > 0) due.put(p, v);
@@ -200,7 +204,7 @@ public class SplitService {
     }
 
     /** How far back to look again for money that settles up, when something about a balance changes. */
-    static final java.time.Duration LOOK_BACK = java.time.Duration.ofDays(30);
+    static final Duration LOOK_BACK = Duration.ofDays(30);
 
     /**
      * Look again at recent money nobody has been linked to: after a split, a "they paid" entry or a person's

@@ -1,5 +1,6 @@
 package com.hisaab.service;
 
+import com.hisaab.domain.Enums.Direction;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Where money goes and comes from. Transfers are excluded; split bills only count my share (and what a friend paid
@@ -57,9 +60,9 @@ public class ReportService {
      * The same rule as {@link #EFFECTIVE} for one transaction: money out less others' shares and what I paid back
      * to someone, money in less what was paid back to me. Never below zero.
      */
-    public static BigDecimal myAmount(com.hisaab.domain.Enums.Direction d, BigDecimal amount, BigDecimal shared,
+    public static BigDecimal myAmount(Direction d, BigDecimal amount, BigDecimal shared,
                                       BigDecimal repaidToMe, BigDecimal iRepaid) {
-        BigDecimal m = d == com.hisaab.domain.Enums.Direction.DEBIT ? amount.subtract(shared).subtract(iRepaid) : amount.subtract(repaidToMe);
+        BigDecimal m = d == Direction.DEBIT ? amount.subtract(shared).subtract(iRepaid) : amount.subtract(repaidToMe);
         return m.signum() < 0 ? BigDecimal.ZERO.setScale(2) : m;
     }
 
@@ -117,7 +120,7 @@ public class ReportService {
         Instant to = until.plusMonths(1).atDay(1).atStartOfDay(Money.ZONE).toInstant();
         var p = new MapSqlParameterSource().addValue("from", Timestamp.from(from)).addValue("to", Timestamp.from(to));
         // one query for all the months, grouped by calendar month in the app's zone (the session's TimeZone)
-        java.util.Map<String, BigDecimal[]> byMonth = new java.util.HashMap<>();
+        Map<String, BigDecimal[]> byMonth = new HashMap<>();
         for (var row : jdbc.queryForList(EFFECTIVE + """
                 select to_char(occurred_at at time zone current_setting('TimeZone'), 'YYYY-MM') ym, direction, coalesce(sum(amt), 0) total
                 from eff group by 1, 2

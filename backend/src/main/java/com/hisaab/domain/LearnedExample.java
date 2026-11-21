@@ -48,7 +48,7 @@ public class LearnedExample {
     private String payee;
 
     /** TAUGHT by me, or AUTO (confirmed automatically). My lessons always outrank automatic ones. */
-    private String origin = com.hisaab.domain.SmsTemplate.TAUGHT;
+    private String origin = SmsTemplate.TAUGHT;
 
     @Column(insertable = false, updatable = false)
     private Instant createdAt;

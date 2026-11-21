@@ -1,6 +1,7 @@
 package com.hisaab.domain;
 
 import com.hisaab.domain.Enums.AccountType;
+import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.Institution;
 import jakarta.persistence.*;
@@ -19,7 +20,7 @@ public class SmsTemplate {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    private com.hisaab.domain.Enums.Channel channel = com.hisaab.domain.Enums.Channel.SMS;
+    private Channel channel = Channel.SMS;
 
     public static final String TXN = "TXN", SKIP = "SKIP";
 

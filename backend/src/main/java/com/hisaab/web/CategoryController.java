@@ -1,5 +1,7 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
+import com.hisaab.config.AuthLog;
 import com.hisaab.domain.Category;
 import com.hisaab.domain.CategoryRule;
 import com.hisaab.domain.Enums.CategoryKind;
@@ -9,14 +11,17 @@ import com.hisaab.domain.Tag;
 import com.hisaab.repo.CategoryRepo;
 import com.hisaab.repo.CategoryRuleRepo;
 import com.hisaab.repo.TagRepo;
+import com.hisaab.service.CategorizationService;
 import com.hisaab.web.Dtos.CategoryDto;
 import com.hisaab.web.Dtos.RuleDto;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.util.List;
 import java.util.Locale;
-import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 @RestController
 @RequestMapping("/api")
@@ -24,10 +29,10 @@ public class CategoryController {
     private final CategoryRepo categories;
     private final CategoryRuleRepo rules;
     private final TagRepo tags;
-    private final com.hisaab.service.CategorizationService categorizer;
+    private final CategorizationService categorizer;
 
     public CategoryController(CategoryRepo categories, CategoryRuleRepo rules, TagRepo tags,
-                              com.hisaab.service.CategorizationService categorizer) {
+                              CategorizationService categorizer) {
         this.categorizer = categorizer;
         this.categories = categories;
         this.rules = rules;
@@ -53,7 +58,7 @@ public class CategoryController {
 
     @DeleteMapping("/categories/{id}")
     public void deleteCategory(@PathVariable Long id) {
-        categories.findById(id).ifPresent(c -> com.hisaab.config.Audit.log("Category deleted id={} name=\"{}\"", id, com.hisaab.config.AuthLog.clean(c.getName(), 60)));
+        categories.findById(id).ifPresent(c -> Audit.log("Category deleted id={} name=\"{}\"", id, AuthLog.clean(c.getName(), 60)));
         categories.deleteById(id);
     }
 
@@ -92,7 +97,7 @@ public class CategoryController {
     @PutMapping("/rules/{id}")
     @Transactional
     public RuleDto updateRule(@PathVariable Long id, @RequestBody RuleInput in) {
-        CategoryRule r = rules.findById(id).orElseThrow(() -> new NoSuchElementException("Rule not found"));
+        CategoryRule r = rules.findById(id).orElseThrow(notFound("Rule"));
         categorizer.ruleDeleted(r);
         CategoryRule saved = rules.save(apply(r, in));
         categorizer.ruleSet(saved);
@@ -103,7 +108,7 @@ public class CategoryController {
     @Transactional
     public void deleteRule(@PathVariable Long id) {
         rules.findById(id).ifPresent(r -> {
-            com.hisaab.config.Audit.log("Category rule deleted id={}", id);
+            Audit.log("Category rule deleted id={}", id);
             categorizer.ruleDeleted(r);
             rules.delete(r);
         });

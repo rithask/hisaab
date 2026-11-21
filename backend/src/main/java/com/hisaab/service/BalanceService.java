@@ -1,5 +1,6 @@
 package com.hisaab.service;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.Account;
 import com.hisaab.domain.Alert;
 import com.hisaab.domain.Enums.AlertType;
@@ -13,7 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class BalanceService {
@@ -35,10 +40,10 @@ public class BalanceService {
     }
 
     /** {@link #current} for many accounts with one query, keyed by account id. */
-    public java.util.Map<Long, BigDecimal> current(java.util.List<Account> accounts) {
-        java.util.Map<Long, BigDecimal> net = new java.util.HashMap<>();
+    public Map<Long, BigDecimal> current(List<Account> accounts) {
+        Map<Long, BigDecimal> net = new HashMap<>();
         for (Object[] row : txns.netSinceOpeningByAccount(Direction.CREDIT)) net.put((Long) row[0], (BigDecimal) row[1]);
-        java.util.Map<Long, BigDecimal> out = new java.util.HashMap<>();
+        Map<Long, BigDecimal> out = new HashMap<>();
         for (Account a : accounts) {
             BigDecimal n = net.getOrDefault(a.getId(), BigDecimal.ZERO);
             out.put(a.getId(), a.isCard() ? a.getOpeningBalance().subtract(n) : a.getOpeningBalance().add(n));
@@ -85,14 +90,14 @@ public class BalanceService {
         adj.setDirection(diff.signum() > 0 ? Direction.CREDIT : Direction.DEBIT);
         adj.setAmount(diff.abs());
         // place it just before the reference transaction so the reported balance lines up
-        adj.setOccurredAt(ref != null ? ref.getOccurredAt().minusMillis(1) : java.time.Instant.now());
+        adj.setOccurredAt(ref != null ? ref.getOccurredAt().minusMillis(1) : Instant.now());
         adj.setCounterparty("Balance adjustment");
         adj.setDescription("Auto adjustment to match bank-reported balance");
         adj.setSource(TxnSource.ADJUSTMENT);
         adj.setTransfer(true);
         txns.save(adj);
         alert.setDismissed(true);
-        com.hisaab.config.Audit.log("Balance adjusted on account {} to match the bank (adjustment transaction {})", adj.getAccount().getId(), adj.getId());
+        Audit.log("Balance adjusted on account {} to match the bank (adjustment transaction {})", adj.getAccount().getId(), adj.getId());
         return adj;
     }
 

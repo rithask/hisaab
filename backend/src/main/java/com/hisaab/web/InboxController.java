@@ -1,17 +1,22 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.Alert;
 import com.hisaab.domain.Enums.EmailStatus;
 import com.hisaab.domain.RawEmail;
 import com.hisaab.domain.StatementFile;
+import com.hisaab.features.FeatureService;
 import com.hisaab.mail.EmailProcessor;
 import com.hisaab.mail.MailSyncService;
+import com.hisaab.mail.SenderTrust;
+import com.hisaab.mail.SmsLearningService;
 import com.hisaab.mail.StatementStorage;
 import com.hisaab.repo.AccountRepo;
 import com.hisaab.repo.AlertRepo;
 import com.hisaab.repo.RawEmailRepo;
 import com.hisaab.repo.StatementFileRepo;
 import com.hisaab.service.BalanceService;
+import com.hisaab.service.PayeeAliasService;
 import com.hisaab.service.SettingsService;
 import com.hisaab.web.Dtos.AlertDto;
 import com.hisaab.web.Dtos.EmailDto;
@@ -27,10 +32,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 /** Emails, alerts, statements and mailbox sync. */
 @RestController
@@ -47,16 +56,16 @@ public class InboxController {
     private final StatementStorage storage;
     private final AccountRepo accounts;
     private final SettingsService settings;
-    private final com.hisaab.mail.SmsLearningService learning;
-    private final com.hisaab.service.PayeeAliasService aliases;
-    private final com.hisaab.features.FeatureService features;
+    private final SmsLearningService learning;
+    private final PayeeAliasService aliases;
+    private final FeatureService features;
 
     public InboxController(RawEmailRepo emails, EmailProcessor processor, MailSyncService mail, AlertRepo alerts,
                            BalanceService balances, StatementFileRepo statements, StatementStorage storage,
                            AccountRepo accounts, SettingsService settings,
-                           com.hisaab.mail.SmsLearningService learning,
-                           com.hisaab.service.PayeeAliasService aliases,
-                           com.hisaab.features.FeatureService features) {
+                           SmsLearningService learning,
+                           PayeeAliasService aliases,
+                           FeatureService features) {
         this.features = features;
         this.learning = learning;
         this.aliases = aliases;
@@ -82,12 +91,12 @@ public class InboxController {
 
     @GetMapping("/emails/{id}")
     public EmailDto email(@PathVariable Long id) {
-        return EmailDto.of(emails.findById(id).orElseThrow(() -> new NoSuchElementException("Email not found")), true);
+        return EmailDto.of(emails.findById(id).orElseThrow(notFound("Email")), true);
     }
 
     @PostMapping("/emails/{id}/reprocess")
     public EmailDto reprocess(@PathVariable Long id) {
-        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Email not found"));
+        RawEmail e = emails.findById(id).orElseThrow(notFound("Email"));
         return EmailDto.of(processor.reprocess(e), false);
     }
 
@@ -96,8 +105,8 @@ public class InboxController {
     /** Alerts from this email's domain are genuine: remember that and record the held ones. */
     @PostMapping("/emails/{id}/trust-sender")
     public TrustResponse trustSender(@PathVariable Long id) {
-        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Email not found"));
-        String domain = com.hisaab.mail.SenderTrust.domainOf(e.getFromAddress());
+        RawEmail e = emails.findById(id).orElseThrow(notFound("Email"));
+        String domain = SenderTrust.domainOf(e.getFromAddress());
         if (domain == null) throw new IllegalArgumentException("This email has no sender address");
         return new TrustResponse(domain, processor.trustSender(domain));
     }
@@ -107,7 +116,7 @@ public class InboxController {
     /** "Not a transaction": ignore it and skip messages worded like it from now on. */
     @PostMapping("/emails/{id}/not-a-transaction")
     public SkipResponse notATransaction(@PathVariable Long id) {
-        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found"));
+        RawEmail e = emails.findById(id).orElseThrow(notFound("Message"));
         EmailProcessor.SkipResult r = processor.notATransaction(e);
         return new SkipResponse(EmailDto.of(r.message(), false), r.learned(), r.conflicts(), r.alsoSkipped());
     }
@@ -115,7 +124,7 @@ public class InboxController {
     @PostMapping("/emails/{id}/ignore")
     @Transactional
     public EmailDto ignore(@PathVariable Long id) {
-        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Email not found"));
+        RawEmail e = emails.findById(id).orElseThrow(notFound("Email"));
         e.setStatus(EmailStatus.IGNORED);
         return EmailDto.of(e, false);
     }
@@ -125,7 +134,7 @@ public class InboxController {
     /** What the parser currently reads from a stored SMS, to pre-fill the correction form. */
     @GetMapping("/emails/{id}/preview")
     public EmailProcessor.Preview preview(@PathVariable Long id) {
-        return processor.preview(emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found")));
+        return processor.preview(emails.findById(id).orElseThrow(notFound("Message")));
     }
 
     public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
@@ -134,14 +143,14 @@ public class InboxController {
     /** Correct an SMS; the parser learns its format and account from the correction. */
     @PostMapping("/emails/{id}/teach")
     public TeachResponse teach(@PathVariable Long id, @RequestBody EmailProcessor.Teaching in) {
-        RawEmail e = emails.findById(id).orElseThrow(() -> new NoSuchElementException("Message not found"));
+        RawEmail e = emails.findById(id).orElseThrow(notFound("Message"));
         EmailProcessor.TeachResult r = processor.teach(e, in);
         return new TeachResponse(EmailDto.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
                 r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat(), r.mergedFormat(), r.category(), r.categoryByWording());
     }
 
     public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,
-                              java.time.Instant lastUsedAt, String channel, String kind, int corrections, boolean paused,
+                              Instant lastUsedAt, String channel, String kind, int corrections, boolean paused,
                               boolean auto) {}
 
     public record AliasDto(Long id, String rawKey, String displayName, int hits) {}
@@ -163,19 +172,19 @@ public class InboxController {
     @PostMapping("/sms/formats/{id}/resume")
     public void resumeFormat(@PathVariable Long id) {
         learning.resume(id);
-        com.hisaab.config.Audit.log("Learned format resumed id={}", id);
+        Audit.log("Learned format resumed id={}", id);
     }
 
     @DeleteMapping("/sms/formats/{id}")
     public void forgetFormat(@PathVariable Long id) {
         learning.forgetTemplate(id);
-        com.hisaab.config.Audit.log("Learned format forgotten id={}", id);
+        Audit.log("Learned format forgotten id={}", id);
     }
 
     @DeleteMapping("/sms/payees/{id}")
     public void forgetPayee(@PathVariable Long id) {
         aliases.forget(id);
-        com.hisaab.config.Audit.log("Learned payee name forgotten id={}", id);
+        Audit.log("Learned payee name forgotten id={}", id);
     }
 
     /** Retry every email waiting for review (handy right after adding an account). */
@@ -253,7 +262,7 @@ public class InboxController {
 
     @GetMapping("/statements/{id}/file")
     public ResponseEntity<Resource> download(@PathVariable Long id) {
-        StatementFile s = statements.findById(id).orElseThrow(() -> new NoSuchElementException("Statement not found"));
+        StatementFile s = statements.findById(id).orElseThrow(notFound("Statement"));
         Resource file = new FileSystemResource(storage.resolve(s.getStoredPath()));
         if (!file.exists()) throw new NoSuchElementException("File is missing from storage");
         return ResponseEntity.ok()
@@ -276,7 +285,7 @@ public class InboxController {
 
     public record MailStatus(boolean configured, String lastSync, String lastError) {}
 
-    public record SettingsDto(String ownerName, MailStatus mail, boolean showInvestmentsOnHome, java.util.Map<String, Boolean> features) {}
+    public record SettingsDto(String ownerName, MailStatus mail, boolean showInvestmentsOnHome, Map<String, Boolean> features) {}
 
     @GetMapping("/settings")
     public SettingsDto getSettings() {
@@ -287,13 +296,13 @@ public class InboxController {
                 features.all());
     }
 
-    public record SettingsInput(String ownerName, Boolean showInvestmentsOnHome, java.util.Map<String, Boolean> features) {}
+    public record SettingsInput(String ownerName, Boolean showInvestmentsOnHome, Map<String, Boolean> features) {}
 
     @PutMapping("/settings")
     public SettingsDto putSettings(@RequestBody SettingsInput in) {
         if (in.ownerName() != null && !in.ownerName().trim().equals(settings.ownerName())) {
             settings.set(SettingsService.OWNER_NAME, in.ownerName().trim());
-            com.hisaab.config.Audit.log("Owner name changed");
+            Audit.log("Owner name changed");
         }
         features.update(in.features());
         if (in.showInvestmentsOnHome() != null) settings.set(SettingsService.HOME_SHOW_INVESTMENTS, in.showInvestmentsOnHome().toString());

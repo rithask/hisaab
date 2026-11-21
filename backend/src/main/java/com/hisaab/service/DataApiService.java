@@ -3,15 +3,21 @@ package com.hisaab.service;
 import com.hisaab.domain.Account;
 import com.hisaab.domain.ApiToken;
 import com.hisaab.domain.Category;
+import com.hisaab.domain.Enums.CategoryKind;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Tag;
 import com.hisaab.domain.Txn;
+import com.hisaab.mail.EmailProcessor;
+import com.hisaab.mail.EmailProcessor.SmsOutcome;
 import com.hisaab.repo.AccountRepo;
+import com.hisaab.repo.ApiTokenRepo;
 import com.hisaab.repo.CategoryRepo;
 import com.hisaab.repo.TxnRepo;
 import com.hisaab.web.DataApi;
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -62,15 +68,15 @@ public class DataApiService {
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionService transactions;
     private final AccountService accountViews;
-    private final com.hisaab.repo.ApiTokenRepo tokens;
-    private final com.hisaab.mail.EmailProcessor processor;
+    private final ApiTokenRepo tokens;
+    private final EmailProcessor processor;
     /** To read back what the database set (created_at, updated_at) on a transaction just recorded. */
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager em;
 
     public DataApiService(TxnRepo txns, CategoryRepo categories, AccountRepo accounts, NamedParameterJdbcTemplate jdbc,
-                          TransactionService transactions, AccountService accountViews, com.hisaab.repo.ApiTokenRepo tokens,
-                          com.hisaab.mail.EmailProcessor processor) {
+                          TransactionService transactions, AccountService accountViews, ApiTokenRepo tokens,
+                          EmailProcessor processor) {
         this.processor = processor;
         this.txns = txns;
         this.categories = categories;
@@ -164,7 +170,7 @@ public class DataApiService {
     public DataApi.ListOf<DataApi.Category> categories(ApiToken token) {
         return new DataApi.ListOf<>(categories.findAll(Sort.by("kind", "name")).stream()
                 .filter(c -> token.allowsCategory(c.getId()))
-                .filter(c -> token.isMoneyIn() || c.getKind() == com.hisaab.domain.Enums.CategoryKind.EXPENSE)
+                .filter(c -> token.isMoneyIn() || c.getKind() == CategoryKind.EXPENSE)
                 .map(c -> new DataApi.Category(c.getId().toString(), c.getName(), c.getKind().name().toLowerCase(Locale.ROOT)))
                 .toList());
     }
@@ -176,7 +182,7 @@ public class DataApiService {
     }
 
     /** What the token's limits allow, as query conditions. Transfers never; money in only when allowed. */
-    private static List<Predicate> limits(ApiToken token, jakarta.persistence.criteria.Root<Txn> root, jakarta.persistence.criteria.CriteriaBuilder cb) {
+    private static List<Predicate> limits(ApiToken token, Root<Txn> root, CriteriaBuilder cb) {
         List<Predicate> ps = new ArrayList<>();
         ps.add(cb.isFalse(root.get("transfer")));
         ps.add(cb.isNull(root.get("paidBy"))); // what a friend paid for me isn't in the API
@@ -500,7 +506,7 @@ public class DataApiService {
             // a phone whose clock runs ahead: it's being forwarded now anyway
             if (at.isAfter(now)) at = now;
         }
-        com.hisaab.mail.EmailProcessor.SmsOutcome o = processor.processSms(sender, in.text(), at);
+        SmsOutcome o = processor.processSms(sender, in.text(), at);
         if (o.alreadySeen()) return new DataApi.SmsReceived("duplicate", "Already received this SMS", null);
         Txn t = o.txn();
         if (t != null) {
@@ -508,7 +514,7 @@ public class DataApiService {
             em.refresh(t);
         }
         return new DataApi.SmsReceived(o.message().getStatus().name().toLowerCase(Locale.ROOT),
-                t != null ? com.hisaab.mail.EmailProcessor.summary(t) : o.message().getNote(),
+                t != null ? EmailProcessor.summary(t) : o.message().getNote(),
                 t == null ? null : transaction(token, t));
     }
 }

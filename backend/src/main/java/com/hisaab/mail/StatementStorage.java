@@ -10,10 +10,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /** Saves statement PDFs as-is under {storage}/statements/{account}/{yyyy-MM}_{file}. */
 @Component
 public class StatementStorage {
+    /** How a saved statement's month is shown: "Nov 2026". */
+    public static final DateTimeFormatter PERIOD = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH);
+
     private final Path root;
 
     public StatementStorage(AppProperties props) {

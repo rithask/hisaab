@@ -1,7 +1,7 @@
 package com.hisaab.web;
 
-import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.EmailStatus;
+import com.hisaab.domain.Enums.ImportStatus;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.repo.*;
 import com.hisaab.service.AccountService;
@@ -9,8 +9,6 @@ import com.hisaab.service.AccountService.AccountView;
 import com.hisaab.service.Money;
 import com.hisaab.service.ReportService;
 import com.hisaab.service.SplitService;
-import com.hisaab.web.Dtos.HoldingDto;
-import com.hisaab.web.Dtos.PortfolioDto;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,14 +30,14 @@ public class DashboardController {
     private final AlertRepo alerts;
     private final RawEmailRepo emails;
     private final SettlementRepo settlements;
-    private final com.hisaab.repo.StatementImportRepo statementImports;
-    private final com.hisaab.repo.StatementFileRepo statementFiles;
+    private final StatementImportRepo statementImports;
+    private final StatementFileRepo statementFiles;
     private final TotalsService totals;
 
     public DashboardController(AccountService accounts, ReportService reports, HoldingRepo holdings, PersonRepo people,
                                SplitService splits, AlertRepo alerts, RawEmailRepo emails, SettlementRepo settlements,
-                               com.hisaab.repo.StatementImportRepo statementImports,
-                               com.hisaab.repo.StatementFileRepo statementFiles, TotalsService totals) {
+                               StatementImportRepo statementImports,
+                               StatementFileRepo statementFiles, TotalsService totals) {
         this.totals = totals;
         this.statementImports = statementImports;
         this.statementFiles = statementFiles;
@@ -71,7 +69,7 @@ public class DashboardController {
                 new Counts(alerts.countByDismissedFalse(),
                         emails.countByStatus(EmailStatus.NEEDS_REVIEW) + emails.countByStatus(EmailStatus.ERROR),
                         settlements.countByStatus(SettlementStatus.SUGGESTED),
-                        statementImports.countByStatus(com.hisaab.domain.Enums.ImportStatus.REVIEW),
+                        statementImports.countByStatus(ImportStatus.REVIEW),
                         statementFiles.countByImportStatus("NEEDS_PASSWORD")));
     }
 
@@ -79,7 +77,7 @@ public class DashboardController {
     @GetMapping("/reports/monthly")
     public List<ReportService.MonthTotal> monthly(@RequestParam(required = false) String until,
                                                   @RequestParam(defaultValue = "6") int months) {
-        java.time.YearMonth end = until == null ? java.time.YearMonth.now(com.hisaab.service.Money.ZONE) : java.time.YearMonth.parse(until);
+        YearMonth end = until == null ? YearMonth.now(Money.ZONE) : YearMonth.parse(until);
         return reports.monthly(end, Math.max(1, Math.min(months, 24)));
     }
 

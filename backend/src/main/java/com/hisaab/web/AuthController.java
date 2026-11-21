@@ -1,5 +1,15 @@
 package com.hisaab.web;
 
+import com.hisaab.config.AppProperties;
+import com.hisaab.config.AuthLog;
+import com.hisaab.config.LoginThrottle;
+import com.hisaab.config.OidcLinkService;
+import com.hisaab.config.OidcLinkService.Link;
+import com.hisaab.config.OidcLinkService.Pending;
+import com.hisaab.config.OidcSupport;
+import com.hisaab.config.OidcSupport.LazyRegistrations;
+import com.hisaab.config.SecurityConfig;
+import com.hisaab.service.Money;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +22,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,14 +31,14 @@ import java.util.Map;
 public class AuthController {
     private final AuthenticationManager auth;
     private final SecurityContextRepository contexts;
-    private final com.hisaab.config.AppProperties props;
-    private final org.springframework.beans.factory.ObjectProvider<com.hisaab.config.OidcSupport.LazyRegistrations> oidc;
-    private final com.hisaab.config.OidcLinkService links;
-    private final com.hisaab.config.LoginThrottle throttle;
+    private final AppProperties props;
+    private final org.springframework.beans.factory.ObjectProvider<LazyRegistrations> oidc;
+    private final OidcLinkService links;
+    private final LoginThrottle throttle;
 
-    public AuthController(AuthenticationManager auth, SecurityContextRepository contexts, com.hisaab.config.AppProperties props,
-                          org.springframework.beans.factory.ObjectProvider<com.hisaab.config.OidcSupport.LazyRegistrations> oidc,
-                          com.hisaab.config.OidcLinkService links, com.hisaab.config.LoginThrottle throttle) {
+    public AuthController(AuthenticationManager auth, SecurityContextRepository contexts, AppProperties props,
+                          org.springframework.beans.factory.ObjectProvider<LazyRegistrations> oidc,
+                          OidcLinkService links, LoginThrottle throttle) {
         this.links = links;
         this.throttle = throttle;
         this.auth = auth;
@@ -43,7 +55,7 @@ public class AuthController {
     @GetMapping("/auth/options")
     public Options options() {
         boolean on = oidc.getIfAvailable() != null;
-        return new Options(com.hisaab.config.SecurityConfig.passwordLoginEnabled(props),
+        return new Options(SecurityConfig.passwordLoginEnabled(props),
                 on ? new OidcOption(props.oidc().name(), "/api/auth/oidc") : null,
                 on && !Boolean.FALSE.equals(props.oidc().autoRedirect()));
     }
@@ -57,7 +69,7 @@ public class AuthController {
         } else if (!r.reachable()) {
             res.sendRedirect("/?login_error=" + java.net.URLEncoder.encode(props.oidc().name() + " can't be reached right now.", java.nio.charset.StandardCharsets.UTF_8));
         } else {
-            res.sendRedirect("/oauth2/authorization/" + com.hisaab.config.OidcSupport.REGISTRATION_ID);
+            res.sendRedirect("/oauth2/authorization/" + OidcSupport.REGISTRATION_ID);
         }
     }
 
@@ -65,8 +77,8 @@ public class AuthController {
 
     @PostMapping("/auth/login")
     public ResponseEntity<?> login(@RequestBody Login body, HttpServletRequest req, HttpServletResponse res) {
-        if (!com.hisaab.config.SecurityConfig.passwordLoginEnabled(props)) {
-            com.hisaab.config.AuthLog.signInFailed(req, body.username(), "password (turned off)");
+        if (!SecurityConfig.passwordLoginEnabled(props)) {
+            AuthLog.signInFailed(req, body.username(), "password (turned off)");
             return ResponseEntity.status(403).body(Map.of("error", "Password sign-in is turned off. Use " + props.oidc().name() + "."));
         }
         ResponseEntity<?> wait = tooMany(req);
@@ -79,10 +91,10 @@ public class AuthController {
             ctx.setAuthentication(a);
             SecurityContextHolder.setContext(ctx);
             contexts.saveContext(ctx, req, res);
-            com.hisaab.config.AuthLog.signIn(req, a.getName());
+            AuthLog.signIn(req, a.getName());
             return ResponseEntity.ok(Map.of("username", a.getName()));
         } catch (AuthenticationException e) {
-            com.hisaab.config.AuthLog.signInFailed(req, body.username());
+            AuthLog.signInFailed(req, body.username());
             wrongPassword(req);
             return ResponseEntity.status(401).body(Map.of("error", "Wrong username or password"));
         }
@@ -90,7 +102,7 @@ public class AuthController {
 
     /** 429 with Retry-After (RFC 6585) while this client is locked out after wrong passwords; else null. */
     private ResponseEntity<?> tooMany(HttpServletRequest req) {
-        java.time.Duration wait = throttle.waitFor(req.getRemoteAddr());
+        Duration wait = throttle.waitFor(req.getRemoteAddr());
         if (wait.isZero()) return null;
         long minutes = Math.max(1, (wait.toSeconds() + 59) / 60);
         return ResponseEntity.status(429).header("Retry-After", Long.toString(wait.toSeconds()))
@@ -98,8 +110,8 @@ public class AuthController {
     }
 
     private void wrongPassword(HttpServletRequest req) {
-        if (throttle.failed(req.getRemoteAddr()) == com.hisaab.config.LoginThrottle.MAX_FAILURES) {
-            com.hisaab.config.AuthLog.signInLockedOut(req);
+        if (throttle.failed(req.getRemoteAddr()) == LoginThrottle.MAX_FAILURES) {
+            AuthLog.signInLockedOut(req);
         }
     }
 
@@ -113,7 +125,7 @@ public class AuthController {
         var p = pending(req);
         if (p == null) return ResponseEntity.status(404).body(Map.of("error", "Nothing is waiting to be linked"));
         return ResponseEntity.ok(new PendingLink(p.email(), p.name(), props.oidc().name(), props.auth().username(),
-                com.hisaab.config.SecurityConfig.passwordLoginEnabled(props)));
+                SecurityConfig.passwordLoginEnabled(props)));
     }
 
     public record LinkIn(String password) {}
@@ -124,7 +136,7 @@ public class AuthController {
         var p = pending(req);
         if (p == null) return ResponseEntity.status(400).body(Map.of("error", "Nothing is waiting to be linked. Sign in with " + props.oidc().name() + " again."));
         if (links.linkedId() != null) return ResponseEntity.status(409).body(Map.of("error", "Another account is already linked."));
-        if (com.hisaab.config.SecurityConfig.passwordLoginEnabled(props)) {
+        if (SecurityConfig.passwordLoginEnabled(props)) {
             ResponseEntity<?> wait = tooMany(req);
             if (wait != null) return wait;
             try {
@@ -132,46 +144,46 @@ public class AuthController {
                 throttle.succeeded(req.getRemoteAddr());
             } catch (AuthenticationException e) {
                 wrongPassword(req);
-                com.hisaab.config.AuthLog.signInFailed(req, p.email(), props.oidc().name() + ": link refused, wrong app password");
+                AuthLog.signInFailed(req, p.email(), props.oidc().name() + ": link refused, wrong app password");
                 return ResponseEntity.status(401).body(Map.of("error", "That's not the app's password"));
             }
         }
         links.save(p);
-        req.getSession().removeAttribute(com.hisaab.config.OidcLinkService.PENDING);
+        req.getSession().removeAttribute(OidcLinkService.PENDING);
         String name = p.email() != null ? p.email() : p.id();
         Authentication a = new UsernamePasswordAuthenticationToken(name, null,
-                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_OWNER")));
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_OWNER")));
         req.changeSessionId();
         SecurityContext ctx = SecurityContextHolder.createEmptyContext();
         ctx.setAuthentication(a);
         SecurityContextHolder.setContext(ctx);
         contexts.saveContext(ctx, req, res);
-        com.hisaab.config.AuthLog.signIn(req, name, props.oidc().name() + " (just linked)");
+        AuthLog.signIn(req, name, props.oidc().name() + " (just linked)");
         return ResponseEntity.ok(Map.of("username", name));
     }
 
     @PostMapping("/auth/link/cancel")
     public void cancelLink(HttpServletRequest req) {
         var s = req.getSession(false);
-        if (s != null) s.removeAttribute(com.hisaab.config.OidcLinkService.PENDING);
+        if (s != null) s.removeAttribute(OidcLinkService.PENDING);
     }
 
     /** For Settings: which provider account is linked. */
     @GetMapping("/oidc-link")
-    public com.hisaab.config.OidcLinkService.Link linkStatus() {
+    public Link linkStatus() {
         return links.link();
     }
 
     @DeleteMapping("/oidc-link")
-    public com.hisaab.config.OidcLinkService.Link unlink(HttpServletRequest req, Authentication who) {
+    public Link unlink(HttpServletRequest req, Authentication who) {
         links.unlink();
         org.slf4j.LoggerFactory.getLogger("com.hisaab.security").info("OIDC account unlinked by user=\"{}\" ip={}", who.getName(), req.getRemoteAddr());
         return links.link();
     }
 
-    private com.hisaab.config.OidcLinkService.Pending pending(HttpServletRequest req) {
+    private Pending pending(HttpServletRequest req) {
         var s = req.getSession(false);
-        return s == null ? null : (com.hisaab.config.OidcLinkService.Pending) s.getAttribute(com.hisaab.config.OidcLinkService.PENDING);
+        return s == null ? null : (Pending) s.getAttribute(OidcLinkService.PENDING);
     }
 
     @GetMapping("/auth/me")
@@ -185,6 +197,6 @@ public class AuthController {
     /** Liveness, the running version (the image tag it was built from, or "dev") and the time zone (TZ) the app counts days in. */
     @GetMapping("/health")
     public Map<String, String> health() {
-        return Map.of("status", "ok", "version", version, "timeZone", com.hisaab.service.Money.ZONE.getId());
+        return Map.of("status", "ok", "version", version, "timeZone", Money.ZONE.getId());
     }
 }

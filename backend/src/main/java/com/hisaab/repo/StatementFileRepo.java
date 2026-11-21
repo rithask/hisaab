@@ -10,5 +10,5 @@ public interface StatementFileRepo extends JpaRepository<StatementFile, Long> {
 
     long countByImportStatus(String importStatus);
 
-    java.util.List<com.hisaab.domain.StatementFile> findByImportStatus(String importStatus);
+    List<StatementFile> findByImportStatus(String importStatus);
 }

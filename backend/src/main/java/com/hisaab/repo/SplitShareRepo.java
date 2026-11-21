@@ -8,13 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 public interface SplitShareRepo extends JpaRepository<SplitShare, Long> {
     List<SplitShare> findByTxn(Txn txn);
 
     /** Every share of these transactions in one query (for a page of rows). */
-    List<SplitShare> findByTxnInOrderById(java.util.Collection<Txn> txns);
+    List<SplitShare> findByTxnInOrderById(Collection<Txn> txns);
 
     List<SplitShare> findByPersonOrderByTxnOccurredAtDesc(Person person);
 

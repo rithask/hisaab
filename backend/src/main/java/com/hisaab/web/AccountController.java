@@ -1,5 +1,7 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
+import com.hisaab.config.AuthLog;
 import com.hisaab.domain.Account;
 import com.hisaab.repo.AccountRepo;
 import com.hisaab.service.AccountService;
@@ -45,6 +47,6 @@ public class AccountController {
         var a = service.get(id);
         repo.delete(a);
         // deleting an account deletes its transactions too
-        com.hisaab.config.Audit.log("Account deleted id={} name=\"{}\" with its transactions", id, com.hisaab.config.AuthLog.clean(a.getName(), 60));
+        Audit.log("Account deleted id={} name=\"{}\" with its transactions", id, AuthLog.clean(a.getName(), 60));
     }
 }

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -17,6 +18,8 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+
+import static com.hisaab.service.NotFound.notFound;
 
 /**
  * The tokens apps and shortcuts use: an iPhone Shortcut forwarding bank SMS, a mileage app reading fuel spends, a
@@ -109,7 +112,7 @@ public class ApiTokenService {
     }
 
     private ApiToken active(Long id) {
-        return tokens.findById(id).filter(ApiToken::isActive).orElseThrow(() -> new NoSuchElementException("Token not found"));
+        return tokens.findById(id).filter(ApiToken::isActive).orElseThrow(notFound("Token"));
     }
 
     private void apply(ApiToken t, TokenInput in) {

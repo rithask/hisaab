@@ -9,6 +9,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 /** One line when the app is up: what's running and how it's set up, so a log shows it without opening the app. */
@@ -29,7 +30,7 @@ public class StartupLog {
     @EventListener(ApplicationReadyEvent.class)
     public void ready() {
         boolean oidc = props.oidc() != null && props.oidc().configured();
-        String on = features.all().entrySet().stream().filter(e -> e.getValue()).map(java.util.Map.Entry::getKey)
+        String on = features.all().entrySet().stream().filter(e -> e.getValue()).map(Entry::getKey)
                 .collect(Collectors.joining(","));
         log.info("Hisaab {} ready: timeZone={} passwordSignIn={} identityProvider={} mailbox={} prices={} features=[{}]",
                 version, Money.ZONE.getId(), SecurityConfig.passwordLoginEnabled(props) ? "on" : "off",

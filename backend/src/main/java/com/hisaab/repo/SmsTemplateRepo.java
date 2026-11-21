@@ -1,5 +1,6 @@
 package com.hisaab.repo;
 
+import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.SmsTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,7 +10,7 @@ import java.util.Optional;
 public interface SmsTemplateRepo extends JpaRepository<SmsTemplate, Long> {
     List<SmsTemplate> findAllByOrderByHitsDescIdAsc();
 
-    List<SmsTemplate> findByChannelOrderByHitsDescIdAsc(com.hisaab.domain.Enums.Channel channel);
+    List<SmsTemplate> findByChannelOrderByHitsDescIdAsc(Channel channel);
 
     Optional<SmsTemplate> findBySkeleton(String skeleton);
 }

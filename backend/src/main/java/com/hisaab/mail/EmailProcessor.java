@@ -1,31 +1,47 @@
 package com.hisaab.mail;
 
 import com.hisaab.domain.Account;
+import com.hisaab.domain.Category;
 import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.EmailStatus;
 import com.hisaab.domain.Enums.Institution;
+import com.hisaab.domain.Enums.TxnSource;
 import com.hisaab.domain.RawEmail;
+import com.hisaab.domain.SmsTemplate;
 import com.hisaab.domain.StatementFile;
+import com.hisaab.domain.Txn;
 import com.hisaab.mail.parser.BankEmailParser;
+import com.hisaab.mail.parser.ParseUtil;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.mail.parser.SmsParser;
-import com.hisaab.domain.Txn;
 import com.hisaab.repo.AccountRepo;
+import com.hisaab.repo.CategoryRepo;
 import com.hisaab.repo.RawEmailRepo;
 import com.hisaab.repo.StatementFileRepo;
+import com.hisaab.service.BalanceService;
+import com.hisaab.service.CategorizationService;
+import com.hisaab.service.Money;
+import com.hisaab.service.PayeeAliasService;
 import com.hisaab.service.TransactionService;
+import com.hisaab.service.TransactionService.TxnUpdate;
+import com.hisaab.statement.StatementSaved;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -48,17 +64,17 @@ public class EmailProcessor {
     private final TransactionService txns;
     private final SmsParser smsParser;
     private final SmsLearningService learning;
-    private final com.hisaab.service.BalanceService balances;
+    private final BalanceService balances;
     private final org.springframework.context.ApplicationEventPublisher events;
     private final SenderTrust trust;
-    private final com.hisaab.service.PayeeAliasService aliases;
-    private final com.hisaab.repo.CategoryRepo categories;
+    private final PayeeAliasService aliases;
+    private final CategoryRepo categories;
 
     public EmailProcessor(List<BankEmailParser> parsers, RawEmailRepo emails, AccountRepo accounts,
                           StatementFileRepo statements, StatementStorage storage, TransactionService txns,
-                          SmsParser smsParser, SmsLearningService learning, com.hisaab.service.BalanceService balances,
+                          SmsParser smsParser, SmsLearningService learning, BalanceService balances,
                           org.springframework.context.ApplicationEventPublisher events, SenderTrust trust,
-                          com.hisaab.service.PayeeAliasService aliases, com.hisaab.repo.CategoryRepo categories) {
+                          PayeeAliasService aliases, CategoryRepo categories) {
         this.categories = categories;
         this.events = events;
         this.aliases = aliases;
@@ -244,7 +260,7 @@ public class EmailProcessor {
         raw.setNote(notes.isEmpty() ? null : notes.toString());
         // Read by the general heuristics and confirmed independently: learn the wording, so the next is read exactly.
         if ("sms".equals(raw.getParser())) {
-            boolean emailAgrees = created.isEmpty() && txns.pairedWith(raw).stream().anyMatch(t -> t.getSource() == com.hisaab.domain.Enums.TxnSource.EMAIL);
+            boolean emailAgrees = created.isEmpty() && txns.pairedWith(raw).stream().anyMatch(t -> t.getSource() == TxnSource.EMAIL);
             if (balanceAddsUp || emailAgrees) {
                 learning.autoLearn(Channel.SMS, raw.getBodyText(), new SmsLearningService.Truth(p.direction(), p.amount(), account.get(), p.counterparty()), raw)
                         .template().ifPresent(raw::setTemplate);
@@ -272,8 +288,8 @@ public class EmailProcessor {
     /** Whether the balance printed in the message fits exactly one direction (so it confirms the amount and account). */
     private boolean balanceDecides(ParsedTransaction p, Account account) {
         if (p.balance() == null || account.isCard() || !"INR".equals(p.currency())) return false;
-        java.math.BigDecimal now = balances.current(account);
-        java.math.BigDecimal tol = new java.math.BigDecimal("0.01");
+        BigDecimal now = balances.current(account);
+        BigDecimal tol = new BigDecimal("0.01");
         boolean asDebit = now.subtract(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
         boolean asCredit = now.add(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
         return asDebit != asCredit;
@@ -286,7 +302,7 @@ public class EmailProcessor {
     private void confirmSmsTwins(RawEmail email) {
         for (Txn t : txns.pairedWith(email)) {
             RawEmail sms = t.getRawEmail();
-            if (t.getSource() != com.hisaab.domain.Enums.TxnSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
+            if (t.getSource() != TxnSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
             SmsParser.Result r = smsParser.parse(sms.getSender(), sms.getBodyText(), sms.getReceivedAt());
             String payee = r.txn() == null ? null : r.txn().counterparty();
             learning.autoLearn(Channel.SMS, sms.getBodyText(), new SmsLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms)
@@ -296,8 +312,8 @@ public class EmailProcessor {
 
     private ParsedTransaction correctDirectionFromBalance(ParsedTransaction p, Account account) {
         if (p.balance() == null || account.isCard() || !"INR".equals(p.currency())) return p;
-        java.math.BigDecimal now = balances.current(account);
-        java.math.BigDecimal tol = new java.math.BigDecimal("0.01");
+        BigDecimal now = balances.current(account);
+        BigDecimal tol = new BigDecimal("0.01");
         boolean asDebit = now.subtract(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
         boolean asCredit = now.add(p.amount()).subtract(p.balance()).abs().compareTo(tol) <= 0;
         if (asDebit == asCredit) return p;
@@ -315,7 +331,7 @@ public class EmailProcessor {
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
         List<Txn> existing = txns.forMessage(raw);
         Direction direction = p == null ? null : p.direction();
-        java.math.BigDecimal amount = p == null ? null : p.amount();
+        BigDecimal amount = p == null ? null : p.amount();
         Long accountId = p == null ? null : smsAccount(p).map(Account::getId).orElse(null);
         String name = p == null ? null : p.counterparty();
         Long categoryId = null;
@@ -330,7 +346,7 @@ public class EmailProcessor {
         // Where those are in the text, so the form can show them marked.
         int[] amountAt = amount == null ? null : SmsLearningService.findAmount(flat, amount);
         int[] payeeAt = null;
-        for (String v : java.util.Arrays.asList(p == null ? null : p.counterparty(), name)) {
+        for (String v : Arrays.asList(p == null ? null : p.counterparty(), name)) {
             int at = v == null || v.isBlank() ? -1 : flat.toLowerCase(Locale.ROOT).indexOf(v.toLowerCase(Locale.ROOT));
             if (at >= 0) {
                 payeeAt = new int[]{at, at + v.length()};
@@ -344,7 +360,7 @@ public class EmailProcessor {
      * @param flat       the message with whitespace collapsed; {@code amountAt}/{@code payeeAt} are {start, end} in it
      * @param categoryId the category I already chose for its transaction, if any
      */
-    public record Preview(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
+    public record Preview(Direction direction, BigDecimal amount, Long accountId, String counterparty,
                           String flat, int[] amountAt, int[] payeeAt, Long categoryId) {}
 
     /**
@@ -354,7 +370,7 @@ public class EmailProcessor {
      * @param categoryId   the category it belongs in, if I picked one (learned for its payee, or for its wording
      *                     when it has no payee)
      */
-    public record Teaching(Direction direction, java.math.BigDecimal amount, Long accountId, String counterparty,
+    public record Teaching(Direction direction, BigDecimal amount, Long accountId, String counterparty,
                            int[] amountAt, int[] payeeAt, Long categoryId) {}
 
     /**
@@ -379,9 +395,9 @@ public class EmailProcessor {
         if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
         Account account = accounts.findById(in.accountId() == null ? -1L : in.accountId())
                 .orElseThrow(() -> new IllegalArgumentException("Pick the account"));
-        com.hisaab.domain.Category category = in.categoryId() == null ? null : categories.findById(in.categoryId())
+        Category category = in.categoryId() == null ? null : categories.findById(in.categoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown category"));
-        if (category != null && category.getKind() != com.hisaab.service.CategorizationService.kindFor(in.direction())) {
+        if (category != null && category.getKind() != CategorizationService.kindFor(in.direction())) {
             throw new IllegalArgumentException(in.direction() == Direction.DEBIT ? "Pick a spending category for money going out"
                     : "Pick an income category for money coming in");
         }
@@ -390,7 +406,7 @@ public class EmailProcessor {
         // The payee as the bank writes it (what I marked, else what I typed) and the name I want shown for it.
         int[] marked = SmsLearningService.span(in.payeeAt(), flat);
         String name = in.counterparty() == null || in.counterparty().isBlank() ? null : in.counterparty().trim();
-        String payee = marked != null ? com.hisaab.mail.parser.ParseUtil.clean(flat.substring(marked[0], marked[1])) : name;
+        String payee = marked != null ? ParseUtil.clean(flat.substring(marked[0], marked[1])) : name;
         if (payee != null && name != null && !payee.equals(name)) aliases.remember(payee, name);
 
         // A transaction already recorded from it is fixed in place, so its category, notes, tags and split stay.
@@ -400,7 +416,7 @@ public class EmailProcessor {
 
         SmsLearningService.Truth truth = new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked);
         // the format that read it (if one did) was wrong: count that against it before learning the right one
-        com.hisaab.domain.SmsTemplate readBy = raw.getTemplate();
+        SmsTemplate readBy = raw.getTemplate();
         boolean paused = learning.corrected(readBy, text, truth);
         SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text, truth, raw);
         // read by the format just learned from now on (it's what a category is remembered for when there's no payee)
@@ -421,7 +437,7 @@ public class EmailProcessor {
         int[] ref = SmsParser.findReference(flat);
         int[] bal = SmsParser.findBalance(flat);
         ParsedTransaction p = new ParsedTransaction(account.getInstitution(),
-                account.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK, in.direction(), in.amount().setScale(2, java.math.RoundingMode.HALF_UP),
+                account.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK, in.direction(), in.amount().setScale(2, RoundingMode.HALF_UP),
                 "INR", account.getLast4(), w.date(), w.time(), payee, ref == null ? null : flat.substring(ref[0], ref[1]),
                 bal == null || account.isCard() ? null : SmsParser.toAmount(flat.substring(bal[0], bal[1])),
                 account.isCard() && in.direction() == Direction.CREDIT, null);
@@ -439,7 +455,7 @@ public class EmailProcessor {
         Optional<Txn> target = created.isPresent() ? created : txns.pairedWith(raw).stream().findFirst();
         boolean byWording = false;
         if (category != null && target.isPresent()) {
-            byWording = txns.update(target.get().getId(), new com.hisaab.service.TransactionService.TxnUpdate(
+            byWording = txns.update(target.get().getId(), new TxnUpdate(
                     category.getId(), null, null, null, null, null, null, null, true)).learnedWording();
         }
 
@@ -500,7 +516,7 @@ public class EmailProcessor {
         else classify(m, new EmailContent(m.getFromAddress(), m.getSubject(), m.getReceivedAt(), m.getBodyText()));
     }
 
-    private static final java.util.Set<String> FREE_MAIL = java.util.Set.of("gmail.com", "googlemail.com", "yahoo.com",
+    private static final Set<String> FREE_MAIL = Set.of("gmail.com", "googlemail.com", "yahoo.com",
             "yahoo.co.in", "outlook.com", "hotmail.com", "live.com", "icloud.com", "me.com", "mac.com", "proton.me",
             "protonmail.com", "rediffmail.com", "zoho.com", "aol.com");
 
@@ -524,7 +540,7 @@ public class EmailProcessor {
     private static String sha256(String s) {
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.HexFormat.of().formatHex(d);
+            return HexFormat.of().formatHex(d);
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
@@ -679,10 +695,9 @@ public class EmailProcessor {
                 f.setStoredPath(storage.toStored(path));
                 f.setSizeBytes(a.data().length);
                 f.setReceivedAt(raw.getReceivedAt());
-                f.setPeriodLabel(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
-                        .withZone(com.hisaab.service.Money.ZONE).format(raw.getReceivedAt()));
+                f.setPeriodLabel(StatementStorage.PERIOD.withZone(Money.ZONE).format(raw.getReceivedAt()));
                 statements.save(f);
-                events.publishEvent(new com.hisaab.statement.StatementSaved(f.getId()));
+                events.publishEvent(new StatementSaved(f.getId()));
             } catch (Exception e) {
                 log.warn("Couldn't save statement {} from email {}: {}", a.fileName(), raw.getId(), e.toString());
                 note.append("Failed to save ").append(a.fileName()).append(": ").append(e.getMessage()).append('\n');

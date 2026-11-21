@@ -1,5 +1,6 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
 import com.hisaab.features.*;
 import com.hisaab.features.FeatureService.Feature;
 import com.hisaab.service.Money;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -59,7 +61,7 @@ public class FeaturesController {
 
     @DeleteMapping("/budgets/{categoryId}")
     public void removeBudget(@PathVariable long categoryId) {
-        com.hisaab.config.Audit.log("Budget removed category={}", categoryId);
+        Audit.log("Budget removed category={}", categoryId);
         budgets.remove(categoryId);
     }
 
@@ -109,15 +111,15 @@ public class FeaturesController {
 
     @PostMapping("/backups")
     public BackupService.Backup backupNow() throws IOException {
-        com.hisaab.config.Audit.log("Backup started by hand");
+        Audit.log("Backup started by hand");
         return backups.run();
     }
 
     @GetMapping("/backups/{file}")
     public ResponseEntity<Resource> download(@PathVariable String file, jakarta.servlet.http.HttpServletRequest req) {
-        java.nio.file.Path p = backups.file(file);
+        Path p = backups.file(file);
         // a full copy of the database leaving the server
-        com.hisaab.config.Audit.log("Backup downloaded file={} ip={}", p.getFileName(), req.getRemoteAddr());
+        Audit.log("Backup downloaded file={} ip={}", p.getFileName(), req.getRemoteAddr());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file).build().toString())
                 .body(new FileSystemResource(p));

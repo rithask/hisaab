@@ -1,7 +1,11 @@
 package com.hisaab.repo;
 
 import com.hisaab.domain.Account;
+import com.hisaab.domain.ApiToken;
 import com.hisaab.domain.Enums.Direction;
+import com.hisaab.domain.Enums.TxnSource;
+import com.hisaab.domain.Person;
+import com.hisaab.domain.RawEmail;
 import com.hisaab.domain.Txn;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -10,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,11 +27,11 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
             order by t.occurredAt
             """)
     List<Txn> findForReconcile(@Param("account") Account account, @Param("from") Instant from, @Param("to") Instant to,
-                               @Param("exclude") com.hisaab.domain.Enums.TxnSource exclude);
+                               @Param("exclude") TxnSource exclude);
 
-    List<Txn> findByRawEmail(com.hisaab.domain.RawEmail rawEmail);
+    List<Txn> findByRawEmail(RawEmail rawEmail);
 
-    List<Txn> findByMerchantKeyAndSourceIn(String merchantKey, java.util.Collection<com.hisaab.domain.Enums.TxnSource> sources);
+    List<Txn> findByMerchantKeyAndSourceIn(String merchantKey, Collection<TxnSource> sources);
 
     Optional<Txn> findFirstByAccountAndReferenceNoAndAmountAndDirection(Account account, String referenceNo,
                                                                          BigDecimal amount, Direction direction);
@@ -43,7 +48,7 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
             order by t.occurredAt
             """)
     List<Txn> findCrossChannelTwins(@Param("account") Account account, @Param("direction") Direction direction,
-                                    @Param("amount") BigDecimal amount, @Param("otherSource") com.hisaab.domain.Enums.TxnSource otherSource,
+                                    @Param("amount") BigDecimal amount, @Param("otherSource") TxnSource otherSource,
                                     @Param("from") Instant from, @Param("to") Instant to);
 
     /** Candidates for the other leg of a transfer between my own accounts. */
@@ -107,21 +112,21 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
     List<Txn> findSimilar(@Param("key") String merchantKey, @Param("excludeId") Long excludeId,
                           @Param("categoryId") Long categoryId);
 
-    List<Txn> findByTwinRawEmail(com.hisaab.domain.RawEmail email);
+    List<Txn> findByTwinRawEmail(RawEmail email);
 
-    java.util.Optional<Txn> findByApiTokenAndRequestKey(com.hisaab.domain.ApiToken apiToken, String requestKey);
+    Optional<Txn> findByApiTokenAndRequestKey(ApiToken apiToken, String requestKey);
 
     /** My share of everything this person paid for. */
     @Query("select coalesce(sum(t.amount), 0) from Txn t where t.paidBy = :person")
-    BigDecimal totalPaidBy(@Param("person") com.hisaab.domain.Person person);
+    BigDecimal totalPaidBy(@Param("person") Person person);
 
     /** {@link #totalPaidBy} for everyone, in one query: rows of (person id, total). */
     @Query("select t.paidBy.id, coalesce(sum(t.amount), 0) from Txn t where t.paidBy is not null group by t.paidBy.id")
     List<Object[]> totalPaidByPerson();
 
-    List<Txn> findByPaidByOrderByOccurredAtDesc(com.hisaab.domain.Person person);
+    List<Txn> findByPaidByOrderByOccurredAtDesc(Person person);
 
-    boolean existsByPaidBy(com.hisaab.domain.Person person);
+    boolean existsByPaidBy(Person person);
 
     /** Recent money in or out of my accounts that no repayment (or "no") is linked to. */
     @Query("""
@@ -138,7 +143,7 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
             select t from Txn t
             where t.occurredAt >= :since and t.direction = :direction and t.transfer = false and t.paidBy is null
               and t.account is not null
-              and not exists (select s from Settlement s where s.txn = t and s.status <> com.hisaab.domain.Enums.SettlementStatus.REJECTED)
+              and not exists (select s from Settlement s where s.txn = t and s.status <> SettlementStatus.REJECTED)
               and not exists (select x from SplitShare x where x.txn = t)
             order by t.occurredAt desc
             """)

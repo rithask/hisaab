@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class ParseUtil {
@@ -68,8 +69,8 @@ public final class ParseUtil {
 
     public record RefAndParty(String reference, String counterparty) {}
 
-    private static final java.util.Set<String> RAILS = java.util.Set.of("UPI", "IMPS", "NEFT", "RTGS", "ACH", "NACH", "MMT", "INB", "IFT");
-    private static final java.util.Set<String> UPI_TYPES = java.util.Set.of("P2A", "P2M", "P2P", "CR", "DR");
+    private static final Set<String> RAILS = Set.of("UPI", "IMPS", "NEFT", "RTGS", "ACH", "NACH", "MMT", "INB", "IFT");
+    private static final Set<String> UPI_TYPES = Set.of("P2A", "P2M", "P2P", "CR", "DR");
 
     /**
      * Splits bank narration like {@code UPI/P2A/612345678901/ARJUN RAVI K} into a reference and the

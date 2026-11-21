@@ -1,6 +1,7 @@
 package com.hisaab.statement;
 
 import com.hisaab.domain.Account;
+import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.ImportStatus;
 import com.hisaab.domain.Enums.LineDecision;
@@ -24,17 +25,19 @@ import com.hisaab.service.TransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+
+import static com.hisaab.service.NotFound.notFound;
 
 /**
  * Reads a statement, lines it up against what's already recorded, and imports only what I approve.
@@ -176,7 +179,7 @@ public class StatementImportService {
     private Optional<Account> findAccount(ParsedStatement s) {
         if (s.last4() == null) return Optional.empty();
         return accounts.findByLast4AndArchivedFalse(s.last4()).stream()
-                .filter(a -> a.getInstitution() == s.institution() && a.isCard() == (s.accountType() == com.hisaab.domain.Enums.AccountType.CREDIT_CARD))
+                .filter(a -> a.getInstitution() == s.institution() && a.isCard() == (s.accountType() == AccountType.CREDIT_CARD))
                 .findFirst();
     }
 
@@ -404,7 +407,7 @@ public class StatementImportService {
     public StatementImportLine decide(Long importId, Long lineId, LineDecision d) {
         StatementImport imp = review(importId);
         StatementImportLine l = lines.findById(lineId).filter(x -> x.getStatementImport().getId().equals(imp.getId()))
-                .orElseThrow(() -> new NoSuchElementException("Line not found"));
+                .orElseThrow(notFound("Line"));
         if (d == LineDecision.MERGE && l.getMatchTxn() == null) throw new IllegalArgumentException("Nothing to merge this line with");
         l.setDecision(d);
         return l;
@@ -457,7 +460,7 @@ public class StatementImportService {
             }
             f.setReceivedAt(Instant.now());
             LocalDate p = imp.getPeriodTo() != null ? imp.getPeriodTo() : ls.getLast().getTxnDate();
-            f.setPeriodLabel(p.format(DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)));
+            f.setPeriodLabel(p.format(StatementStorage.PERIOD));
             imp.setStatementFile(statementFiles.save(f));
         } else if (imp.getStatementFile() != null && imp.getStatementFile().getAccount() == null) {
             imp.getStatementFile().setAccount(account);
@@ -506,7 +509,7 @@ public class StatementImportService {
     }
 
     public StatementImport get(Long id) {
-        return imports.findById(id).orElseThrow(() -> new NoSuchElementException("Import not found"));
+        return imports.findById(id).orElseThrow(notFound("Import"));
     }
 
     public List<StatementImportLine> lines(StatementImport imp) {

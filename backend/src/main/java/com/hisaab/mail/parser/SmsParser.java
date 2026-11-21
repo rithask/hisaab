@@ -3,16 +3,19 @@ package com.hisaab.mail.parser;
 import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.Institution;
+import com.hisaab.service.Money;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -83,7 +86,7 @@ public class SmsParser {
             "(?i)\\b(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}|\\d{1,2}[- ]?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-, ]{0,2}\\d{2,4})"
                     + "(?:[\\s,:@]*(?:at\\s+)?(\\d{1,2}:\\d{2}(?::\\d{2})?))?");
 
-    private static final List<java.time.format.DateTimeFormatter> EXTRA_DATES = List.of(
+    private static final List<DateTimeFormatter> EXTRA_DATES = List.of(
             f("ddMMMuu"), f("ddMMMuuuu"), f("d-M-uu"), f("d/M/uu"), f("d-M-uuuu"), f("d/M/uuuu"), f("dd MMM uu"),
             f("dd-MMMM-uu"), f("dd MMMM uuuu"), f("dd MMMM, uuuu"));
 
@@ -195,8 +198,8 @@ public class SmsParser {
         while (dm.find()) {
             LocalDate d = parseDate(dm.group(1));
             if (d == null) continue;
-            LocalDate ref = receivedAt == null ? LocalDate.now(com.hisaab.service.Money.INDIA)
-                    : receivedAt.atZone(com.hisaab.service.Money.INDIA).toLocalDate();
+            LocalDate ref = receivedAt == null ? LocalDate.now(Money.INDIA)
+                    : receivedAt.atZone(Money.INDIA).toLocalDate();
             long days = ChronoUnit.DAYS.between(d, ref);
             if (days < -1 || days > 45) continue;
             LocalTime time = null;
@@ -299,14 +302,14 @@ public class SmsParser {
         for (var fmt : EXTRA_DATES) {
             try {
                 return LocalDate.parse(compact, fmt);
-            } catch (java.time.format.DateTimeParseException ignored) {
+            } catch (DateTimeParseException ignored) {
                 // next
             }
         }
         return null;
     }
 
-    private static java.time.format.DateTimeFormatter f(String p) {
-        return new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(p).toFormatter(Locale.ENGLISH);
+    private static DateTimeFormatter f(String p) {
+        return new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(p).toFormatter(Locale.ENGLISH);
     }
 }

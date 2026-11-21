@@ -1,25 +1,28 @@
 package com.hisaab.config;
 
+import com.hisaab.features.FeatureService;
+import com.hisaab.service.ApiTokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import com.hisaab.service.ApiTokenService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+
+import java.util.HexFormat;
 
 /**
  * Single-user, session-cookie auth, plus named API tokens for other apps and shortcuts under /api/v1, each doing
@@ -44,7 +47,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, SecurityContextRepository repo, ApiTokenService tokens, com.hisaab.features.FeatureService features, AppProperties props,
+    SecurityFilterChain filterChain(HttpSecurity http, SecurityContextRepository repo, ApiTokenService tokens, FeatureService features, AppProperties props,
                                     org.springframework.beans.factory.ObjectProvider<OidcSupport.LazyRegistrations> oidc,
                                     OidcLinkService links) throws Exception {
         OidcSupport.LazyRegistrations registrations = oidc.getIfAvailable();
@@ -119,7 +122,7 @@ public class SecurityConfig {
             // (bcrypt accepts at most 72 bytes, so 32 random bytes as hex.)
             byte[] random = new byte[32];
             new java.security.SecureRandom().nextBytes(random);
-            password = java.util.HexFormat.of().formatHex(random);
+            password = HexFormat.of().formatHex(random);
         }
         // Accept either a plain password or a pre-encoded one like {bcrypt}$2a$...
         String encoded = password.startsWith("{") ? password : encoder.encode(password);

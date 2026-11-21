@@ -1,5 +1,6 @@
 package com.hisaab.domain;
 
+import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -33,5 +34,5 @@ public class Settlement {
     private String note;
 
     @Enumerated(EnumType.STRING)
-    private com.hisaab.domain.Enums.SettlementDirection direction = com.hisaab.domain.Enums.SettlementDirection.IN;
+    private SettlementDirection direction = SettlementDirection.IN;
 }

@@ -9,12 +9,15 @@ import com.hisaab.repo.TxnRepo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 @Service
 public class AccountService {
@@ -43,7 +46,7 @@ public class AccountService {
                               Integer statementDay, Integer dueDay, CardInfo card) {}
 
     public Account get(Long id) {
-        return accounts.findById(id).orElseThrow(() -> new NoSuchElementException("Account " + id + " not found"));
+        return accounts.findById(id).orElseThrow(notFound("Account " + id));
     }
 
     public List<AccountView> list(boolean includeArchived) {
@@ -73,7 +76,7 @@ public class AccountService {
                 last = c.lastStatement();
                 next = c.nextStatement();
                 due = c.dueDate();
-                days = java.time.temporal.ChronoUnit.DAYS.between(today, due);
+                days = ChronoUnit.DAYS.between(today, due);
                 Instant cycleStart = max(c.cycleStart().atStartOfDay(Money.INDIA).toInstant(), a.getOpeningDate());
                 Instant statementEnd = max(c.lastStatement().plusDays(1).atStartOfDay(Money.INDIA).toInstant(), a.getOpeningDate());
                 spent = txns.sumSince(a, Direction.DEBIT, cycleStart);

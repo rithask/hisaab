@@ -6,6 +6,7 @@ import com.hisaab.features.RewardService;
 import com.hisaab.features.SubscriptionService;
 import com.hisaab.features.UnusualService;
 import com.hisaab.features.WatchDismissals;
+import com.hisaab.service.Money;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -79,7 +80,7 @@ public class WatchController {
 
     @PostMapping("/refunds")
     public UnusualService.Refund expectRefund(@RequestBody RefundInput in) {
-        if (in.expectedBy() != null && in.expectedBy().isBefore(LocalDate.now(com.hisaab.service.Money.ZONE)))
+        if (in.expectedBy() != null && in.expectedBy().isBefore(LocalDate.now(Money.ZONE)))
             throw new IllegalArgumentException("Pick a date from today on");
         unusual.expectRefund(in.txnId(), in.expectedBy());
         return unusual.refund(in.txnId()).orElseThrow();

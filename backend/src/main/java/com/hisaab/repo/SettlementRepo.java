@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 public interface SettlementRepo extends JpaRepository<Settlement, Long> {
@@ -20,7 +21,7 @@ public interface SettlementRepo extends JpaRepository<Settlement, Long> {
     List<Settlement> findByTxn(Txn txn);
 
     /** Every repayment linked to these transactions in one query (for a page of rows). */
-    List<Settlement> findByTxnInOrderById(java.util.Collection<Txn> txns);
+    List<Settlement> findByTxnInOrderById(Collection<Txn> txns);
 
     long countByStatus(SettlementStatus status);
 

@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -84,12 +86,12 @@ public class ReviewService {
         // Count days from the first transaction of the year, not 1 January, so a partial first year isn't skewed.
         LocalDate firstDay = jdbc.queryForObject(eff + "select min((occurred_at at time zone current_setting('TimeZone'))::date) from eff", p, LocalDate.class);
         LocalDate counted = firstDay == null || firstDay.isBefore(start) ? start : firstDay;
-        long days = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(counted, until));
+        long days = Math.max(1, ChronoUnit.DAYS.between(counted, until));
 
         BigDecimal saved = r.income().subtract(r.expense());
         Integer rate = r.income().signum() > 0 ? saved.multiply(BigDecimal.valueOf(100)).divide(r.income(), 0, RoundingMode.HALF_UP).intValue() : null;
         Integer firstYear = jdbc.queryForObject("select extract(year from min(occurred_at at time zone current_setting('TimeZone')))::int from txn", new MapSqlParameterSource(), Integer.class);
-        List<Integer> years = new java.util.ArrayList<>();
+        List<Integer> years = new ArrayList<>();
         for (int y = today.getYear(); y >= (firstYear == null ? today.getYear() : firstYear); y--) years.add(y);
 
         return new Review(year, years, r.income(), r.expense(), saved, rate, count,

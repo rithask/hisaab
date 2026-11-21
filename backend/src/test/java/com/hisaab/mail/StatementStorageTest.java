@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,7 +20,7 @@ class StatementStorageTest {
     @Test
     void storesPathsRelativeToTheStorageFolder() throws Exception {
         var s = storage();
-        Path saved = s.save(null, java.time.Instant.parse("2026-11-01T00:00:00Z"), "stmt.pdf", new byte[]{1});
+        Path saved = s.save(null, Instant.parse("2026-11-01T00:00:00Z"), "stmt.pdf", new byte[]{1});
         String stored = s.toStored(saved);
         assertFalse(Path.of(stored).isAbsolute());
         assertEquals(saved, s.resolve(stored));

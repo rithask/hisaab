@@ -1,5 +1,6 @@
 package com.hisaab.features;
 
+import com.hisaab.config.Audit;
 import com.hisaab.service.SettingsService;
 import org.springframework.stereotype.Service;
 
@@ -61,7 +62,7 @@ public class FeatureService {
             if (v == null) return;
             try {
                 Feature f = Feature.valueOf(k.toUpperCase());
-                if (on(f) != v) com.hisaab.config.Audit.log("Feature {} switched {}", f.name().toLowerCase(), v ? "on" : "off");
+                if (on(f) != v) Audit.log("Feature {} switched {}", f.name().toLowerCase(), v ? "on" : "off");
                 set(f, v);
             } catch (IllegalArgumentException ignored) {
                 // unknown feature names are ignored

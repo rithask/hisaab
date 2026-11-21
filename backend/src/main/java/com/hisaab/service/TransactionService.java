@@ -1,11 +1,13 @@
 package com.hisaab.service;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.*;
 import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.TxnSource;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.repo.CategoryRepo;
+import com.hisaab.repo.PersonRepo;
 import com.hisaab.repo.TagRepo;
 import com.hisaab.repo.TxnRepo;
 import jakarta.persistence.criteria.JoinType;
@@ -16,11 +18,15 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
+
+import static com.hisaab.service.NotFound.notFound;
 
 @Service
 public class TransactionService {
@@ -34,11 +40,11 @@ public class TransactionService {
     private final SplitService splits;
     private final PriceService prices;
     private final PayeeAliasService aliases;
-    private final com.hisaab.repo.PersonRepo people;
+    private final PersonRepo people;
 
     public TransactionService(TxnRepo txns, CategoryRepo categories, TagRepo tags, CategorizationService categorizer,
                               TransferService transfers, BalanceService balances, SplitService splits,
-                              PriceService prices, PayeeAliasService aliases, com.hisaab.repo.PersonRepo people) {
+                              PriceService prices, PayeeAliasService aliases, PersonRepo people) {
         this.aliases = aliases;
         this.people = people;
         this.txns = txns;
@@ -52,7 +58,7 @@ public class TransactionService {
     }
 
     public Txn get(Long id) {
-        return txns.findById(id).orElseThrow(() -> new NoSuchElementException("Transaction " + id + " not found"));
+        return txns.findById(id).orElseThrow(notFound("Transaction " + id));
     }
 
     /** Resolve the moment a transaction happened. Date-only alerts use the email's arrival time. */
@@ -124,13 +130,13 @@ public class TransactionService {
      */
     private Optional<Txn> crossChannelTwin(Txn t, TxnSource source, boolean timed, String reference, RawEmail email) {
         TxnSource other = source == TxnSource.SMS ? TxnSource.EMAIL : TxnSource.SMS;
-        java.time.Duration window = timed ? java.time.Duration.ofMinutes(20) : java.time.Duration.ofHours(24);
+        Duration window = timed ? Duration.ofMinutes(20) : Duration.ofHours(24);
         List<Txn> candidates = txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
                 t.getOccurredAt().minus(window), t.getOccurredAt().plus(window)).stream()
                 .filter(x -> x.getTwinRawEmail() == null || x.getTwinRawEmail().getId().equals(email.getId()))
                 .filter(x -> reference == null || x.getReferenceNo() == null || sameRef(reference, x.getReferenceNo()))
                 .toList();
-        Comparator<Txn> byGap = Comparator.comparing(x -> java.time.Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
+        Comparator<Txn> byGap = Comparator.comparing(x -> Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
         Comparator<Txn> sameRefFirst = Comparator.comparing(x -> !(reference != null && x.getReferenceNo() != null));
         return candidates.stream().min(sameRefFirst.thenComparing(byGap));
     }
@@ -289,7 +295,7 @@ public class TransactionService {
     }
 
     private void applyPaidBy(Txn t, PaidByInput in) {
-        com.hisaab.domain.Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
+        Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
         if (who == null) throw new IllegalArgumentException("Choose who paid");
         if (in.total() == null || in.total().signum() <= 0) throw new IllegalArgumentException("Enter what they paid");
         if (in.share() == null || in.share().signum() <= 0) throw new IllegalArgumentException("Your share must be more than zero");
@@ -387,7 +393,7 @@ public class TransactionService {
     @Transactional
     public void delete(Long id) {
         Txn t = get(id);
-        com.hisaab.config.Audit.log("Transaction deleted id={} source={}", id, t.getSource());
+        Audit.log("Transaction deleted id={} source={}", id, t.getSource());
         if (t.getLinkedTxn() != null) transfers.unlink(t);
         txns.delete(t);
     }
@@ -456,7 +462,7 @@ public class TransactionService {
                         cb.like(cb.lower(cb.coalesce(root.get("description"), "")), like),
                         cb.like(cb.lower(cb.coalesce(root.get("notes"), "")), like),
                         cb.like(cb.coalesce(root.get("referenceNo"), ""), like),
-                        cb.like(cb.lower(cb.coalesce(root.join("paidBy", jakarta.persistence.criteria.JoinType.LEFT).get("name"), "")), like)));
+                        cb.like(cb.lower(cb.coalesce(root.join("paidBy", JoinType.LEFT).get("name"), "")), like)));
             }
             return cb.and(ps.toArray(Predicate[]::new));
         };

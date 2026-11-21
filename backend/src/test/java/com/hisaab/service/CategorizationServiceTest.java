@@ -4,6 +4,8 @@ import com.hisaab.domain.Category;
 import com.hisaab.domain.CategoryVote;
 import com.hisaab.domain.Enums.CategoryKind;
 import com.hisaab.domain.Enums.Direction;
+import com.hisaab.domain.RawEmail;
+import com.hisaab.domain.SmsTemplate;
 import com.hisaab.domain.Txn;
 import com.hisaab.repo.CategoryRuleRepo;
 import com.hisaab.repo.CategoryVoteRepo;
@@ -135,10 +137,10 @@ class CategorizationServiceTest {
 
     private static Txn fromMessage(String text, Long formatId, String amount) {
         Txn t = txn(null, amount, null);
-        com.hisaab.domain.RawEmail m = new com.hisaab.domain.RawEmail();
+        RawEmail m = new RawEmail();
         m.setBodyText(text);
         if (formatId != null) {
-            com.hisaab.domain.SmsTemplate f = new com.hisaab.domain.SmsTemplate();
+            SmsTemplate f = new SmsTemplate();
             f.setId(formatId);
             m.setTemplate(f);
         }

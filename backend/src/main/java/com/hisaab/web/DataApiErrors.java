@@ -1,5 +1,6 @@
 package com.hisaab.web;
 
+import com.hisaab.config.ApiTokenFilter;
 import com.hisaab.service.DataApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +87,7 @@ public class DataApiErrors {
     private static void note(String reason) {
         var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
         if (attrs != null && reason != null) {
-            attrs.setAttribute(com.hisaab.config.ApiTokenFilter.ERROR, reason,
+            attrs.setAttribute(ApiTokenFilter.ERROR, reason,
                     org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
         }
     }

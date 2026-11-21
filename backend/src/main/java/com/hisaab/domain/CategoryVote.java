@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 
 /**
@@ -40,6 +41,6 @@ public class CategoryVote {
 
     /** Typical amount I've spent at this payee in this category, or null. */
     public BigDecimal meanAmount() {
-        return amountN == 0 ? null : amountSum.divide(BigDecimal.valueOf(amountN), 2, java.math.RoundingMode.HALF_UP);
+        return amountN == 0 ? null : amountSum.divide(BigDecimal.valueOf(amountN), 2, RoundingMode.HALF_UP);
     }
 }

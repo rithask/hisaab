@@ -2,9 +2,9 @@ package com.hisaab.mail;
 
 import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.AccountType;
+import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.Institution;
-import com.hisaab.domain.Enums.Channel;
 import com.hisaab.domain.LearnedExample;
 import com.hisaab.domain.SmsTemplate;
 import com.hisaab.mail.parser.ParsedTransaction;
@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,7 +47,7 @@ class SmsLearningServiceTest {
             return t;
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
-        when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(java.util.stream.Collectors.toCollection(ArrayList::new)));
+        when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(Collectors.toCollection(ArrayList::new)));
         doAnswer(i -> store.remove(i.<SmsTemplate>getArgument(0))).when(repo).delete(any());
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
         LearnedExampleRepo examples = mock(LearnedExampleRepo.class);
@@ -185,10 +186,10 @@ class SmsLearningServiceTest {
     @Test
     void emailFormatsAreKeptApartFromSmsFormats() {
         String mail = "Hello, your Axis account XX2286 was charged INR 315.00 at CITY BOOKSHOP today.";
-        learning.teach(com.hisaab.domain.Enums.Channel.EMAIL, mail, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
+        learning.teach(Channel.EMAIL, mail, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
         String next = "Hello, your Axis account XX2286 was charged INR 99.00 at RAIL TICKETS today.";
         assertTrue(learning.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
-        assertEquals("RAIL TICKETS", learning.match(com.hisaab.domain.Enums.Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
+        assertEquals("RAIL TICKETS", learning.match(Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
     }
 
     @Test
@@ -280,9 +281,9 @@ class SmsLearningServiceTest {
 
     @Test
     void formatsAreMergedOnlyWhenTheirSlotsLineUp() {
-        var a = new FormatShape(java.util.List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
+        var a = new FormatShape(List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
                 new FormatShape.Token("debited", "d", false), new FormatShape.Token("to", "t", false), new FormatShape.Token("<PAYEE>", "p", false)), false);
-        var b = new FormatShape(java.util.List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
+        var b = new FormatShape(List.of(new FormatShape.Token("inr", "INR", false), new FormatShape.Token("<AMT>", "x", false),
                 new FormatShape.Token("debited", "d", false), new FormatShape.Token("to", "t", false), new FormatShape.Token("<L4>", "l", false)), false);
         assertTrue(FormatShape.merge(a, b).isEmpty());
         assertTrue(FormatShape.merge(a, a).isPresent());

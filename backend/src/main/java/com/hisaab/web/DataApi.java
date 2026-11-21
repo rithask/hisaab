@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -82,7 +83,7 @@ public final class DataApi {
      * @param occurredAt  RFC 3339, e.g. 2026-11-13T17:05:00+05:30; left out, now
      */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    public record NewTransaction(java.math.BigDecimal amount, String direction, String account, String payee,
+    public record NewTransaction(BigDecimal amount, String direction, String account, String payee,
                                  String category, String occurredAt, String notes) {}
 
     /**

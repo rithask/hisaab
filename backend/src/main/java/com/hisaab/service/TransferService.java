@@ -1,6 +1,8 @@
 package com.hisaab.service;
 
+import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.Direction;
+import com.hisaab.domain.Enums.Institution;
 import com.hisaab.domain.Txn;
 import com.hisaab.repo.TxnRepo;
 import org.springframework.stereotype.Service;
@@ -51,8 +53,8 @@ public class TransferService {
     }
 
     /** e.g. Canara debit "to Axis Bank" paired with a credit on my Axis account. */
-    static boolean mentions(Txn t, com.hisaab.domain.Account other) {
-        return other.getInstitution() != com.hisaab.domain.Enums.Institution.OTHER
+    static boolean mentions(Txn t, Account other) {
+        return other.getInstitution() != Institution.OTHER
                 && Names.containsWord(t.getCounterparty(), other.getInstitution().name());
     }
 

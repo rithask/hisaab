@@ -1,6 +1,7 @@
 package com.hisaab.mail;
 
 import com.hisaab.config.AppProperties;
+import com.hisaab.service.Money;
 import com.hisaab.service.SettingsService;
 import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
@@ -128,7 +129,7 @@ public class MailSyncService {
     public synchronized ImportStatus startImport(LocalDate since) {
         if (!configured()) throw new IllegalStateException("The mailbox isn't set up (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
         if (since == null) throw new IllegalArgumentException("Pick a start date");
-        if (since.isAfter(LocalDate.now(com.hisaab.service.Money.ZONE))) throw new IllegalArgumentException("Pick a date that isn't in the future");
+        if (since.isAfter(LocalDate.now(Money.ZONE))) throw new IllegalArgumentException("Pick a date that isn't in the future");
         if (importStatus.active()) throw new IllegalStateException("An import is already running");
         cancelImport.set(false);
         importStatus = new ImportStatus("CONNECTING", since, null, 0, 0, Instant.now(), null, null);
@@ -144,7 +145,7 @@ public class MailSyncService {
 
     private void runImport(LocalDate since) {
         SyncResult r = withFolder(folder -> {
-            Date d = Date.from(since.atStartOfDay(com.hisaab.service.Money.ZONE).toInstant());
+            Date d = Date.from(since.atStartOfDay(Money.ZONE).toInstant());
             long[] uids = uidsOf(folder, ((Folder) folder).search(new ReceivedDateTerm(ComparisonTerm.GE, d)));
             long validity = folder.getUIDValidity();
             ImportStatus s = importStatus;

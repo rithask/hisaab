@@ -1,9 +1,12 @@
 package com.hisaab.web;
 
+import com.hisaab.config.Audit;
+import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.domain.Person;
 import com.hisaab.domain.Settlement;
+import com.hisaab.domain.Txn;
 import com.hisaab.repo.PersonRepo;
 import com.hisaab.repo.SettlementRepo;
 import com.hisaab.repo.SplitShareRepo;
@@ -15,10 +18,14 @@ import com.hisaab.web.Dtos.TxnDto;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
-import java.util.NoSuchElementException;
+
+import static com.hisaab.service.NotFound.notFound;
 
 @RestController
 @RequestMapping("/api")
@@ -48,7 +55,7 @@ public class PeopleController {
     }
 
     Person person(Long id) {
-        return people.findById(id).orElseThrow(() -> new NoSuchElementException("Person not found"));
+        return people.findById(id).orElseThrow(notFound("Person"));
     }
 
     @GetMapping("/people")
@@ -84,13 +91,13 @@ public class PeopleController {
     @Transactional(readOnly = true)
     public List<TxnDto> openPayments(@PathVariable Long id, @RequestParam SettlementDirection direction) {
         Person p = person(id);
-        var dir = direction == SettlementDirection.OUT ? com.hisaab.domain.Enums.Direction.DEBIT : com.hisaab.domain.Enums.Direction.CREDIT;
+        var dir = direction == SettlementDirection.OUT ? Direction.DEBIT : Direction.CREDIT;
         BigDecimal due = splits.outstanding(p).abs();
         // their name first, then the amounts nearest to what's open, then the newest
-        return txns.findOpenSince(Instant.now().minus(java.time.Duration.ofDays(60)), dir).stream()
-                .sorted(java.util.Comparator.comparing((com.hisaab.domain.Txn t) -> !SplitService.named(p, t.getCounterparty()))
+        return txns.findOpenSince(Instant.now().minus(Duration.ofDays(60)), dir).stream()
+                .sorted(Comparator.comparing((Txn t) -> !SplitService.named(p, t.getCounterparty()))
                         .thenComparing(t -> t.getAmount().subtract(due).abs())
-                        .thenComparing(com.hisaab.domain.Txn::getOccurredAt, java.util.Comparator.reverseOrder()))
+                        .thenComparing(Txn::getOccurredAt, Comparator.reverseOrder()))
                 .limit(30).map(t -> TxnDto.of(t, null)).toList();
     }
 
@@ -102,7 +109,7 @@ public class PeopleController {
             throw new IllegalStateException(p.getName() + " paid for things you recorded. Delete those first, or keep " + p.getName() + ".");
         }
         people.delete(p);
-        com.hisaab.config.Audit.log("Person deleted id={} with their split history", id);
+        Audit.log("Person deleted id={} with their split history", id);
     }
 
     private static Person apply(Person p, PersonInput in) {
@@ -150,7 +157,7 @@ public class PeopleController {
     @PostMapping("/settlements")
     @Transactional
     public Recorded record(@RequestBody SettlementInput in) {
-        var txn = in.txnId() == null ? null : txns.findById(in.txnId()).orElseThrow(() -> new NoSuchElementException("Transaction not found"));
+        var txn = in.txnId() == null ? null : txns.findById(in.txnId()).orElseThrow(notFound("Transaction"));
         var r = splits.record(person(in.personId()), in.direction(), in.amount(), in.settledAt(), txn, in.note());
         return new Recorded(SettlementDto.of(r.settlement()), r.rememberedName());
     }
@@ -159,7 +166,7 @@ public class PeopleController {
     @GetMapping("/transactions/{id}/repayments")
     @Transactional(readOnly = true)
     public List<SettlementDto> repayments(@PathVariable Long id) {
-        var t = txns.findById(id).orElseThrow(() -> new NoSuchElementException("Transaction not found"));
+        var t = txns.findById(id).orElseThrow(notFound("Transaction"));
         return settlements.findByTxn(t).stream().filter(s -> s.getStatus() != SettlementStatus.REJECTED).map(SettlementDto::of).toList();
     }
 
@@ -186,7 +193,7 @@ public class PeopleController {
     @Transactional
     public void deleteSettlement(@PathVariable Long id) {
         settlements.deleteById(id);
-        com.hisaab.config.Audit.log("Repayment removed id={}", id);
+        Audit.log("Repayment removed id={}", id);
         settlements.flush();
         splits.rescan();
     }

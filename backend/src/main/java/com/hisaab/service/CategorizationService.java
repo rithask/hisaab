@@ -3,12 +3,12 @@ package com.hisaab.service;
 import com.hisaab.domain.Category;
 import com.hisaab.domain.CategoryRule;
 import com.hisaab.domain.CategoryVote;
-import com.hisaab.domain.RawEmail;
-import com.hisaab.domain.SmsTemplate;
 import com.hisaab.domain.Enums.CategoryKind;
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.RuleMatch;
 import com.hisaab.domain.Enums.RuleSource;
+import com.hisaab.domain.RawEmail;
+import com.hisaab.domain.SmsTemplate;
 import com.hisaab.domain.Txn;
 import com.hisaab.repo.CategoryRuleRepo;
 import com.hisaab.repo.CategoryVoteRepo;
@@ -285,7 +285,7 @@ public class CategorizationService {
 
     private static String sha256(String s) {
         try {
-            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+            return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                     .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);

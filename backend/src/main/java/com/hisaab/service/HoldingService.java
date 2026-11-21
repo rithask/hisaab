@@ -1,10 +1,12 @@
 package com.hisaab.service;
 
+import com.hisaab.config.AppProperties;
 import com.hisaab.domain.Enums.AssetType;
 import com.hisaab.domain.Holding;
 import com.hisaab.domain.MfScheme;
 import com.hisaab.repo.HoldingRepo;
 import com.hisaab.repo.MfSchemeRepo;
+import jakarta.persistence.criteria.Predicate;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -41,7 +43,7 @@ public class HoldingService {
     private final boolean enabled;
 
     public HoldingService(HoldingRepo holdings, MfSchemeRepo schemes, PriceService prices, JdbcTemplate jdbc,
-                          com.hisaab.config.AppProperties props) {
+                          AppProperties props) {
         this.holdings = holdings;
         this.schemes = schemes;
         this.prices = prices;
@@ -264,7 +266,7 @@ public class HoldingService {
         String[] words = q.trim().toLowerCase(Locale.ROOT).split("\\s+");
         org.springframework.data.jpa.domain.Specification<MfScheme> spec = (root, query, cb) -> cb.and(
                 Arrays.stream(words).map(w -> cb.like(cb.lower(root.get("name")), "%" + w + "%"))
-                        .toArray(jakarta.persistence.criteria.Predicate[]::new));
+                        .toArray(Predicate[]::new));
         return schemes.findAll(spec, org.springframework.data.domain.PageRequest.of(0, 20,
                 org.springframework.data.domain.Sort.by("name"))).getContent();
     }
