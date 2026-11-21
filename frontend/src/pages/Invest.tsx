@@ -39,27 +39,27 @@ export default function Invest() {
       />
 
       <Card className="p-5">
-        <p className="ink-2 text-[13px] font-medium">Current value</p>
-        <BigMoney value={p.currentValue} paise={false} className="mt-1 block text-[40px] leading-tight" />
+        <p className="ink-2 text-small font-medium">Current value</p>
+        <BigMoney value={p.currentValue} paise={false} className="mt-1 block text-display-sm leading-tight" />
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <Badge tone={up ? 'green' : 'red'} className="text-[12px]">
+          <Badge tone={up ? 'positive' : 'negative'} className="text-caption">
             {up ? '▲' : '▼'} {money0(Math.abs(p.pnl))} ({Math.abs(p.pnlPct).toFixed(2)}%)
           </Badge>
           {p.dayChange !== 0 && (
-            <Badge tone={p.dayChange >= 0 ? 'green' : 'red'} className="text-[12px]">
+            <Badge tone={p.dayChange >= 0 ? 'positive' : 'negative'} className="text-caption">
               Today {p.dayChange >= 0 ? '+' : '−'}
               {money0(Math.abs(p.dayChange))}
             </Badge>
           )}
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-4 text-sm">
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 text-label">
           <div>
-            <p className="ink-2 text-xs">Invested</p>
+            <p className="ink-2 text-caption">Invested</p>
             <p className="tabular font-semibold">{money0(p.invested)}</p>
           </div>
           <div>
-            <p className="ink-2 text-xs">Returns</p>
-            <p className={cx('tabular font-semibold', up ? 'text-[var(--positive)]' : 'text-[var(--negative)]')}>
+            <p className="ink-2 text-caption">Returns</p>
+            <p className={cx('tabular font-semibold', up ? 'text-positive' : 'text-negative')}>
               {up ? '+' : '−'}
               {money0(Math.abs(p.pnl))}
             </p>
@@ -99,7 +99,7 @@ export default function Invest() {
           }}
         />
       </div>
-      <p className="ink-3 mt-2 px-1 text-xs">Zerodha: Kite → Holdings → Download (CSV). Replaces your stock list with the file.</p>
+      <p className="ink-3 mt-2 px-1 text-caption">Zerodha: Kite → Holdings → Download (CSV). Replaces your stock list with the file.</p>
       {msg && (
         <div className="mt-3">
           <Notice>{msg}</Notice>
@@ -140,24 +140,24 @@ function HoldingList({ items, onPick, color }: { items: Holding[]; onPick: (h: H
         const label = h.assetType === 'STOCK' ? h.symbol.slice(0, 4) : h.name.replace(/[^A-Za-z ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('')
         return (
           <button key={h.id} onClick={() => onPick(h)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left row">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold tracking-wide" style={{ background: `color-mix(in oklab, ${color} 18%, transparent)`, color: `color-mix(in oklab, ${color} 62%, var(--ink))` }}>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-micro font-semibold tracking-wide" style={{ background: `color-mix(in oklab, ${color} 18%, transparent)`, color: `color-mix(in oklab, ${color} 62%, var(--ink))` }}>
               {h.assetType === 'MF' && !label ? <ChartLineUp size={18} /> : label}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-semibold">{h.assetType === 'STOCK' ? h.symbol : h.name}</span>
-              <span className="ink-2 block truncate text-[12.5px]">
+              <span className="block truncate text-body font-semibold">{h.assetType === 'STOCK' ? h.symbol : h.name}</span>
+              <span className="ink-2 block truncate text-caption">
                 {Number(h.quantity)} {h.assetType === 'MF' ? (Number(h.quantity) === 1 ? 'unit' : 'units') : Number(h.quantity) === 1 ? 'share' : 'shares'} · avg {money(h.avgPrice)}
               </span>
             </span>
             <span className="shrink-0 text-right">
-              <span className="tabular block text-[15px] font-semibold">{money0(h.currentValue ?? h.invested)}</span>
+              <span className="tabular block text-body font-semibold">{money0(h.currentValue ?? h.invested)}</span>
               {h.pnl != null ? (
-                <span className={cx('tabular block text-[12px] font-semibold', up ? 'text-[var(--positive)]' : 'text-[var(--negative)]')}>
+                <span className={cx('tabular block text-caption font-semibold', up ? 'text-positive' : 'text-negative')}>
                   {up ? '+' : '−'}
                   {Math.abs(h.pnlPct ?? 0).toFixed(1)}%
                 </span>
               ) : (
-                <span className="ink-3 block text-[11px]">no price yet</span>
+                <span className="ink-3 block text-micro">no price yet</span>
               )}
             </span>
           </button>
@@ -198,23 +198,23 @@ function HoldingForm({ type, holding, onClose }: { type: 'STOCK' | 'MF'; holding
       }}
     >
       {holding && (
-        <div className="rounded-[20px] bg-[var(--surface-2)] p-4">
+        <div className="rounded-card bg-surface-2 p-4">
           <p className="font-semibold">{holding.name}</p>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-2 grid grid-cols-3 gap-2 text-caption">
             <div>
               <p className="ink-2">Last price</p>
-              <p className="tabular text-sm font-semibold">{money(holding.lastPrice)}</p>
+              <p className="tabular text-label font-semibold">{money(holding.lastPrice)}</p>
             </div>
             <div>
               <p className="ink-2">Value</p>
-              <p className="tabular text-sm font-semibold">{money0(holding.currentValue)}</p>
+              <p className="tabular text-label font-semibold">{money0(holding.currentValue)}</p>
             </div>
             <div>
               <p className="ink-2">P&L</p>
-              <p className={cx('tabular text-sm font-semibold', (holding.pnl ?? 0) >= 0 ? 'text-[var(--positive)]' : 'text-[var(--negative)]')}>{money0(holding.pnl)}</p>
+              <p className={cx('tabular text-label font-semibold', (holding.pnl ?? 0) >= 0 ? 'text-positive' : 'text-negative')}>{money0(holding.pnl)}</p>
             </div>
           </div>
-          {holding.priceAsOf && <p className="ink-3 mt-2 text-[11px]">Price as of {dateTime(holding.priceAsOf)}</p>}
+          {holding.priceAsOf && <p className="ink-3 mt-2 text-micro">Price as of {dateTime(holding.priceAsOf)}</p>}
         </div>
       )}
       {type === 'STOCK' ? (
@@ -239,10 +239,10 @@ function HoldingForm({ type, holding, onClose }: { type: 'STOCK' | 'MF'; holding
                   type="button"
                   key={s.code}
                   onClick={() => (setSymbol(s.code), setName(s.name), setSearch(''))}
-                  className="pressable block w-full rounded-2xl px-3 py-2.5 text-left text-sm hover:bg-[var(--surface-2)]"
+                  className="pressable block w-full rounded-box px-3 py-2.5 text-left text-label hover:bg-surface-2"
                 >
                   <span className="font-medium">{s.name}</span>
-                  <span className="ink-2 block text-xs">
+                  <span className="ink-2 block text-caption">
                     NAV {s.nav} · {s.navDate}
                   </span>
                 </button>

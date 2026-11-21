@@ -93,12 +93,12 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
 
       {type !== 'CASH' && (
         <div>
-          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 flex w-full items-center justify-between rounded-2xl px-1 py-2 text-[14px] font-medium">
+          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 flex w-full items-center justify-between rounded-box px-1 py-2 text-label font-medium">
             <span>
               More details
-              {extras && !more ? <span className="ml-2 text-[var(--accent)]">{extras}</span> : null}
+              {extras && !more ? <span className="ml-2 text-accent">{extras}</span> : null}
             </span>
-            <CaretDown size={14} weight="bold" className={cx('transition-transform duration-150', more && 'rotate-180')} />
+            <CaretDown size={14} weight="bold" className={cx('transition-transform duration-quick', more && 'rotate-180')} />
           </button>
           <Fold open={more}>
             <div className="space-y-4 pt-2">

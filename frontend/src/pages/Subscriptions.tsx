@@ -56,11 +56,11 @@ export function SubscriptionsPart() {
         ) : (
           <>
             <Card>
-              <p className="ink-2 text-[13px]">Subscriptions cost you</p>
-              <p className="display mt-0.5 text-[28px]">
-                {money0(d.monthly)} <span className="ink-2 text-[17px] font-normal">a month</span>
+              <p className="ink-2 text-small">Subscriptions cost you</p>
+              <p className="display mt-0.5 text-heading">
+                {money0(d.monthly)} <span className="ink-2 text-title font-normal">a month</span>
               </p>
-              <p className="ink-2 mt-0.5 text-[13px]">
+              <p className="ink-2 mt-0.5 text-small">
                 {money0(d.yearly)} a year · {active.length} active
               </p>
             </Card>
@@ -90,8 +90,8 @@ export function SubscriptionsPart() {
                 <List>
                   {d.hidden.map((h) => (
                     <div key={h.key} className="flex items-center gap-3 px-4 py-3">
-                      <span className="min-w-0 flex-1 truncate text-[15px]">{h.name}</span>
-                      <button className="link text-[13px] font-medium text-[var(--accent)]" onClick={() => unhide.mutate(h.key)}>
+                      <span className="min-w-0 flex-1 truncate text-body">{h.name}</span>
+                      <button className="link text-small font-medium text-accent" onClick={() => unhide.mutate(h.key)}>
                         Show again
                       </button>
                     </div>
@@ -99,7 +99,7 @@ export function SubscriptionsPart() {
                 </List>
               </Section>
             )}
-            <p className="ink-3 mt-4 px-1 text-[13px]">
+            <p className="ink-3 mt-4 px-1 text-small">
               Fixed-price payments that repeat. Rent, investments and bills that vary (electricity, phone usage) are under Bills above.
             </p>
           </>
@@ -120,14 +120,14 @@ export function AlertCard({ a, onOpen }: { a: SubscriptionAlert; onOpen: () => v
   return (
     <Card className="p-4">
       <div className="flex gap-3">
-        <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (bad ? 'bg-amber-500/14 text-amber-700 dark:text-amber-300' : 'ink-2 bg-[var(--surface-2)]')}>
+        <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (bad ? 'tint-attention' : 'ink-2 bg-surface-2')}>
           <Icon size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold">{t.title}</p>
-          <p className="ink-2 mt-0.5 text-[13px] leading-relaxed">{t.detail}</p>
-          <div className="mt-2 flex gap-4 text-[13px] font-medium">
-            <button className="link text-[var(--accent)]" onClick={onOpen}>
+          <p className="text-body font-semibold">{t.title}</p>
+          <p className="ink-2 mt-0.5 text-small leading-relaxed">{t.detail}</p>
+          <div className="mt-2 flex gap-4 text-small font-medium">
+            <button className="link text-accent" onClick={onOpen}>
               Open payment
             </button>
             <button className="link ink-2" disabled={dismiss.isPending} onClick={() => dismiss.mutate(undefined)}>
@@ -150,17 +150,17 @@ function SubList({ items, onOpen }: { items: Subscription[]; onOpen: (s: Subscri
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-2">
-              <span className="truncate text-[15px] font-medium">{s.name}</span>
-              {s.status === 'NEW' && <Badge tone="blue">new</Badge>}
-              {s.priceChange && s.priceChange.to > s.priceChange.from && <Badge tone="amber">price up</Badge>}
+              <span className="truncate text-body font-medium">{s.name}</span>
+              {s.status === 'NEW' && <Badge tone="accent">new</Badge>}
+              {s.priceChange && s.priceChange.to > s.priceChange.from && <Badge tone="attention">price up</Badge>}
             </span>
-            <span className="ink-2 block truncate text-[13px]">
+            <span className="ink-2 block truncate text-small">
               {s.status === 'STOPPED' ? `Last paid ${shortDate(s.lastPaid)}` : `Next ${shortDate(s.nextDue)}`} · {s.account}
             </span>
           </span>
           <span className="shrink-0 text-right">
-            <span className="tabular block text-[15px] font-semibold">{moneyAuto(s.amount)}</span>
-            <span className="ink-3 block text-[12px]">{per(s.every)}</span>
+            <span className="tabular block text-body font-semibold">{moneyAuto(s.amount)}</span>
+            <span className="ink-3 block text-caption">{per(s.every)}</span>
           </span>
         </button>
       ))}
@@ -183,7 +183,7 @@ function SubDetail({ s, onDone }: { s: Subscription; onDone: () => void }) {
     <div className="space-y-4">
       <List>
         {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-3 px-4 py-3 text-[15px]">
+          <div key={k} className="flex items-center justify-between gap-3 px-4 py-3 text-body">
             <span className="ink-2">{k}</span>
             <span className="tabular text-right font-medium">{v}</span>
           </div>
@@ -192,7 +192,7 @@ function SubDetail({ s, onDone }: { s: Subscription; onDone: () => void }) {
       <Button variant="secondary" className="w-full" onClick={() => hide.mutate(undefined)}>
         <ArrowUpRight size={16} /> Not a subscription
       </Button>
-      <p className="ink-3 px-1 text-[12.5px]">Hiding it here doesn't change Bills or anything else.</p>
+      <p className="ink-3 px-1 text-caption">Hiding it here doesn't change Bills or anything else.</p>
     </div>
   )
 }

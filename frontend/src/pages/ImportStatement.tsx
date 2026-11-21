@@ -48,11 +48,11 @@ function Upload() {
 
       <Card className="p-5">
         <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), upload.reset())} />
-        <button onClick={() => fileRef.current?.click()} className="pressable flex w-full items-center gap-3 rounded-2xl border border-dashed border-[var(--line-strong)] p-4 text-left">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">{file ? <FilePdf size={22} /> : <UploadSimple size={22} />}</span>
+        <button onClick={() => fileRef.current?.click()} className="pressable flex w-full items-center gap-3 rounded-box border border-dashed border-line-strong p-4 text-left">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">{file ? <FilePdf size={22} /> : <UploadSimple size={22} />}</span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium">{file ? file.name : 'Choose a statement PDF'}</span>
-            <span className="ink-2 block text-[13px]">{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'Canara, Axis bank, Axis card or HDFC card'}</span>
+            <span className="block truncate text-body font-medium">{file ? file.name : 'Choose a statement PDF'}</span>
+            <span className="ink-2 block text-small">{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'Canara, Axis bank, Axis card or HDFC card'}</span>
           </span>
         </button>
 
@@ -68,7 +68,7 @@ function Upload() {
         <Button className="mt-3 w-full" disabled={!file || upload.isPending} onClick={() => upload.mutate(undefined)}>
           {upload.isPending ? 'Reading statement…' : 'Read statement'}
         </Button>
-        <p className="ink-3 mt-3 text-center text-[13px]">Nothing is saved until you review and confirm.</p>
+        <p className="ink-3 mt-3 text-center text-small">Nothing is saved until you review and confirm.</p>
       </Card>
 
       {(pending.data ?? []).length > 0 && (
@@ -78,8 +78,8 @@ function Upload() {
               <Link key={p.id} to={`/import/${p.id}`} className="flex items-center gap-3 px-4 py-3 row">
                 <FilePdf size={20} className="ink-2" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{p.label}</span>
-                  <span className="ink-2 block text-[13px]">
+                  <span className="block truncate text-body font-medium">{p.label}</span>
+                  <span className="ink-2 block text-small">
                     {p.lines.length} transactions{p.from ? ` · ${shortDate(p.from)} – ${shortDate(p.to!)}` : ''}
                   </span>
                 </span>
@@ -124,7 +124,7 @@ function Review({ id }: { id: number }) {
     return (
       <Page>
         <PageHeader up={{ to: '/statements', label: 'Statements' }} title="Import statement" />
-        <Card className="p-5 text-[15px]">This statement was already {d.status.toLowerCase()}.</Card>
+        <Card className="p-5 text-body">This statement was already {d.status.toLowerCase()}.</Card>
       </Page>
     )
 
@@ -146,8 +146,8 @@ function Review({ id }: { id: number }) {
 
       {/* Did we read it right? */}
       <Card className="flex items-start gap-3 p-4">
-        {checksOk ? <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0 text-[var(--positive)]" /> : <WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0 text-[var(--negative)]" />}
-        <div className="min-w-0 text-[14px]">
+        {checksOk ? <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0 text-positive" /> : <WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0 text-negative" />}
+        <div className="min-w-0 text-label">
           <p className="font-medium">{checksOk ? `Read all ${d.lines.length} transactions` : 'Some rows may have been misread'}</p>
           <p className="ink-2 mt-0.5">
             {checksOk ? 'The totals match the ones printed on the statement.' : 'The totals below don\'t match the statement. Check the rows before importing.'}
@@ -156,7 +156,7 @@ function Review({ id }: { id: number }) {
             d.checks
               .filter((c) => !c.ok)
               .map((c) => (
-                <p key={c.label} className="mt-1 text-[var(--negative)]">
+                <p key={c.label} className="mt-1 text-negative">
                   {c.label}: {c.detail}
                 </p>
               ))}
@@ -168,8 +168,8 @@ function Review({ id }: { id: number }) {
       ) : (
         <>
           {/* One-line summary of what will happen */}
-          <p className="ink-2 mt-5 px-1 text-[15px] leading-relaxed">
-            <b className="text-[var(--ink)]">{d.account.name}</b>: {groups.known.length} already recorded
+          <p className="ink-2 mt-5 px-1 text-body leading-relaxed">
+            <b className="text-ink">{d.account.name}</b>: {groups.known.length} already recorded
             {filling > 0 ? ` (${filling} will get missing details)` : ''}, {groups.fresh.length} new
             {groups.ask.length > 0 ? `, ${groups.ask.length} need${groups.ask.length === 1 ? 's' : ''} your answer` : ''}.
             {allBefore && ` Everything is before your starting balance (${shortDate(d.accountStart!)}), so balances won't change.`}
@@ -190,7 +190,7 @@ function Review({ id }: { id: number }) {
               title={`New (${groups.fresh.length})`}
               action={
                 <button
-                  className="link text-[14px] text-[var(--accent)]"
+                  className="link text-label text-accent"
                   onClick={() => {
                     const all = groups.fresh.every((l) => l.decision === 'ADD')
                     groups.fresh.forEach((l) => decide.mutate({ line: l.id, decision: all ? 'SKIP' : 'ADD' }))
@@ -221,7 +221,7 @@ function Review({ id }: { id: number }) {
                   />
                 ))}
               </List>
-              <p className="ink-3 mt-2 px-1 text-[13px]">Untick one if it isn't really the same transaction; it'll be added separately instead.</p>
+              <p className="ink-3 mt-2 px-1 text-small">Untick one if it isn't really the same transaction; it'll be added separately instead.</p>
             </Section>
           )}
 
@@ -231,16 +231,16 @@ function Review({ id }: { id: number }) {
                 {d.notInStatement.map((t) => (
                   <div key={t.id} className="flex items-center gap-3 px-4 py-3">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px]">{t.counterparty ?? 'Unnamed'}</span>
-                      <span className="ink-2 block text-[13px]">
+                      <span className="block truncate text-body">{t.counterparty ?? 'Unnamed'}</span>
+                      <span className="ink-2 block text-small">
                         {dayLabel(t.occurredAt.slice(0, 10))} · from {t.source.toLowerCase()}
                       </span>
                     </span>
-                    <span className="tabular text-[15px]">{signed(t)}</span>
+                    <span className="tabular text-body">{signed(t)}</span>
                   </div>
                 ))}
               </List>
-              <p className="ink-3 mt-2 px-1 text-[13px]">Nothing is changed for these. A card transaction can show up on the next statement; otherwise check for a duplicate.</p>
+              <p className="ink-3 mt-2 px-1 text-small">Nothing is changed for these. A card transaction can show up on the next statement; otherwise check for a duplicate.</p>
             </Section>
           )}
 
@@ -249,22 +249,22 @@ function Review({ id }: { id: number }) {
               <Card>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="ink-2 text-[13px]">Statement on {shortDate(d.balance.at)}</p>
-                    <p className="display mt-0.5 text-[20px]">{money(d.balance.statement)}</p>
+                    <p className="ink-2 text-small">Statement on {shortDate(d.balance.at)}</p>
+                    <p className="display mt-0.5 text-subheading">{money(d.balance.statement)}</p>
                   </div>
                   <div>
-                    <p className="ink-2 text-[13px]">App after import</p>
-                    <p className={cx('display mt-0.5 text-[20px]', gap !== 0 && 'text-[var(--negative)]')}>{money(projected)}</p>
+                    <p className="ink-2 text-small">App after import</p>
+                    <p className={cx('display mt-0.5 text-subheading', gap !== 0 && 'text-negative')}>{money(projected)}</p>
                   </div>
                 </div>
                 {gap === 0 ? (
-                  <p className="mt-3 flex items-center gap-1.5 text-[14px] text-[var(--positive)]">
+                  <p className="mt-3 flex items-center gap-1.5 text-label text-positive">
                     <CheckCircle size={16} weight="fill" /> They agree.
                   </p>
                 ) : (
-                  <div className="mt-3 border-t border-[var(--line)] pt-3">
-                    <p className="ink-2 text-[14px] leading-relaxed">
-                      They differ by <b className="text-[var(--ink)]">{money(Math.abs(gap))}</b>. Usually the starting balance entered at setup was off, or a transaction is missing.
+                  <div className="mt-3 border-t border-line pt-3">
+                    <p className="ink-2 text-label leading-relaxed">
+                      They differ by <b className="text-ink">{money(Math.abs(gap))}</b>. Usually the starting balance entered at setup was off, or a transaction is missing.
                     </p>
                     <div className="mt-2">
                       <Toggle checked={fixStart} onChange={setFixStart} label={`Correct my starting balance so they agree`} />
@@ -278,7 +278,7 @@ function Review({ id }: { id: number }) {
       )}
 
       {/* Always-visible action */}
-      <div className="glass fixed inset-x-0 bottom-[calc(4rem+max(env(safe-area-inset-bottom),0.5rem))] z-40 border-t border-[var(--line)] px-4 py-3 lg:static lg:mt-8 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+      <div className="glass fixed inset-x-0 bottom-[calc(4rem+max(env(safe-area-inset-bottom),0.5rem))] z-40 border-t border-line px-4 py-3 lg:static lg:mt-8 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="mx-auto max-w-2xl">
           <ErrorText error={commit.error ?? decide.error} />
           <Confirm ask="Discard this import? Nothing will be saved." yes="Discard" busy={cancel.isPending} onYes={() => cancel.mutate(undefined)}>
@@ -312,8 +312,8 @@ function Row({ l, on, onToggle, known }: { l: ImportLine; on: boolean; onToggle:
     <button onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left row">
       <Check on={on} />
       <span className={cx('min-w-0 flex-1', !on && 'opacity-50')}>
-        <span className="block truncate text-[15px]">{l.counterparty ?? l.description}</span>
-        <span className="ink-2 block truncate text-[13px]">
+        <span className="block truncate text-body">{l.counterparty ?? l.description}</span>
+        <span className="ink-2 block truncate text-small">
           {dayLabel(l.date)}
           {l.time ? `, ${timeLabel(l.time)}` : ''}
           {known && visibleFills(l).length > 0 && on ? ` · adds ${visibleFills(l).map((f) => f.label.toLowerCase()).join(', ')}` : ''}
@@ -321,14 +321,14 @@ function Row({ l, on, onToggle, known }: { l: ImportLine; on: boolean; onToggle:
           {!known && l.beforeStart ? ' · history only' : ''}
         </span>
       </span>
-      <span className={cx('tabular shrink-0 text-[15px] font-medium', l.direction === 'CREDIT' && 'text-[var(--positive)]', !on && 'opacity-50')}>{signed(l)}</span>
+      <span className={cx('tabular shrink-0 text-body font-medium', l.direction === 'CREDIT' && 'text-positive', !on && 'opacity-50')}>{signed(l)}</span>
     </button>
   )
 }
 
 function Check({ on }: { on: boolean }) {
   return (
-    <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150', on ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--surface)]' : 'border-[var(--line-strong)]')}>
+    <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-quick', on ? 'border-ink bg-ink text-surface' : 'border-line-strong')}>
       {on && (
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
           <path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -343,15 +343,15 @@ function AskCard({ l, onDecide }: { l: ImportLine; onDecide: (d: LineDecision) =
   const m = l.match
   return (
     <Card className="p-4">
-      <p className="flex items-start gap-2 text-[14px]">
-        <Question size={18} className="mt-0.5 shrink-0 text-[var(--accent)]" />
+      <p className="flex items-start gap-2 text-label">
+        <Question size={18} className="mt-0.5 shrink-0 text-accent" />
         <span>{m ? 'Is this the same transaction?' : l.uncertain}</span>
       </p>
       <div className={cx('mt-3 grid gap-2', m && 'grid-cols-2')}>
         <Side title="Statement" name={l.counterparty ?? l.description} when={`${dayLabel(l.date)}${l.time ? `, ${timeLabel(l.time)}` : ''}`} amount={signed(l)} />
         {m && <Side title={`In the app (${m.source.toLowerCase()})`} name={m.counterparty ?? 'Unnamed'} when={new Date(m.occurredAt).toLocaleString('en-IN', { timeZone: timeZone(), day: 'numeric', month: 'short', ...(m.timeEstimated ? {} : { hour: 'numeric', minute: '2-digit' }) })} amount={signed(m)} />}
       </div>
-      {l.matchReason && <p className="ink-2 mt-2 text-[13px]">{l.matchReason}.</p>}
+      {l.matchReason && <p className="ink-2 mt-2 text-small">{l.matchReason}.</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         {m && (
           <Chip active={l.decision === 'MERGE'} onClick={() => onDecide('MERGE')}>
@@ -371,11 +371,11 @@ function AskCard({ l, onDecide }: { l: ImportLine; onDecide: (d: LineDecision) =
 
 function Side({ title, name, when, amount }: { title: string; name?: string; when: string; amount: string }) {
   return (
-    <div className="min-w-0 rounded-xl bg-[var(--surface-2)] p-3">
-      <p className="ink-3 text-[12px]">{title}</p>
-      <p className="mt-0.5 truncate text-[14px] font-medium">{name ?? '—'}</p>
-      <p className="ink-2 text-[12.5px]">{when}</p>
-      <p className="tabular mt-1 text-[14px] font-semibold">{amount}</p>
+    <div className="min-w-0 rounded-field bg-surface-2 p-3">
+      <p className="ink-3 text-caption">{title}</p>
+      <p className="mt-0.5 truncate text-label font-medium">{name ?? '—'}</p>
+      <p className="ink-2 text-caption">{when}</p>
+      <p className="tabular mt-1 text-label font-semibold">{amount}</p>
     </div>
   )
 }
@@ -409,8 +409,8 @@ function AccountPicker({ imp, onPicked }: { imp: StatementImport; onPicked: (v: 
   return (
     <Section title="Which account is this?">
       <Card className="p-4">
-        <p className="ink-2 text-[14px] leading-relaxed">
-          No {card ? 'card' : 'account'} ending <b className="text-[var(--ink)]">{imp.last4 ?? '????'}</b> is set up yet.
+        <p className="ink-2 text-label leading-relaxed">
+          No {card ? 'card' : 'account'} ending <b className="text-ink">{imp.last4 ?? '????'}</b> is set up yet.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Chip active={creating} onClick={() => setCreating(true)}>
@@ -442,7 +442,7 @@ function AccountPicker({ imp, onPicked }: { imp: StatementImport; onPicked: (v: 
             <Button className="w-full" disabled={!name.trim() || create.isPending || pick.isPending} onClick={() => create.mutate(undefined)}>
               Create and continue
             </Button>
-            <p className="ink-3 text-[13px]">The statement's transactions are older than today, so they'll be added as history and won't change this balance.</p>
+            <p className="ink-3 text-small">The statement's transactions are older than today, so they'll be added as history and won't change this balance.</p>
           </div>
         )}
       </Card>
@@ -458,12 +458,12 @@ function Done({ result, account, accountId }: { result: ImportResult; account?: 
   return (
     <Page>
       <div className="flex flex-col items-center pt-16 text-center">
-        <CheckCircle size={56} weight="fill" className="text-[var(--positive)]" />
-        <h1 className="mt-4 text-[24px] font-bold">Statement imported</h1>
-        <p className="ink-2 mt-1.5 max-w-xs text-[15px]">{parts.join(', ') || 'Nothing to change'}.</p>
+        <CheckCircle size={56} weight="fill" className="text-positive" />
+        <h1 className="mt-4 text-subheading font-bold">Statement imported</h1>
+        <p className="ink-2 mt-1.5 max-w-xs text-body">{parts.join(', ') || 'Nothing to change'}.</p>
         {result.startingBalance != null && (
-          <p className="ink-2 mt-1 max-w-xs text-[15px]">
-            Starting balance corrected to <b className="text-[var(--ink)]">{money(result.startingBalance)}</b>.
+          <p className="ink-2 mt-1 max-w-xs text-body">
+            Starting balance corrected to <b className="text-ink">{money(result.startingBalance)}</b>.
           </p>
         )}
         <div className="mt-6 flex w-full max-w-xs flex-col gap-2">

@@ -50,8 +50,8 @@ The tokens and the short form of these rules are at the top of `frontend/src/ind
 4. **Familiar patterns.** Lists of rows, chips for filters, segmented controls for views, sheets for forms,
    a switch for on/off. Reuse the components in `components/ui.tsx` (`Card`, `List`, `Section`, `Sheet`, `Chip`,
    `Segmented`, `Toggle`, `Button`, `Field`, `Empty`, `FeatureGate`, …) instead of making new ones.
-5. **Motion is short and explains.** At most 250ms, only to show where something came from or went (a sheet
-   rising, a row expanding). No decorative animation. Respect `prefers-reduced-motion`.
+5. **Motion is short and explains.** At most 250ms, only to show where something came from or went (a window
+   opening, a row expanding), with the timings in §2.1. No decorative animation. Respect `prefers-reduced-motion`.
 6. **Feedback on every press.** Clickable things get the `pressable`, `row` or `link` utility: a hover state with
    a mouse, a press state everywhere, and a focus ring **only** for keyboard users (`html[data-keyboard]`).
 7. **Plain language.** Write like a helpful person: "No backup in the last 2 days", not "Backup job status:
@@ -61,6 +61,19 @@ The tokens and the short form of these rules are at the top of `frontend/src/ind
 9. **Light and dark.** Every colour is a CSS variable with a dark value. Check both.
 10. **Empty, loading and error states are part of the design.** Skeletons while loading (`PageSkeleton`), a
     friendly `Empty` with a next step, and errors shown where they happened (`ErrorText`).
+
+### 2.1 The design system
+
+Screens use only these values. Each is a Tailwind class defined in `@theme` at the top of `index.css`; never
+write a one-off size, corner, colour or timing (`text-[13px]`, `rounded-[18px]`, `text-amber-600`, `duration: 0.2`).
+If something truly needs a new one, add it there, with a comment saying what it's for, and list it here.
+
+| | Values |
+|---|---|
+| **Text** | `text-micro` 11 (badges, tab labels) · `text-caption` 12 (notes, timestamps) · `text-small` 13 (second line of a row, hints) · `text-label` 14 (buttons, chips) · `text-body` 15 (row titles, normal text) · `text-input` 16 (fields; less makes iPhone Safari zoom in) · `text-title` 17 · `text-subheading` 20 · `text-heading` 28 (page titles) · `text-display-sm` / `text-display` / `text-display-lg` 40 / 56 / 72 (big amounts only) |
+| **Corners** | `rounded-field` 12 (inputs, selects) · `rounded-box` 16 (boxes inside cards) · `rounded-card` 20 (cards, lists) · `rounded-dialog` 24 · `rounded-full` (buttons, chips, badges, icons) |
+| **Colour** | Ink: `text-ink`, `text-ink-2`, `text-ink-3`. Surfaces: `bg-bg`, `bg-surface`, `bg-surface-2`, `border-line`, `border-line-strong`. Meaning: `positive`, `negative`, `attention`, `accent` as text, background or border colours, and `tint-positive` … `tint-accent` (and `tint-neutral`) for a soft wash with the colour on it. Components take a `tone` with the same names. |
+| **Motion** | `duration-quick` 120ms (press feedback, colour changes) · `duration-base` 180ms (things appearing) · the `MOVE` spring, 250ms (things moving: switches, tabs). One easing, `ease-standard`. In code, use the presets in `motion.ts`. |
 
 ## 3. Architecture principles
 

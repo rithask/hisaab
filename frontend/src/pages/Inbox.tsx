@@ -8,13 +8,13 @@ import { useMoneyMutation } from '../hooks'
 import SmsPasteSheet from '../components/SmsPasteSheet'
 import TeachForm from '../components/TeachForm'
 
-const tone: Record<EmailStatus, 'green' | 'amber' | 'red' | 'neutral' | 'blue'> = {
-  PARSED: 'green',
-  NEEDS_REVIEW: 'amber',
-  ERROR: 'red',
+const tone: Record<EmailStatus, 'positive' | 'attention' | 'negative' | 'neutral' | 'accent'> = {
+  PARSED: 'positive',
+  NEEDS_REVIEW: 'attention',
+  ERROR: 'negative',
   IGNORED: 'neutral',
   DUPLICATE: 'neutral',
-  STATEMENT: 'blue',
+  STATEMENT: 'accent',
 }
 // In plain words, for the badges and filters.
 const label = (s: EmailStatus) => ({ PARSED: 'recorded', NEEDS_REVIEW: 'needs you', ERROR: "couldn't read", IGNORED: 'skipped', DUPLICATE: 'already recorded', STATEMENT: 'statement' })[s]
@@ -52,13 +52,13 @@ export default function Inbox() {
     <Page>
       <PageHeader up={{ to: '/settings', label: 'Settings' }} title="Messages" subtitle="Every bank email and SMS the app has seen" />
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-[13px]" onClick={() => sync.mutate(undefined)} disabled={sync.isPending}>
+        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-small" onClick={() => sync.mutate(undefined)} disabled={sync.isPending}>
           <ArrowsClockwise size={16} /> {sync.isPending ? "Syncing…" : "Sync mail"}
         </Button>
-        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-[13px]" onClick={() => setPasting(true)}>
+        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-small" onClick={() => setPasting(true)}>
           <ChatText size={16} /> Paste SMS
         </Button>
-        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-[13px]" onClick={() => fileRef.current?.click()}>
+        <Button variant="secondary" size="sm" className="h-11 whitespace-nowrap px-2 text-small" onClick={() => fileRef.current?.click()}>
           <UploadSimple size={16} /> .eml
         </Button>
         <input ref={fileRef} type="file" accept=".eml,message/rfc822" className="hidden" onChange={(e) => (e.target.files?.[0] && upload.mutate(e.target.files[0]), (e.target.value = ''))} />
@@ -103,18 +103,18 @@ function EmailList({ items, onOpen }: { items: Email[]; onOpen: (id: number) => 
     <List>
       {items.map((e) => (
         <button key={e.id} onClick={() => onOpen(e.id)} className="flex w-full items-start gap-3 px-4 py-3 text-left row">
-          <span className={cx('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[var(--surface-2)]', e.status === 'PARSED' ? 'text-[var(--accent)]' : 'ink-2')}>
+          <span className={cx('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-surface-2', e.status === 'PARSED' ? 'text-accent' : 'ink-2')}>
             {e.channel === 'SMS' ? <ChatText size={17} /> : <EnvelopeOpen size={17} />}
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center justify-between gap-2">
-              <span className="truncate text-[14.5px] font-semibold">{e.subject || '(no subject)'}</span>
+              <span className="truncate text-label font-semibold">{e.subject || '(no subject)'}</span>
               <Badge tone={tone[e.status]}>{label(e.status)}</Badge>
             </span>
-            <span className="ink-2 block truncate text-xs">
+            <span className="ink-2 block truncate text-caption">
               {e.channel === 'SMS' && e.bodyText ? e.bodyText.replace(/\s+/g, ' ') : e.fromAddress} · {dateTime(e.receivedAt)}
             </span>
-            {e.note && <span className="mt-1 block text-xs text-amber-700 dark:text-amber-300">{e.note}</span>}
+            {e.note && <span className="mt-1 block text-caption text-attention">{e.note}</span>}
           </span>
         </button>
       ))}
@@ -137,25 +137,25 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
     <div className="space-y-4">
       <div>
         <p className="font-semibold">{e.data.subject}</p>
-        <p className="ink-2 text-xs">
+        <p className="ink-2 text-caption">
           {e.data.fromAddress} · {dateTime(e.data.receivedAt)}
         </p>
         <div className="mt-2">
           <Badge tone={tone[e.data.status]}>{label(e.data.status)}</Badge>
         </div>
-        {e.data.note && <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">{e.data.note}</p>}
+        {e.data.note && <p className="mt-2 text-label text-attention">{e.data.note}</p>}
         {reprocess.data && (
           <div className="mt-2">
-            <Notice tone={reprocess.data.status === 'PARSED' ? 'green' : 'amber'}>
+            <Notice tone={reprocess.data.status === 'PARSED' ? 'positive' : 'attention'}>
               Result: {label(reprocess.data.status)}
               {reprocess.data.note ? ` — ${reprocess.data.note}` : ''}
             </Notice>
           </div>
         )}
       </div>
-      {!teaching && <pre className="max-h-[45dvh] overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">{e.data.bodyText}</pre>}
+      {!teaching && <pre className="max-h-[45dvh] overflow-auto whitespace-pre-wrap rounded-card bg-surface-2 p-3 font-mono text-micro leading-relaxed">{e.data.bodyText}</pre>}
       {taught && (
-        <Notice tone="green">
+        <Notice tone="positive">
           {taught.txnId ? 'Recorded.' : 'Already recorded.'}
           {taught.learnedFormat && taught.mergedFormat
             ? ' Combined it with a similar message it already knew, so both wordings are read from now on.'
@@ -183,14 +183,14 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
       {e.data.status === 'PARSED' && !teaching && !taught && !skip.data && (
         <Confirm ask="Remove its transaction and skip messages worded like this?" yes="Remove" busy={skip.isPending} onYes={() => skip.mutate(undefined)}>
           {(ask) => (
-            <button className="ink-2 w-full text-center text-sm font-medium" onClick={ask}>
+            <button className="ink-2 w-full text-center text-label font-medium" onClick={ask}>
               This isn't a transaction
             </button>
           )}
         </Confirm>
       )}
       {skip.data && (
-        <Notice tone={skip.data.learned ? 'green' : 'amber'}>
+        <Notice tone={skip.data.learned ? 'positive' : 'attention'}>
           {skip.data.learned
             ? `Ignored. Messages worded like this are skipped from now on${skip.data.alsoSkipped > 0 ? `, and ${skip.data.alsoSkipped} waiting one${skip.data.alsoSkipped > 1 ? 's were' : ' was'} skipped too` : ''}.`
             : skip.data.conflicts > 0
@@ -199,7 +199,7 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
         </Notice>
       )}
       {trust.data && (
-        <Notice tone="green">
+        <Notice tone="positive">
           Alerts from {trust.data.domain} are trusted now. {trust.data.recorded > 0 ? `${count(trust.data.recorded)} held email${trust.data.recorded > 1 ? 's were' : ' was'} recorded.` : ''}
         </Notice>
       )}
@@ -220,7 +220,7 @@ export function EmailView({ id }: { id: number; onDone: () => void }) {
           )}
         </div>
       )}
-      <p className="ink-3 text-xs">
+      <p className="ink-3 text-caption">
         {sms
           ? 'Correcting an SMS teaches the app: it remembers the wording and the account, and re-checks everything else waiting for you.'
           : 'Correcting an email teaches the app how it\'s worded, so the next alert like it is read automatically. Its sender is trusted from then on.'}

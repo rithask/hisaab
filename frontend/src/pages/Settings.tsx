@@ -66,19 +66,19 @@ function SectionMenu({ active }: { active: SectionKey }) {
   const backups = useQuery({ queryKey: ['backups'], queryFn: () => api<BackupStatus>('/backups'), enabled: !!s.data && backupsOn })
   const b = backups.data
   const badge: Partial<Record<SectionKey, ReactNode>> = {
-    mail: s.data && !s.data.mail.configured ? <Badge tone="amber">not set up</Badge> : null,
-    data: b && backupFailing(b) ? <Badge tone="red">failing</Badge> : null,
+    mail: s.data && !s.data.mail.configured ? <Badge tone="attention">not set up</Badge> : null,
+    data: b && backupFailing(b) ? <Badge tone="negative">failing</Badge> : null,
   }
   return (
     <List>
       {SECTIONS.map(({ key, icon: Icon, label, hint }) => (
-        <Link key={key} to={`/settings/${key}`} aria-current={key === active ? 'page' : undefined} className="row flex items-center gap-3.5 px-4 py-3.5 lg:aria-[current=page]:bg-[var(--surface-2)]">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+        <Link key={key} to={`/settings/${key}`} aria-current={key === active ? 'page' : undefined} className="row flex items-center gap-3.5 px-4 py-3.5 lg:aria-[current=page]:bg-surface-2">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
             <Icon size={20} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-medium">{label}</span>
-            <span className="ink-2 block truncate text-[12.5px]">{hint}</span>
+            <span className="block text-body font-medium">{label}</span>
+            <span className="ink-2 block truncate text-caption">{hint}</span>
           </span>
           {badge[key]}
           <CaretRight size={16} className="ink-3 shrink-0" />
@@ -86,12 +86,12 @@ function SectionMenu({ active }: { active: SectionKey }) {
       ))}
       {PAGES.map(({ to, icon: Icon, label, hint }) => (
         <Link key={to} to={to} className="row flex items-center gap-3.5 px-4 py-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
             <Icon size={20} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-medium">{label}</span>
-            <span className="ink-2 block truncate text-[12.5px]">{hint}</span>
+            <span className="block text-body font-medium">{label}</span>
+            <span className="ink-2 block truncate text-caption">{hint}</span>
           </span>
           <CaretRight size={16} className="ink-3 shrink-0" />
         </Link>
@@ -123,7 +123,7 @@ function GeneralSection() {
       <Section title="Home">
         <Card className="p-4">
           <Toggle checked={s.data?.showInvestmentsOnHome ?? true} onChange={(v) => homeOpt.mutate(v)} label="Show investments on Home" />
-          <p className="ink-2 mt-1 text-[13px]">When off, Home's net worth leaves out stocks and funds. They're still on the Invest tab.</p>
+          <p className="ink-2 mt-1 text-small">When off, Home's net worth leaves out stocks and funds. They're still on the Invest tab.</p>
         </Card>
       </Section>
 
@@ -139,20 +139,20 @@ function MailSection() {
       <Section title="Mailbox">
         <Card className="p-5">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
               <Envelope size={20} />
             </span>
             <div className="flex-1">
               <p className="font-semibold">Alerts mailbox</p>
-              <p className="ink-2 text-xs">{mail?.lastSync ? `Last checked ${dateTime(mail.lastSync)}` : 'Never checked'}</p>
+              <p className="ink-2 text-caption">{mail?.lastSync ? `Last checked ${dateTime(mail.lastSync)}` : 'Never checked'}</p>
             </div>
-            {mail?.configured ? <Badge tone="green">connected</Badge> : <Badge tone="amber">not set up</Badge>}
+            {mail?.configured ? <Badge tone="positive">connected</Badge> : <Badge tone="attention">not set up</Badge>}
           </div>
-          {mail?.lastError && <p className="mt-3 text-sm text-[var(--negative)]">{mail.lastError}</p>}
+          {mail?.lastError && <p className="mt-3 text-label text-negative">{mail.lastError}</p>}
           {!mail?.configured && (
-            <p className="ink-2 mt-3 text-sm leading-relaxed">
-              Start the server with <code className="rounded bg-[var(--surface-2)] px-1">MAIL_HOST</code>, <code className="rounded bg-[var(--surface-2)] px-1">MAIL_USERNAME</code> and{' '}
-              <code className="rounded bg-[var(--surface-2)] px-1">MAIL_PASSWORD</code>. Gmail: imap.gmail.com · iCloud: imap.mail.me.com, with an app-specific password.
+            <p className="ink-2 mt-3 text-label leading-relaxed">
+              Start the server with <code className="rounded bg-surface-2 px-1">MAIL_HOST</code>, <code className="rounded bg-surface-2 px-1">MAIL_USERNAME</code> and{' '}
+              <code className="rounded bg-surface-2 px-1">MAIL_PASSWORD</code>. Gmail: imap.gmail.com · iCloud: imap.mail.me.com, with an app-specific password.
             </p>
           )}
         </Card>
@@ -168,12 +168,12 @@ function SecuritySection() {
     <>
       <PocketIdCard />
       <Section title="API tokens">
-        <p className="ink-2 mb-2 px-1 text-[13px]">Apps and shortcuts that can use Hisaab. Each token does one job, within the limits you set.</p>
+        <p className="ink-2 mb-2 px-1 text-small">Apps and shortcuts that can use Hisaab. Each token does one job, within the limits you set.</p>
         <TokenList />
-        <p className="ink-3 mt-2 px-1 text-xs leading-relaxed">Tokens are stored hashed and shown once. Repeated wrong tokens are locked out for 15 minutes, and every use is logged.</p>
+        <p className="ink-3 mt-2 px-1 text-caption leading-relaxed">Tokens are stored hashed and shown once. Repeated wrong tokens are locked out for 15 minutes, and every use is logged.</p>
       </Section>
       <Section title="This device">
-        <button className="pressable surface flex h-12 w-full items-center justify-center gap-2 rounded-[20px] text-[15px] font-semibold text-[var(--negative)]" onClick={signOut}>
+        <button className="pressable surface flex h-12 w-full items-center justify-center gap-2 rounded-card text-body font-semibold text-negative" onClick={signOut}>
           <SignOut size={17} /> Sign out
         </button>
       </Section>
@@ -203,68 +203,68 @@ function SmsForwarding() {
     <Section title="SMS forwarding">
       <Card className="mb-3 p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
             <ChatText size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Bank SMS</p>
-            <p className="ink-2 text-xs">For alerts that only come by text message. Each phone can have its own token.</p>
+            <p className="ink-2 text-caption">For alerts that only come by text message. Each phone can have its own token.</p>
           </div>
         </div>
-        <div className="mt-3 rounded-[18px] bg-[var(--surface-2)] p-3">
-          <p className="ink-2 text-xs font-medium">Endpoint</p>
+        <div className="mt-3 rounded-card bg-surface-2 p-3">
+          <p className="ink-2 text-caption font-medium">Endpoint</p>
           <div className="mt-1 flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate font-mono text-[12px]">POST {url}</code>
+            <code className="min-w-0 flex-1 truncate font-mono text-caption">POST {url}</code>
             <CopyButton value={url} />
           </div>
         </div>
       </Card>
       <TokenList jobs={['SEND_SMS']} newJob="SEND_SMS" newLabel="New SMS token" />
-      <p className="ink-3 mt-2 px-1 text-xs leading-relaxed">An SMS token can only send SMS; it can't read or change anything else. All your tokens are in Security.</p>
+      <p className="ink-3 mt-2 px-1 text-caption leading-relaxed">An SMS token can only send SMS; it can't read or change anything else. All your tokens are in Security.</p>
 
       <Card className="mt-3 p-5">
         <p className="mb-3 font-semibold">Set it up on your phone</p>
         <Segmented3 value={guide} onChange={setGuide} />
-        <div className="mt-4 text-sm leading-relaxed">
+        <div className="mt-4 text-label leading-relaxed">
           {guide === 'ios' && (
-            <ol className="ink-2 list-decimal space-y-2 pl-5 marker:font-semibold marker:text-[var(--ink)]">
+            <ol className="ink-2 list-decimal space-y-2 pl-5 marker:font-semibold marker:text-ink">
               <li>
-                Open <b className="text-[var(--ink)]">Shortcuts</b> → <b className="text-[var(--ink)]">Automation</b> → <b className="text-[var(--ink)]">New Automation</b> → <b className="text-[var(--ink)]">Message</b>.
+                Open <b className="text-ink">Shortcuts</b> → <b className="text-ink">Automation</b> → <b className="text-ink">New Automation</b> → <b className="text-ink">Message</b>.
               </li>
               <li>
-                Set <b className="text-[var(--ink)]">Message Contains</b> to <code className="rounded bg-[var(--surface-2)] px-1">debited</code> (make a second one for <code className="rounded bg-[var(--surface-2)] px-1">credited</code>, or one per bank sender). Choose <b className="text-[var(--ink)]">Run Immediately</b>.
+                Set <b className="text-ink">Message Contains</b> to <code className="rounded bg-surface-2 px-1">debited</code> (make a second one for <code className="rounded bg-surface-2 px-1">credited</code>, or one per bank sender). Choose <b className="text-ink">Run Immediately</b>.
               </li>
               <li>
-                Add <b className="text-[var(--ink)]">Get Contents of URL</b>: URL above, Method <b className="text-[var(--ink)]">POST</b>, Header <code className="rounded bg-[var(--surface-2)] px-1">Authorization</code> = <code className="break-words rounded bg-[var(--surface-2)] px-1">Bearer &lt;token&gt;</code>.
+                Add <b className="text-ink">Get Contents of URL</b>: URL above, Method <b className="text-ink">POST</b>, Header <code className="rounded bg-surface-2 px-1">Authorization</code> = <code className="break-words rounded bg-surface-2 px-1">Bearer &lt;token&gt;</code>.
               </li>
               <li>
-                Request Body <b className="text-[var(--ink)]">JSON</b>: <code className="rounded bg-[var(--surface-2)] px-1">text</code> = Shortcut Input › Content, <code className="rounded bg-[var(--surface-2)] px-1">sender</code> = Shortcut Input › Sender.
+                Request Body <b className="text-ink">JSON</b>: <code className="rounded bg-surface-2 px-1">text</code> = Shortcut Input › Content, <code className="rounded bg-surface-2 px-1">sender</code> = Shortcut Input › Sender.
               </li>
               <li>
-                Optional: <b className="text-[var(--ink)]">Get Dictionary Value</b> <code className="rounded bg-[var(--surface-2)] px-1">message</code> → <b className="text-[var(--ink)]">Show Notification</b>, to see what was recorded.
+                Optional: <b className="text-ink">Get Dictionary Value</b> <code className="rounded bg-surface-2 px-1">message</code> → <b className="text-ink">Show Notification</b>, to see what was recorded.
               </li>
             </ol>
           )}
           {guide === 'android' && (
-            <ol className="ink-2 list-decimal space-y-2 pl-5 marker:font-semibold marker:text-[var(--ink)]">
+            <ol className="ink-2 list-decimal space-y-2 pl-5 marker:font-semibold marker:text-ink">
               <li>
-                Install an SMS-to-webhook app (e.g. <b className="text-[var(--ink)]">SMS Forwarder</b>, MacroDroid or Tasker).
+                Install an SMS-to-webhook app (e.g. <b className="text-ink">SMS Forwarder</b>, MacroDroid or Tasker).
               </li>
               <li>Add a rule for your bank senders (contains HDFCBK, AXISBK, SBI, CANBNK…).</li>
               <li>
-                Webhook: POST to the URL above with header <code className="break-all rounded bg-[var(--surface-2)] px-1">Authorization: Bearer &lt;token&gt;</code> and JSON body{' '}
-                <code className="rounded bg-[var(--surface-2)] px-1">{'{"text": "%body%", "sender": "%from%"}'}</code>.
+                Webhook: POST to the URL above with header <code className="break-all rounded bg-surface-2 px-1">Authorization: Bearer &lt;token&gt;</code> and JSON body{' '}
+                <code className="rounded bg-surface-2 px-1">{'{"text": "%body%", "sender": "%from%"}'}</code>.
               </li>
             </ol>
           )}
           {guide === 'curl' && (
-            <pre className="overflow-x-auto rounded-[16px] bg-[var(--surface-2)] p-3 font-mono text-[11.5px] leading-relaxed">{`curl -X POST ${url} \
+            <pre className="overflow-x-auto rounded-box bg-surface-2 p-3 font-mono text-micro leading-relaxed">{`curl -X POST ${url} \
   -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
   -d '{"sender":"AX-HDFCBK","text":"Sent Rs.500.00 From HDFC Bank A/C *2286 To RAHUL On 05/11/26 Ref 531234567890"}'`}</pre>
           )}
         </div>
-        <p className="ink-3 mt-4 text-xs leading-relaxed">
+        <p className="ink-3 mt-4 text-caption leading-relaxed">
           Payments that also arrive by email are recorded once. You can also paste an SMS by hand from <b>Settings → Messages → Paste SMS</b>. Your phone needs to reach this server (e.g. over Tailscale or your public URL).
         </p>
       </Card>
@@ -283,18 +283,18 @@ function LearnedCard() {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
           <GraduationCap size={20} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">What it has learned</p>
-          <p className="ink-2 text-xs">
+          <p className="ink-2 text-caption">
             {l ? `${l.formats.length} message wording${l.formats.length === 1 ? '' : 's'} · ${l.payees.length} payee name${l.payees.length === 1 ? '' : 's'} · ${l.senders} sender${l.senders === 1 ? '' : 's'}` : ' '}
           </p>
         </div>
       </div>
       {empty ? (
-        <p className="ink-2 mt-4 text-sm leading-relaxed">
+        <p className="ink-2 mt-4 text-label leading-relaxed">
           Nothing yet. It learns when you correct a message (Settings → Messages), mark one as not a transaction, rename a payee on a transaction, or pick the account for a message it couldn't place.
         </p>
       ) : (
@@ -304,12 +304,12 @@ function LearnedCard() {
               <p className="eyebrow ink-3 mb-2">How messages are worded</p>
               <ul className="space-y-2">
                 {l!.formats.map((f) => (
-                  <li key={f.id} className="flex items-start gap-2 rounded-[16px] bg-[var(--surface-2)] p-3">
+                  <li key={f.id} className="flex items-start gap-2 rounded-box bg-surface-2 p-3">
                     <Confirm ask="Forget this wording?" yes="Forget" busy={forgetFormat.isPending} onYes={() => forgetFormat.mutate(f.id)}>
                     {(ask) => (<>
                     <div className="min-w-0 flex-1">
-                      <p className="break-words font-mono text-[11px] leading-relaxed">{f.skeleton}</p>
-                      <p className="ink-3 mt-1 text-[11px]">
+                      <p className="break-words font-mono text-micro leading-relaxed">{f.skeleton}</p>
+                      <p className="ink-3 mt-1 text-micro">
                         {f.auto ? 'Learned automatically · ' : ''}
                         {f.channel === 'EMAIL' ? 'Email · ' : ''}
                         {f.kind === 'SKIP' ? 'not a transaction' : `${f.institution} · ${f.direction === 'DEBIT' ? 'money out' : 'money in'}`} · used {f.hits} time{f.hits === 1 ? '' : 's'}
@@ -317,7 +317,7 @@ function LearnedCard() {
                         {f.corrections > 0 ? ` · corrected ${f.corrections === 1 ? 'once' : `${f.corrections} times`}` : ''}
                       </p>
                       {f.paused && (
-                        <p className="mt-1.5 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-300">
+                        <p className="mt-1.5 flex items-center gap-2 text-micro text-attention">
                           Paused: it kept being corrected, so its messages wait for review.
                           <button className="link font-semibold" onClick={() => resumeFormat.mutate(f.id)}>
                             Resume
@@ -340,11 +340,11 @@ function LearnedCard() {
               <p className="eyebrow ink-3 mb-2">Payee names</p>
               <ul className="space-y-2">
                 {l!.payees.map((p) => (
-                  <li key={p.id} className="flex items-center gap-2 rounded-[16px] bg-[var(--surface-2)] px-3 py-2.5 text-[13px]">
+                  <li key={p.id} className="flex items-center gap-2 rounded-box bg-surface-2 px-3 py-2.5 text-small">
                     <Confirm ask="Forget this name?" yes="Forget" busy={forgetPayee.isPending} onYes={() => forgetPayee.mutate(p.id)}>
                       {(ask) => (
                         <>
-                          <span className="ink-2 min-w-0 flex-1 truncate font-mono text-[11.5px] uppercase">{p.rawKey}</span>
+                          <span className="ink-2 min-w-0 flex-1 truncate font-mono text-micro uppercase">{p.rawKey}</span>
                           <span className="ink-3">→</span>
                           <span className="min-w-0 flex-1 truncate font-medium">{p.displayName}</span>
                           <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this name" onClick={ask}>
@@ -381,7 +381,7 @@ function FeaturesCard() {
   const set = useMoneyMutation((change: Partial<Record<Feature, boolean>>) => api('/settings', { method: 'PUT', body: { features: change } }))
   return (
     <>
-      <Card className="divide-y divide-[var(--line)] p-0">
+      <Card className="divide-y divide-line p-0">
         {FEATURES.map((f) => (
           <div key={f.key} className="px-4 py-2.5">
             <Toggle
@@ -389,15 +389,15 @@ function FeaturesCard() {
               onChange={(v) => set.mutate({ [f.key]: v })}
               label={
                 <span>
-                  <span className="block text-[15px]">{f.name}</span>
-                  <span className="ink-2 block text-[12.5px]">{f.hint}</span>
+                  <span className="block text-body">{f.name}</span>
+                  <span className="ink-2 block text-caption">{f.hint}</span>
                 </span>
               }
             />
           </div>
         ))}
       </Card>
-      <p className="ink-3 mt-2 px-1 text-[12.5px]">Turning a feature off hides it everywhere and stops any background work for it. Nothing is deleted.</p>
+      <p className="ink-3 mt-2 px-1 text-caption">Turning a feature off hides it everywhere and stops any background work for it. Nothing is deleted.</p>
     </>
   )
 }
@@ -411,25 +411,25 @@ function BackupsCard() {
     <Section title="Backups">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2">
             <CloudArrowUp size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-medium">Every night at 3:30 am</p>
-            <p className="ink-2 truncate text-[13px]">{b?.lastOk ? `Last backup ${dateTime(b.lastOk)}` : 'No backup yet'} · keeps {b?.keep ?? 14}</p>
+            <p className="ink-2 truncate text-small">{b?.lastOk ? `Last backup ${dateTime(b.lastOk)}` : 'No backup yet'} · keeps {b?.keep ?? 14}</p>
           </div>
-          {failing ? <Badge tone="red">failing</Badge> : b?.lastOk ? <Badge tone="green">ok</Badge> : null}
+          {failing ? <Badge tone="negative">failing</Badge> : b?.lastOk ? <Badge tone="positive">ok</Badge> : null}
         </div>
-        {failing && <p className="mt-3 rounded-xl bg-[color-mix(in_oklab,var(--negative)_10%,transparent)] px-3 py-2 text-[13px] text-[var(--negative)]">{b!.lastError}</p>}
+        {failing && <p className="mt-3 rounded-field bg-[color-mix(in_oklab,var(--negative)_10%,transparent)] px-3 py-2 text-small text-negative">{b!.lastError}</p>}
         <ErrorText error={run.error} />
         <Button variant="secondary" size="sm" className="mt-3" disabled={run.isPending} onClick={() => run.mutate(undefined)}>
           {run.isPending ? 'Backing up…' : 'Back up now'}
         </Button>
         {(b?.backups.length ?? 0) > 0 && (
-          <ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">
+          <ul className="mt-3 divide-y divide-line border-t border-line">
             {b!.backups.slice(0, 5).map((x) => (
               <li key={x.file}>
-                <a href={`/api/backups/${x.file}`} className="row -mx-2 flex items-center gap-2 rounded-lg px-2 py-2 text-[13px]">
+                <a href={`/api/backups/${x.file}`} className="row -mx-2 flex items-center gap-2 rounded-lg px-2 py-2 text-small">
                   <DownloadSimple size={16} className="ink-2" />
                   <span className="min-w-0 flex-1 truncate">{dateTime(x.createdAt)}</span>
                   <span className="ink-3 tabular">{(x.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>
@@ -438,7 +438,7 @@ function BackupsCard() {
             ))}
           </ul>
         )}
-        <p className="ink-3 mt-3 text-[12.5px]">Each backup is one zip with the database and saved statements, plus restore steps inside. They're kept on the server at {b?.dir ?? 'the backups folder'}; copy them elsewhere too for safety.</p>
+        <p className="ink-3 mt-3 text-caption">Each backup is one zip with the database and saved statements, plus restore steps inside. They're kept on the server at {b?.dir ?? 'the backups folder'}; copy them elsewhere too for safety.</p>
       </Card>
     </Section>
   )
@@ -494,12 +494,12 @@ function ResetCard() {
     <Section title="Reset">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
             <ArrowCounterClockwise size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-medium">Start again</p>
-            <p className="ink-2 text-[13px]">Clear your data, what the app learned, or your settings. You choose which.</p>
+            <p className="ink-2 text-small">Clear your data, what the app learned, or your settings. You choose which.</p>
           </div>
         </div>
         {/* under the text, like Back up now, so the text keeps the full width */}
@@ -573,11 +573,11 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
   return (
     <Sheet open={open} onClose={close} title="Reset">
       {!p ? (
-        <div className="py-6">{q.error ? <ErrorText error={q.error} /> : <p className="ink-2 text-sm">Checking what's saved…</p>}</div>
+        <div className="py-6">{q.error ? <ErrorText error={q.error} /> : <p className="ink-2 text-label">Checking what's saved…</p>}</div>
       ) : step === 'choose' ? (
         <div className="flex flex-1 flex-col gap-4 pb-2">
-          <p className="ink-2 text-[14px]">Choose what to clear. Your sign-in, your backups and where mail reading got to are always kept.</p>
-          <Card className="divide-y divide-[var(--line)] px-4">
+          <p className="ink-2 text-label">Choose what to clear. Your sign-in, your backups and where mail reading got to are always kept.</p>
+          <Card className="divide-y divide-line px-4">
             {RESET_PARTS.map((x) => {
               const lock = lockedBy(x.key, chosen)
               return (
@@ -588,7 +588,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
                     label={
                       <span className="block">
                         <span className="block font-medium">{x.label}</span>
-                        <span className="ink-2 block text-[13px]">{lock ?? x.detail(p)}</span>
+                        <span className="ink-2 block text-small">{lock ?? x.detail(p)}</span>
                       </span>
                     }
                   />
@@ -602,7 +602,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
         </div>
       ) : (
         <div className="flex flex-1 flex-col gap-4 pb-2">
-          <div className="anim-pop rounded-2xl bg-[color-mix(in_oklab,var(--negative)_13%,transparent)] px-4 py-3 text-[14px] text-[var(--negative)]">
+          <div className="anim-pop rounded-box bg-[color-mix(in_oklab,var(--negative)_13%,transparent)] px-4 py-3 text-label text-negative">
             <p className="font-semibold">This can't be undone.</p>
             <ul className="mt-1.5 space-y-1">
               {shown.map((x) => (
@@ -613,7 +613,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
             </ul>
           </div>
           {p.backupsOn ? (
-            <p className="ink-2 text-[13px]">A backup is taken first. If it fails, nothing is reset.</p>
+            <p className="ink-2 text-small">A backup is taken first. If it fails, nothing is reset.</p>
           ) : (
             <Card className="px-4 py-3">
               <Toggle
@@ -622,7 +622,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
                 label={
                   <span className="block">
                     <span className="block font-medium">Reset without a backup</span>
-                    <span className="ink-2 block text-[13px]">Backups are off, so there won't be a copy to go back to.</span>
+                    <span className="ink-2 block text-small">Backups are off, so there won't be a copy to go back to.</span>
                   </span>
                 }
               />
@@ -656,12 +656,12 @@ function PocketIdCard() {
   return (
     <Section title={name}>
       <Card className="flex items-center gap-3 p-4">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2">
           <IdentificationCard size={20} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-medium">{link.data?.linked ? 'Linked' : 'Not linked yet'}</p>
-          <p className="ink-2 truncate text-[13px]">
+          <p className="ink-2 truncate text-small">
             {link.data?.linked ? `${link.data.email ?? 'account'}${link.data.linkedAt ? ` · since ${dateTime(link.data.linkedAt)}` : ''}` : `You'll be asked to link it the first time you sign in with ${name}.`}
           </p>
         </div>
@@ -681,7 +681,7 @@ function PocketIdCard() {
 
 function AppVersion() {
   const h = useQuery({ queryKey: ['health'], queryFn: () => api<{ version?: string }>('/health'), staleTime: Infinity })
-  return <p className="ink-3 mt-8 text-center text-[12px]">Hisaab {h.data?.version ?? ''}</p>
+  return <p className="ink-3 mt-8 text-center text-caption">Hisaab {h.data?.version ?? ''}</p>
 }
 
 /**
@@ -697,12 +697,12 @@ function InstallCard() {
     <Section title="App">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
             <DeviceMobile size={20} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-medium">Install Hisaab</p>
-            <p className="ink-2 text-[13px]">Opens from your home screen, full screen, and shows your last data when offline.</p>
+            <p className="ink-2 text-small">Opens from your home screen, full screen, and shows your last data when offline.</p>
           </div>
           {i.canPrompt && (
             <Button size="sm" onClick={() => i.prompt()}>
@@ -711,12 +711,12 @@ function InstallCard() {
           )}
         </div>
         {!i.canPrompt && ios && (
-          <ol className="ink-2 mt-3 space-y-1.5 border-t border-[var(--line)] pt-3 text-[14px]">
+          <ol className="ink-2 mt-3 space-y-1.5 border-t border-line pt-3 text-label">
             <li className="flex items-center gap-2">
-              1. Tap <Export size={18} className="text-[var(--accent)]" aria-label="Share" /> in Safari's toolbar
+              1. Tap <Export size={18} className="text-accent" aria-label="Share" /> in Safari's toolbar
             </li>
             <li className="flex items-center gap-2">
-              2. Choose <PlusSquare size={18} aria-hidden /> <b className="text-[var(--ink)]">Add to Home Screen</b>
+              2. Choose <PlusSquare size={18} aria-hidden /> <b className="text-ink">Add to Home Screen</b>
             </li>
           </ol>
         )}
@@ -760,9 +760,9 @@ function ImportOlderMail({ configured }: { configured: boolean }) {
   return (
     <Section title="Import older emails">
       <Card className="space-y-4 p-5">
-        <p className="ink-2 text-sm">Only mail that arrives after setup is read automatically. Pick a start date to pull in older alerts. Balances only count transactions after each account's “as of” date.</p>
+        <p className="ink-2 text-label">Only mail that arrives after setup is read automatically. Pick a start date to pull in older alerts. Balances only count transactions after each account's “as of” date.</p>
         <div>
-          <p className="ink-2 mb-1.5 px-1 text-[13px] font-medium">Since</p>
+          <p className="ink-2 mb-1.5 px-1 text-small font-medium">Since</p>
           <DatePicker label="Import emails since" value={running ? (s?.since ?? since) : since} max={ymd()} disabled={running} onChange={setSince} />
           {!running && (
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -786,7 +786,7 @@ function ImportOlderMail({ configured }: { configured: boolean }) {
         {running && s && (
           <div role="status" aria-live="polite">
             <Meter pct={pct} />
-            <div className="mt-1.5 flex justify-between gap-3 text-[13px]">
+            <div className="mt-1.5 flex justify-between gap-3 text-small">
               <span className="ink-2">
                 {s.state === 'CONNECTING' ? 'Signing in and finding emails…' : `${count(s.done)} of ${count(s.total ?? 0)} emails`}
               </span>
@@ -795,7 +795,7 @@ function ImportOlderMail({ configured }: { configured: boolean }) {
           </div>
         )}
         {!running && s && s.finishedAt && (
-          <p className={'text-[13px] ' + (s.state === 'FAILED' ? 'text-[var(--negative)]' : 'ink-2')}>
+          <p className={'text-small ' + (s.state === 'FAILED' ? 'text-negative' : 'ink-2')}>
             {s.state === 'FAILED'
               ? `The import since ${shortDate(s.since!)} stopped: ${s.error}`
               : `${s.state === 'CANCELLED' ? 'Stopped' : 'Finished'} ${dateTime(s.finishedAt)}: ${count(s.added)} new of ${count(s.done)} emails since ${shortDate(s.since!)}${s.state === 'CANCELLED' ? ` (${count((s.total ?? 0) - s.done)} not looked at)` : ''}.`}

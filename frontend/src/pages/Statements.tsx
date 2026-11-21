@@ -48,16 +48,16 @@ export default function Statements() {
           {list.data.map((s) => (
             // Actions go on their own line under the text, so the name and note get the full width.
             <div key={s.id} className="flex items-start gap-3 px-4 py-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-500/12 text-rose-600 dark:text-rose-400">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
                 <FileText size={20} />
               </span>
               <div className="min-w-0 flex-1">
                 <a href={`/api/statements/${s.id}/file`} target="_blank" rel="noreferrer" className="block">
-                  <p className="truncate text-[15px] font-semibold">{s.fileName}</p>
-                  <p className="ink-2 text-[13px]">
+                  <p className="truncate text-body font-semibold">{s.fileName}</p>
+                  <p className="ink-2 text-small">
                     {s.periodLabel} · {s.fromEmail ? 'from email' : 'uploaded'} · {dateTime(s.receivedAt)}
                   </p>
-                  {s.importNote && s.importStatus !== 'REVIEW' && <p className="ink-3 mt-0.5 text-[13px]">{s.importNote}</p>}
+                  {s.importNote && s.importStatus !== 'REVIEW' && <p className="ink-3 mt-0.5 text-small">{s.importNote}</p>}
                 </a>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <StatusAction s={s} busy={importSaved.isPending} onImport={() => importSaved.mutate(s.id)} />
@@ -75,14 +75,14 @@ export default function Statements() {
           ))}
         </List>
       )}
-      <p className="ink-3 mt-4 px-1 text-xs">Bank statement PDFs are usually password protected; they're stored exactly as received.</p>
+      <p className="ink-3 mt-4 px-1 text-caption">Bank statement PDFs are usually password protected; they're stored exactly as received.</p>
     </Page>
   )
 }
 
 /** What can be done with a saved statement right now, as one small button or label. */
 function StatusAction({ s, busy, onImport }: { s: Statement; busy: boolean; onImport: () => void }) {
-  if (s.importStatus === 'IMPORTED') return <Badge tone="green">Imported</Badge>
+  if (s.importStatus === 'IMPORTED') return <Badge tone="positive">Imported</Badge>
   if (s.importStatus === 'UNSUPPORTED') return <Badge>Not supported</Badge>
   const label = s.importStatus === 'REVIEW' ? 'Review' : s.importStatus === 'NEEDS_PASSWORD' ? 'Unlock' : 'Import'
   return (

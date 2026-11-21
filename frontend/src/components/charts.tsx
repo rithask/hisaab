@@ -30,7 +30,7 @@ const ANIM = { isAnimationActive: true, animationDuration: 220, animationEasing:
 function ChartTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
   if (!active || !payload?.length) return null
   return (
-    <div className="glass rounded-2xl px-3 py-2 text-xs shadow-[var(--shadow-float)]">
+    <div className="glass rounded-box px-3 py-2 text-caption shadow-[var(--shadow-float)]">
       <p className="mb-1 font-semibold">{label}</p>
       {payload.map((p) => (
         <p key={String(p.dataKey)} className="flex items-center gap-2">
@@ -45,7 +45,7 @@ function ChartTooltip({ active, payload, label }: Partial<TooltipContentProps<nu
 
 function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
-    <div className="ink-2 flex gap-4 text-xs font-medium">
+    <div className="ink-2 flex gap-4 text-caption font-medium">
       {items.map((i) => (
         <span key={i.label} className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: i.color }} />
@@ -82,7 +82,7 @@ export function InOutBars({ data, height = 170 }: { data: { label: string; incom
  */
 export function CategoryList({ items, kind, limit = 5, onSelect }: { items: CategoryTotal[]; kind: 'expense' | 'income'; limit?: number; onSelect?: (c: CategoryTotal) => void }) {
   const [expanded, setExpanded] = useState(false)
-  if (items.length === 0) return <p className="ink-3 py-6 text-center text-sm">Nothing here yet.</p>
+  if (items.length === 0) return <p className="ink-3 py-6 text-center text-label">Nothing here yet.</p>
   const shown = expanded ? items : items.slice(0, limit)
   const rest = expanded ? [] : items.slice(limit)
   // The folded "N more" row expands the list in place; it is not a category of its own.
@@ -99,7 +99,7 @@ export function CategoryList({ items, kind, limit = 5, onSelect }: { items: Cate
         return (
           <button
             key={r.name}
-            className="row flex w-full items-center gap-3 rounded-2xl p-1.5 text-left"
+            className="row flex w-full items-center gap-3 rounded-box p-1.5 text-left"
             title={`${r.name}: ${money(r.total)} · ${r.count} transaction${r.count === 1 ? '' : 's'}`}
             onClick={() => ('key' in r && r.key === MORE ? setExpanded(true) : onSelect?.(r))}
           >
@@ -108,17 +108,17 @@ export function CategoryList({ items, kind, limit = 5, onSelect }: { items: Cate
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-[15px] font-medium">{r.name}</span>
-                <span className="tabular shrink-0 text-[15px] font-semibold">{money0(r.total)}</span>
+                <span className="truncate text-body font-medium">{r.name}</span>
+                <span className="tabular shrink-0 text-body font-semibold">{money0(r.total)}</span>
               </span>
               <span className="mt-1.5 flex items-center gap-2">
-                <span className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--line-strong)]">
+                <span className="h-1 flex-1 overflow-hidden rounded-full bg-line-strong">
                   <span
-                    className="block h-full rounded-full transition-[width] duration-[240ms] ease-[var(--ease-out-quint)]"
+                    className="block h-full rounded-full transition-[width] duration-base ease-standard"
                     style={{ width: `${(r.total / max) * 100}%`, background: kind === 'expense' ? 'var(--bar)' : 'var(--positive)' }}
                   />
                 </span>
-                <span className="tabular ink-3 w-8 text-right text-[11px] font-medium">{Math.round((r.total / sum) * 100)}%</span>
+                <span className="tabular ink-3 w-8 text-right text-micro font-medium">{Math.round((r.total / sum) * 100)}%</span>
               </span>
             </span>
           </button>
@@ -155,7 +155,7 @@ export function SpendCalendar({ month, daily, selected, onSelect }: { month: str
 
   return (
     <div>
-      <div className="ink-3 mb-1.5 grid grid-cols-7 gap-1.5 text-center text-[10px] font-semibold">
+      <div className="ink-3 mb-1.5 grid grid-cols-7 gap-1.5 text-center text-micro font-semibold">
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
           <span key={i}>{d}</span>
         ))}
@@ -174,11 +174,11 @@ export function SpendCalendar({ month, daily, selected, onSelect }: { month: str
               aria-label={`${c.d}: ${money(v)} spent`}
               onClick={() => pick(picked === c.key ? null : c.key)}
               className={cx(
-                'pressable relative flex aspect-square items-center justify-center rounded-[10px] text-[11px] font-semibold transition-[box-shadow,opacity] duration-150',
+                'pressable relative flex aspect-square items-center justify-center rounded-field text-micro font-semibold transition-[box-shadow,opacity] duration-quick',
                 future && 'opacity-35',
                 picked && picked !== c.key && 'opacity-45',
-                picked === c.key && 'ring-2 ring-[var(--ink)] ring-offset-2 ring-offset-[var(--surface)]',
-                c.key === today && picked !== c.key && 'ring-1 ring-[var(--ink-3)]',
+                picked === c.key && 'ring-2 ring-ink ring-offset-2 ring-offset-surface',
+                c.key === today && picked !== c.key && 'ring-1 ring-ink-3',
               )}
               style={{ background: `var(--heat-${lv})`, color: lv >= 3 ? '#fff' : 'var(--ink-2)' }}
             >
@@ -187,12 +187,12 @@ export function SpendCalendar({ month, daily, selected, onSelect }: { month: str
           )
         })}
       </div>
-      <div className="mt-3 flex items-center justify-between text-xs">
+      <div className="mt-3 flex items-center justify-between text-caption">
         <span className="ink-2 min-h-4">
           {picked ? (
             <>
               {formatDay(picked, { weekday: 'short', day: 'numeric', month: 'short' })} ·{' '}
-              <b className="tabular text-[var(--ink)]">{money(pickedVal!)}</b>
+              <b className="tabular text-ink">{money(pickedVal!)}</b>
             </>
           ) : onSelect ? (
             'Tap a day to see its transactions'
@@ -230,17 +230,17 @@ export function PeriodBars({ items, selected, onSelect, highlightLast }: { items
             aria-pressed={selected === it.key}
             aria-label={`${it.label}: ${money(it.value)} spent`}
             onClick={() => onSelect(selected === it.key ? null : it.key)}
-            className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg transition-transform duration-120 active:scale-95 disabled:opacity-35"
+            className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg transition-transform duration-quick active:scale-95 disabled:opacity-35"
           >
-            <span className={cx('tabular truncate text-[10.5px] font-medium transition-opacity duration-150', on ? 'text-[var(--ink)]' : 'ink-3', dim && 'opacity-40')}>{it.value > 0 && (items.length <= 7 || on) ? compact(it.value) : ''}</span>
+            <span className={cx('tabular truncate text-micro font-medium transition-opacity duration-quick', on ? 'text-ink' : 'ink-3', dim && 'opacity-40')}>{it.value > 0 && (items.length <= 7 || on) ? compact(it.value) : ''}</span>
             <span className="flex w-full flex-1 items-end">
               <span
-                className={cx('block w-full rounded-t-[4px] rounded-b-[2px] transition-[height,opacity] duration-200 ease-[var(--ease-out-quint)]', dim ? 'opacity-30 group-hover:opacity-60' : on ? 'opacity-100' : 'opacity-70 group-hover:opacity-100')}
+                className={cx('block w-full rounded-t-[4px] rounded-b-[2px] transition-[height,opacity] duration-base ease-standard', dim ? 'opacity-30 group-hover:opacity-60' : on ? 'opacity-100' : 'opacity-70 group-hover:opacity-100')}
                 style={{ height: `${Math.max(it.value > 0 ? 4 : 2, (it.value / max) * 100)}%`, background: it.value > 0 ? 'var(--c-expense)' : 'var(--line-strong)' }}
               />
             </span>
-            <span className={cx('text-[11px] font-medium', selected === it.key ? 'text-[var(--ink)]' : 'ink-2')}>{it.label}</span>
-            {it.sub && <span className="ink-3 -mt-1 text-[10px]">{it.sub}</span>}
+            <span className={cx('text-micro font-medium', selected === it.key ? 'text-ink' : 'ink-2')}>{it.label}</span>
+            {it.sub && <span className="ink-3 -mt-1 text-micro">{it.sub}</span>}
           </button>
         )
       })}
@@ -258,10 +258,10 @@ export function AllocationBar({ parts }: { parts: { label: string; value: number
         {parts
           .filter((p) => p.value > 0)
           .map((p) => (
-            <span key={p.label} title={`${p.label}: ${money0(p.value)}`} className="h-full transition-[flex-grow] duration-[240ms]" style={{ flexGrow: p.value, background: p.color }} />
+            <span key={p.label} title={`${p.label}: ${money0(p.value)}`} className="h-full transition-[flex-grow] duration-base" style={{ flexGrow: p.value, background: p.color }} />
           ))}
       </div>
-      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-caption">
         {parts.map((p) => (
           <span key={p.label} className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
@@ -318,9 +318,9 @@ export function NetWorthChart({ points, height = 200 }: { points: { day: string;
             const p = active && payload?.[0]?.payload
             if (!p) return null
             return (
-              <div className="glass rounded-2xl px-3 py-2 text-xs shadow-[var(--shadow-float)]">
+              <div className="glass rounded-box px-3 py-2 text-caption shadow-[var(--shadow-float)]">
                 <p className="font-semibold">{formatDay(p.day, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                <p className="tabular mt-1 text-[14px] font-semibold">{money0(p.netWorth)}</p>
+                <p className="tabular mt-1 text-label font-semibold">{money0(p.netWorth)}</p>
                 <p className="ink-2 tabular">Cash {money0(p.cash)} · Cards −{money0(p.cardDues)} · Investments {money0(p.investments)}</p>
                 {p.estimated && <p className="ink-3 mt-1">Investments estimated for this day</p>}
               </div>

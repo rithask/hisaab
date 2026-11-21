@@ -68,7 +68,7 @@ export function TokenList({ jobs, newJob, newLabel = 'New token' }: { jobs?: Tok
     <>
       {blocked && (
         <div className="mb-3">
-          <Notice tone="amber">
+          <Notice tone="attention">
             The Data API is off, so only Send SMS tokens work right now. Turn it on in{' '}
             <Link className="link font-semibold" to="/settings/features">
               Features
@@ -81,14 +81,14 @@ export function TokenList({ jobs, newJob, newLabel = 'New token' }: { jobs?: Tok
         {list.map((t) => (
           <button key={t.id} className="row flex w-full items-center gap-3 px-4 py-3 text-left" onClick={() => setEditing(t)}>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium">{t.name}</span>
-              <span className="ink-2 block truncate text-[12.5px]">{summary(t)}</span>
-              <span className="ink-3 block text-[12px]">{t.lastUsedAt ? `Last used ${dateTime(t.lastUsedAt)}` : 'Not used yet'}</span>
+              <span className="block truncate text-body font-medium">{t.name}</span>
+              <span className="ink-2 block truncate text-caption">{summary(t)}</span>
+              <span className="ink-3 block text-caption">{t.lastUsedAt ? `Last used ${dateTime(t.lastUsedAt)}` : 'Not used yet'}</span>
             </span>
             <CaretRight size={16} className="ink-3 shrink-0" />
           </button>
         ))}
-        <button className="row flex w-full items-center gap-2 px-4 py-3.5 text-[15px] font-semibold text-[var(--accent)]" onClick={() => setEditing('new')}>
+        <button className="row flex w-full items-center gap-2 px-4 py-3.5 text-body font-semibold text-accent" onClick={() => setEditing('new')}>
           <Plus size={18} /> {newLabel}
         </button>
       </List>
@@ -110,7 +110,7 @@ function LimitChips<T extends string | number>({ label, value, onChange, options
   }
   return (
     <div>
-      <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">{label}</span>
+      <span className="ink-2 mb-1.5 block px-1 text-caption font-medium">{label}</span>
       <div className="flex flex-wrap gap-2">
         <Chip active={value == null} onClick={() => onChange(null)}>
           All
@@ -152,17 +152,17 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
   if (fresh) {
     return (
       <div className="space-y-4">
-        <div className="anim-pop rounded-[18px] bg-[var(--accent-soft)] p-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)]">
+        <div className="anim-pop rounded-card bg-accent-soft p-3">
+          <p className="flex items-center gap-1.5 text-caption font-semibold text-accent">
             <Key size={14} /> Copy this token now. You won't see it again.
           </p>
-          <code className="mt-1.5 block break-all font-mono text-[12.5px] leading-relaxed">{fresh}</code>
+          <code className="mt-1.5 block break-all font-mono text-caption leading-relaxed">{fresh}</code>
           <div className="mt-2">
             <CopyButton value={fresh} label="Copy token" />
           </div>
         </div>
-        <p className="ink-2 text-sm">
-          Send it as <code className="rounded bg-[var(--surface-2)] px-1">Authorization: Bearer &lt;token&gt;</code>.{' '}
+        <p className="ink-2 text-label">
+          Send it as <code className="rounded bg-surface-2 px-1">Authorization: Bearer &lt;token&gt;</code>.{' '}
           {job === 'SEND_SMS' ? 'Settings → Mail & SMS shows how to set up your phone.' : 'The endpoints are described in docs/api.md.'}
         </p>
         <Button className="w-full" onClick={onDone}>
@@ -186,12 +186,12 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
       </Field>
 
       {token || fixedJob ? (
-        <p className="ink-2 px-1 text-sm">
+        <p className="ink-2 px-1 text-label">
           {JOBS.find((j) => j.value === job)?.label}: {JOBS.find((j) => j.value === job)?.hint.toLowerCase()}.{token && ` Token ending …${token.hint}, made ${dateTime(token.createdAt)}.`}
         </p>
       ) : (
         <div>
-          <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">What it's for</span>
+          <span className="ink-2 mb-1.5 block px-1 text-caption font-medium">What it's for</span>
           <div className="flex flex-wrap gap-2">
             {JOBS.map((j) => (
               <Chip key={j.value} active={j.value === job} onClick={() => setJob(j.value)}>
@@ -199,7 +199,7 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
               </Chip>
             ))}
           </div>
-          <p className="ink-3 mt-1.5 px-1 text-xs">{JOBS.find((j) => j.value === job)?.hint}. A token does this one thing only.</p>
+          <p className="ink-3 mt-1.5 px-1 text-caption">{JOBS.find((j) => j.value === job)?.hint}. A token does this one thing only.</p>
         </div>
       )}
 
@@ -232,7 +232,7 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
       )}
       {job === 'READ_TRANSACTIONS' && <Toggle checked={notes} onChange={setNotes} label="Include notes and tags" />}
 
-      {job !== 'SEND_SMS' && dataApi === false && <Notice tone="amber">The Data API is off in Settings → Features. Turn it on before the app uses this token.</Notice>}
+      {job !== 'SEND_SMS' && dataApi === false && <Notice tone="attention">The Data API is off in Settings → Features. Turn it on before the app uses this token.</Notice>}
       <ErrorText error={save.error ?? revoke.error} />
       <Button type="submit" className="w-full" disabled={!name.trim() || save.isPending}>
         {token ? 'Save' : 'Create token'}
@@ -240,7 +240,7 @@ function TokenForm({ token, fixedJob, onDone }: { token: ApiToken | null; fixedJ
       {token && (
         <Confirm ask={`Revoke "${token.name}"? Whatever uses it stops working straight away.`} yes="Revoke" busy={revoke.isPending} onYes={() => revoke.mutate(undefined)}>
           {(ask) => (
-            <button type="button" className="w-full text-center text-sm font-medium text-[var(--negative)]" disabled={revoke.isPending} onClick={ask}>
+            <button type="button" className="w-full text-center text-label font-medium text-negative" disabled={revoke.isPending} onClick={ask}>
               Revoke token
             </button>
           )}

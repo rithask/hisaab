@@ -63,7 +63,7 @@ export default function Unusual() {
                 <RefundList refunds={arrived} onOpen={setTxn} />
               </Section>
             )}
-            <p className="ink-3 mt-5 px-1 text-[13px]">
+            <p className="ink-3 mt-5 px-1 text-small">
               Checks the last 60 days against your own history. To watch for a refund, open the payment and tap “I'm expecting a refund for this”.
             </p>
           </>
@@ -80,26 +80,26 @@ function ItemCard({ item, onOpen }: { item: UnusualItem; onOpen: () => void }) {
   return (
     <Card className="p-4">
       <div className="flex gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/14 text-amber-700 dark:text-amber-300">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full tint-attention">
           <Icon size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="truncate text-[15px] font-semibold">{item.name ?? 'Payment'}</p>
-            <p className="tabular shrink-0 text-[15px] font-semibold">−{moneyAuto(item.amount)}</p>
+            <p className="truncate text-body font-semibold">{item.name ?? 'Payment'}</p>
+            <p className="tabular shrink-0 text-body font-semibold">−{moneyAuto(item.amount)}</p>
           </div>
-          <p className="ink-2 text-[13px]">
+          <p className="ink-2 text-small">
             {dateTime(item.at)} · {item.account}
           </p>
           <ul className="mt-1.5 space-y-1">
             {item.reasons.map((r) => (
-              <li key={r.kind} className="text-[13.5px] leading-relaxed">
+              <li key={r.kind} className="text-small leading-relaxed">
                 {reasonText(r, item)}
               </li>
             ))}
           </ul>
-          <div className="mt-2 flex gap-4 text-[13px] font-medium">
-            <button className="link text-[var(--accent)]" onClick={onOpen}>
+          <div className="mt-2 flex gap-4 text-small font-medium">
+            <button className="link text-accent" onClick={onOpen}>
               Open payment
             </button>
             <button className="link ink-2" disabled={fine.isPending} onClick={() => fine.mutate(undefined)}>
@@ -117,18 +117,18 @@ function RefundList({ refunds, onOpen }: { refunds: RefundWatch[]; onOpen: (id: 
     <List>
       {refunds.map((r) => (
         <button key={r.txnId} className="row flex w-full items-center gap-3 px-4 py-3 text-left" onClick={() => onOpen(r.txnId)}>
-          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
             <ArrowCounterClockwise size={18} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium">{r.name ?? 'Payment'}</span>
-            <span className="ink-2 block truncate text-[13px]">
+            <span className="block truncate text-body font-medium">{r.name ?? 'Payment'}</span>
+            <span className="ink-2 block truncate text-small">
               {r.status === 'ARRIVED' ? `Came back ${shortDate(r.refundedAt!)}` : `Paid ${shortDate(r.paidAt)} · expected by ${shortDate(r.expectedBy)}`}
             </span>
           </span>
           <span className="shrink-0 text-right">
-            <span className="tabular block text-[15px] font-semibold">{moneyAuto(r.status === 'ARRIVED' ? r.refunded : r.amount)}</span>
-            <Badge tone={r.status === 'ARRIVED' ? 'green' : r.status === 'LATE' ? 'red' : 'amber'}>{r.status === 'ARRIVED' ? 'arrived' : r.status === 'LATE' ? 'late' : 'waiting'}</Badge>
+            <span className="tabular block text-body font-semibold">{moneyAuto(r.status === 'ARRIVED' ? r.refunded : r.amount)}</span>
+            <Badge tone={r.status === 'ARRIVED' ? 'positive' : r.status === 'LATE' ? 'negative' : 'attention'}>{r.status === 'ARRIVED' ? 'arrived' : r.status === 'LATE' ? 'late' : 'waiting'}</Badge>
           </span>
         </button>
       ))}

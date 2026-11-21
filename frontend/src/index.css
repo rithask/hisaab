@@ -1,9 +1,69 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
 
+/* ---- Design system ------------------------------------------------------------------------------
+   The only sizes, corners, colours and timings screens use (docs/principles.md §2). Each is a Tailwind class:
+   text-small, rounded-card, text-negative, bg-attention/15, duration-quick … Don't add one-off values. */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+
+  /* Type scale */
+  --text-micro: 11px; /* badges, tab bar labels */
+  --text-micro--line-height: 1.35;
+  --text-caption: 12px; /* notes under fields, timestamps */
+  --text-caption--line-height: 1.4;
+  --text-small: 13px; /* second line of a row, hints */
+  --text-small--line-height: 1.4;
+  --text-label: 14px; /* buttons, chips */
+  --text-label--line-height: 1.4;
+  --text-body: 15px; /* row titles, normal text */
+  --text-body--line-height: 1.45;
+  --text-input: 16px; /* fields: 16px or more, or iPhone Safari zooms in when one is tapped */
+  --text-input--line-height: 1.4;
+  --text-title: 17px; /* card titles, a payee's name */
+  --text-title--line-height: 1.35;
+  --text-subheading: 20px; /* dialog titles */
+  --text-subheading--line-height: 1.3;
+  --text-heading: 28px; /* page and window titles */
+  --text-heading--line-height: 1.2;
+  --text-display-sm: 40px; /* big amounts only */
+  --text-display-sm--line-height: 1;
+  --text-display: 56px;
+  --text-display--line-height: 1;
+  --text-display-lg: 72px;
+  --text-display-lg--line-height: 1;
+
+  /* Corners */
+  --radius-field: 12px; /* inputs, selects, the date field */
+  --radius-box: 16px; /* boxes inside cards */
+  --radius-card: 20px; /* cards and lists */
+  --radius-dialog: 24px; /* dialogs on wide screens */
+
+  /* Motion: quick for press feedback, base for things appearing, move (a spring, in motion.ts) for things moving */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-quick: 120ms;
+  --duration-base: 180ms;
+}
+
+/* Colours as classes (text-ink-2, bg-surface-2, border-line, text-negative, bg-attention/15 …). They point at the
+   variables below, so light and dark both follow. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-attention: var(--attention);
+  --color-hover: var(--hover);
+  --color-press: var(--press);
 }
 
 /* ---- Design tokens ------------------------------------------------------------------------------
@@ -30,6 +90,7 @@
   --primary-ink: #ffffff;
   --positive: #15803d;
   --negative: #dc2626;
+  --attention: #b45309; /* amber: needs attention soon */
   --shadow-float: 0 8px 30px -8px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.06);
   /* Interaction feedback: a hover tint, a deeper press tint, and how much buttons darken. */
   --hover: rgba(0, 0, 0, 0.04);
@@ -71,6 +132,7 @@
     --primary-ink: #111113;
     --positive: #4ade80;
     --negative: #f87171;
+    --attention: #fbbf24;
     --shadow-float: 0 8px 30px -8px rgba(0, 0, 0, 0.8);
     --hover: rgba(255, 255, 255, 0.05);
     --press: rgba(255, 255, 255, 0.1);
@@ -132,7 +194,7 @@ html[data-keyboard] select:focus-visible {
 }
 /* Section label: small, grey, sentence case. */
 @utility eyebrow {
-  font-size: 13px;
+  font-size: var(--text-small);
   font-weight: 500;
   color: var(--ink-2);
 }
@@ -158,6 +220,27 @@ html[data-keyboard] select:focus-visible {
 @utility pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
+/* Tinted backgrounds for a meaning: the colour itself on a soft wash of it (badges, notices, warnings). */
+@utility tint-neutral {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+@utility tint-positive {
+  background: color-mix(in oklab, var(--positive) 14%, transparent);
+  color: var(--positive);
+}
+@utility tint-negative {
+  background: color-mix(in oklab, var(--negative) 13%, transparent);
+  color: var(--negative);
+}
+@utility tint-attention {
+  background: color-mix(in oklab, var(--attention) 15%, transparent);
+  color: var(--attention);
+}
+@utility tint-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {
@@ -168,7 +251,7 @@ html[data-keyboard] select:focus-visible {
    Three consistent states for everything clickable: pointer cursor, hover (mouse/trackpad only, so phones
    never get a "stuck" hover) and press. All transitions are 120ms. */
 @utility pressable {
-  transition: transform 120ms var(--ease-out-quint), filter 120ms, background-color 120ms, opacity 120ms;
+  transition: transform var(--duration-quick) var(--ease-standard), filter var(--duration-quick), background-color var(--duration-quick), opacity var(--duration-quick);
   @media (hover: hover) {
     &:hover:not(:disabled) {
       filter: var(--hover-filter);
@@ -181,7 +264,7 @@ html[data-keyboard] select:focus-visible {
 }
 /* List rows: tint on hover, deeper tint while pressed. */
 @utility row {
-  transition: background-color 120ms;
+  transition: background-color var(--duration-quick);
   @media (hover: hover) {
     &:hover {
       background-color: var(--hover);
@@ -193,7 +276,7 @@ html[data-keyboard] select:focus-visible {
 }
 /* Small text links ("See all", "Back"): underline on hover, dim while pressed. */
 @utility link {
-  transition: opacity 120ms;
+  transition: opacity var(--duration-quick);
   text-underline-offset: 3px;
   @media (hover: hover) {
     &:hover {
@@ -229,7 +312,7 @@ select:disabled {
   }
 }
 @utility anim-pop {
-  animation: pop-in 180ms var(--ease-out-quint) both;
+  animation: pop-in var(--duration-base) var(--ease-standard) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -44,10 +44,10 @@ export default function Categories() {
                     const Icon = categoryIcon(c)
                     return (
                       <button key={c.id} onClick={() => setEditCat(c)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left row">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-[12px]" style={{ background: tint(c.color), color: c.color }}>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-field" style={{ background: tint(c.color), color: c.color }}>
                           <Icon size={18} />
                         </span>
-                        <span className="flex-1 text-[15px] font-medium">{c.name}</span>
+                        <span className="flex-1 text-body font-medium">{c.name}</span>
                       </button>
                     )
                   })}
@@ -60,7 +60,7 @@ export default function Categories() {
         </>
       ) : (
         <>
-          <p className="ink-2 mt-4 px-1 text-sm">
+          <p className="ink-2 mt-4 px-1 text-label">
             New transactions are categorised by the first matching rule: merchants you've corrected first, then keyword rules (longest match wins).
           </p>
           <Button variant="secondary" className="mt-3 w-full" onClick={() => setNewRule(true)}>
@@ -71,13 +71,13 @@ export default function Categories() {
               <Section key={title} title={title}>
                 <List>
                   {list.map((r) => (
-                    <div key={r.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                    <div key={r.id} className="flex items-center gap-2 px-4 py-2.5 text-label">
                       <span className="flex-1 truncate">
                         {r.matchType === 'MERCHANT' ? '' : 'contains '}
                         <b>“{r.pattern}”</b>
                       </span>
                       <Badge>{r.category.name}</Badge>
-                      {r.hits > 0 && <span className="ink-3 text-xs">{r.hits}×</span>}
+                      {r.hits > 0 && <span className="ink-3 text-caption">{r.hits}×</span>}
                       <button className="ink-3 p-1" onClick={() => delRule.mutate(r.id)} aria-label="Delete rule">
                         <Trash size={15} />
                       </button>
@@ -124,7 +124,7 @@ function CategoryForm({ cat, onDone }: { cat?: Category; onDone: () => void }) {
         </Select>
       </Field>
       <Field label="Colour">
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-11 w-20 cursor-pointer rounded-2xl bg-transparent" />
+        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-11 w-20 cursor-pointer rounded-box bg-transparent" />
       </Field>
       <ErrorText error={save.error ?? del.error} />
       <Button type="submit" className="w-full">

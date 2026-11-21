@@ -13,7 +13,7 @@ export default function Repeating() {
       <PageHeader back title="Repeating" subtitle="Bills and subscriptions, learned from payments that repeat" />
       <BillsPart />
       <div className="mt-8">
-        <h2 className="mb-3 px-1 text-[20px] font-bold tracking-tight">Subscriptions</h2>
+        <h2 className="mb-3 px-1 text-subheading font-bold tracking-tight">Subscriptions</h2>
         <SubscriptionsPart />
       </div>
     </Page>

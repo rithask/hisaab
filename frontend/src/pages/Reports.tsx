@@ -9,6 +9,7 @@ import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
 import { Card, cx, Delta, Empty, List, Page, PageHeader, Section, Segmented, Skeleton } from '../components/ui'
 import { money, money0, ymd, zonedInstant } from '../format'
+import { BASE } from '../motion'
 
 type View = 'day' | 'week' | 'month'
 
@@ -92,10 +93,10 @@ export default function Reports() {
     <Page>
       <PageHeader back title="Insights" />
       {/* Year in review lives here all year (it also comes to Home in December and January). */}
-      <Link to="/review" className="row surface -mt-1 mb-4 flex items-center gap-3 rounded-[20px] px-4 py-3">
-        <Sparkle size={20} weight="fill" className="text-[var(--accent)]" />
-        <span className="min-w-0 flex-1 text-[15px] font-medium">{new Date().getFullYear()} in review</span>
-        <span className="ink-2 text-[13px]">so far</span>
+      <Link to="/review" className="row surface -mt-1 mb-4 flex items-center gap-3 rounded-card px-4 py-3">
+        <Sparkle size={20} weight="fill" className="text-accent" />
+        <span className="min-w-0 flex-1 text-body font-medium">{new Date().getFullYear()} in review</span>
+        <span className="ink-2 text-small">so far</span>
         <CaretRight size={15} className="ink-3" />
       </Link>
 
@@ -110,11 +111,11 @@ export default function Reports() {
       />
 
       <div className="mt-3 flex items-center justify-between">
-        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)]" onClick={() => set({ at: shift(view, start, -1), day: null })} aria-label="Previous">
+        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2" onClick={() => set({ at: shift(view, start, -1), day: null })} aria-label="Previous">
           <CaretLeft size={18} />
         </button>
-        <span className="text-[16px] font-semibold">{periodLabel(view, start)}</span>
-        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] disabled:opacity-30" disabled={!canNext} onClick={() => set({ at: shift(view, start, 1), day: null })} aria-label="Next">
+        <span className="text-body font-semibold">{periodLabel(view, start)}</span>
+        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 disabled:opacity-30" disabled={!canNext} onClick={() => set({ at: shift(view, start, 1), day: null })} aria-label="Next">
           <CaretRight size={18} />
         </button>
       </div>
@@ -122,12 +123,12 @@ export default function Reports() {
       {/* The chosen day, with one tap back to the whole period */}
       <AnimatePresence initial={false}>
         {selected && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
-            <button onClick={() => set({ day: null })} className="pressable mt-3 flex w-full items-center justify-between rounded-2xl bg-[var(--ink)] px-4 py-3 text-left text-[var(--surface)]">
-              <span className="text-[15px]">
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={BASE} className="overflow-hidden">
+            <button onClick={() => set({ day: null })} className="pressable mt-3 flex w-full items-center justify-between rounded-box bg-ink px-4 py-3 text-left text-surface">
+              <span className="text-body">
                 Showing <b>{dayTitle(selected)}</b>
               </span>
-              <span className="flex items-center gap-1 text-[13px] opacity-80">
+              <span className="flex items-center gap-1 text-small opacity-80">
                 Back to {view === 'week' ? 'the week' : 'the month'} <X size={14} weight="bold" />
               </span>
             </button>
@@ -142,7 +143,7 @@ export default function Reports() {
         <Stat label={focusDay ? 'Net' : 'Saved'} value={focus ? focus.income - focus.expense : undefined} signed />
       </div>
       {(!focusDay || view === 'day') && previous.data && period.data && previous.data.expense > 0 && (
-        <p className="ink-3 mt-1.5 px-1 text-[12px]">
+        <p className="ink-3 mt-1.5 px-1 text-caption">
           Spending vs {prevWord[view]}: {money0(previous.data.expense)}
         </p>
       )}
@@ -166,18 +167,18 @@ export default function Reports() {
                 return { key: d, label: short(d, { weekday: 'narrow' }), sub: short(d, { day: 'numeric' }), value: period.data!.daily.find((x) => x.day === d)?.expense ?? 0, disabled: d > today() }
               })}
             />
-            <p className="ink-2 mt-3 text-[12px]">{selected ? `${dayTitle(selected)}: ${money(dayReport.data?.expense ?? 0)} spent` : 'Tap a day to see its transactions'}</p>
+            <p className="ink-2 mt-3 text-caption">{selected ? `${dayTitle(selected)}: ${money(dayReport.data?.expense ?? 0)} spent` : 'Tap a day to see its transactions'}</p>
           </Card>
         </Section>
       )}
 
       {/* Details: switch with a short fade when the focus changes */}
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={focusDay ?? `${view}-${start}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
+        <motion.div key={focusDay ?? `${view}-${start}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={BASE}>
           {focusDay && (
             <Section title={`Transactions${dayTxns.data ? ` (${dayTxns.data.total})` : ''}`}>
               {!dayTxns.data ? (
-                <Skeleton className="h-32 rounded-[20px]" />
+                <Skeleton className="h-32 rounded-card" />
               ) : dayTxns.data.items.length === 0 ? (
                 <Empty icon={Receipt} title="Nothing on this day" />
               ) : (
@@ -227,12 +228,12 @@ export default function Reports() {
               onSelect={(m) => m && set({ at: m + '-01', day: null })}
               items={months.data.map((m) => ({ key: m.month, label: short(m.month + '-01', { month: 'short' }), value: m.expense }))}
             />
-            <p className="ink-2 mt-3 text-[12px]">Spending per month. Tap one to open it.</p>
+            <p className="ink-2 mt-3 text-caption">Spending per month. Tap one to open it.</p>
           </Card>
         </Section>
       )}
 
-      <p className="ink-3 mt-6 px-1 text-[12px]">Money moved between your own accounts is left out. Split bills count only your share, and repayments aren't income.</p>
+      <p className="ink-3 mt-6 px-1 text-caption">Money moved between your own accounts is left out. Split bills count only your share, and repayments aren't income.</p>
       <TxnSheet txn={open} onClose={() => setOpen(null)} />
     </Page>
   )
@@ -240,17 +241,17 @@ export default function Reports() {
 
 function Stat({ label, value, sub, positive, signed }: { label: string; value?: number; sub?: React.ReactNode; positive?: boolean; signed?: boolean }) {
   return (
-    <div className="surface min-w-0 rounded-2xl px-3 py-2.5">
-      <p className="ink-2 truncate text-[12px]">{label}</p>
+    <div className="surface min-w-0 rounded-box px-3 py-2.5">
+      <p className="ink-2 truncate text-caption">{label}</p>
       {value == null ? (
         <Skeleton className="mt-1 h-5 w-16" />
       ) : (
-        <p className={cx('tabular mt-0.5 truncate text-[17px] font-semibold', positive && value > 0 && 'text-[var(--positive)]', signed && value < 0 && 'text-[var(--negative)]')}>
+        <p className={cx('tabular mt-0.5 truncate text-title font-semibold', positive && value > 0 && 'text-positive', signed && value < 0 && 'text-negative')}>
           {signed && value < 0 ? '−' : ''}
           {money0(Math.abs(value))}
         </p>
       )}
-      {sub && <div className="mt-1 text-[11px]">{sub}</div>}
+      {sub && <div className="mt-1 text-micro">{sub}</div>}
     </div>
   )
 }
@@ -262,14 +263,14 @@ function TopList({ items }: { items: { name: string; total: number; count: numbe
       {items.map((m) => (
         <div key={m.name} className="px-4 py-3">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[15px]">{m.name}</span>
-            <span className="tabular shrink-0 text-[15px] font-semibold">{money(m.total)}</span>
+            <span className="truncate text-body">{m.name}</span>
+            <span className="tabular shrink-0 text-body font-semibold">{money(m.total)}</span>
           </div>
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
+            <span className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
               <span className="block h-full rounded-full bg-[var(--bar)]" style={{ width: `${(m.total / max) * 100}%` }} />
             </span>
-            <span className="ink-3 w-8 text-right text-[11px]">×{m.count}</span>
+            <span className="ink-3 w-8 text-right text-micro">×{m.count}</span>
           </div>
         </div>
       ))}

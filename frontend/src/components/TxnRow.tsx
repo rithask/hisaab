@@ -30,20 +30,20 @@ export default function TxnRow({ t, onClick, showDate }: { t: Txn; onClick: () =
         <Icon size={20} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium">{title}</span>
-        <span className="ink-2 block truncate text-[13px]">
+        <span className="block truncate text-body font-medium">{title}</span>
+        <span className="ink-2 block truncate text-small">
           {sub} · {t.paidBy ? `Paid by ${t.paidBy.name}` : t.account?.name}
         </span>
       </span>
       <span className="shrink-0 text-right">
-        <Amount value={t.amount} direction={t.direction} muted={t.transfer} className="block text-[15px]" />
-        <span className="ink-3 flex items-center justify-end gap-1 text-[12px]">
+        <Amount value={t.amount} direction={t.direction} muted={t.transfer} className="block text-body" />
+        <span className="ink-3 flex items-center justify-end gap-1 text-caption">
           {t.sharedAmount && !t.lentTo?.length ? (
-            <span className="flex items-center gap-0.5 text-[var(--accent)]">
+            <span className="flex items-center gap-0.5 text-accent">
               <Users size={11} /> split ·
             </span>
           ) : t.amountEstimated ? (
-            <span className="text-amber-600">≈{t.originalCurrency} ·</span>
+            <span className="text-attention">≈{t.originalCurrency} ·</span>
           ) : null}
           {showDate ? dateTime(t.occurredAt) : time(t.occurredAt)}
         </span>

@@ -32,22 +32,22 @@ export default function Accounts() {
               <div key={a.id}>
                 <BankCard a={a} className="w-full" onClick={() => setEditing(a)} />
                 {a.card && (
-                  <Card className="mt-2 grid grid-cols-3 gap-2 p-3.5 text-xs">
+                  <Card className="mt-2 grid grid-cols-3 gap-2 p-3.5 text-caption">
                     {a.card.dueDate ? (
                       <>
                         <div>
                           <p className="ink-2">This cycle</p>
-                          <p className="tabular text-sm font-semibold">{money(a.card.spentThisCycle)}</p>
+                          <p className="tabular text-label font-semibold">{money(a.card.spentThisCycle)}</p>
                         </div>
                         <div>
                           <p className="ink-2">Statement</p>
-                          <p className="text-sm font-semibold">{shortDate(a.card.nextStatement!)}</p>
+                          <p className="text-label font-semibold">{shortDate(a.card.nextStatement!)}</p>
                         </div>
                         <div>
                           <p className="ink-2">Payment due</p>
-                          <p className="flex items-center gap-1 text-sm font-semibold">
+                          <p className="flex items-center gap-1 text-label font-semibold">
                             {shortDate(a.card.dueDate)}
-                            {a.card.daysToDue <= 5 && a.balance > 0 && <Badge tone="red">{a.card.daysToDue}d</Badge>}
+                            {a.card.daysToDue <= 5 && a.balance > 0 && <Badge tone="negative">{a.card.daysToDue}d</Badge>}
                           </p>
                         </div>
                       </>
@@ -57,7 +57,7 @@ export default function Accounts() {
                   </Card>
                 )}
                 {rewards && (
-                  <Link to="/rewards" className="row mt-2 flex items-center gap-3 rounded-[20px] bg-[var(--surface)] px-4 py-3 text-[14px] font-medium">
+                  <Link to="/rewards" className="row mt-2 flex items-center gap-3 rounded-card bg-surface px-4 py-3 text-label font-medium">
                     <Gift size={18} className="ink-2" />
                     <span className="flex-1">Rewards on this card</span>
                     <CaretRight size={15} className="ink-3" />
@@ -100,17 +100,17 @@ function Row({ a, onClick }: { a: Account; onClick: () => void }) {
   const Icon = a.type === 'CASH' ? Wallet : Bank
   return (
     <button onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3.5 text-left row">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-ink">
         <Icon size={21} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold">{a.name}</span>
-        <span className="ink-2 block text-[13px]">
+        <span className="block truncate text-body font-semibold">{a.name}</span>
+        <span className="ink-2 block text-small">
           {a.institution !== 'OTHER' ? a.institution : a.type === 'CASH' ? 'Cash' : 'Account'}
           {a.last4 ? ` •••• ${a.last4}` : ''}
         </span>
       </span>
-      <span className="tabular text-[16px] font-semibold">{money(a.balance)}</span>
+      <span className="tabular text-body font-semibold">{money(a.balance)}</span>
     </button>
   )
 }

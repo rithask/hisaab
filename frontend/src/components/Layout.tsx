@@ -56,9 +56,9 @@ export default function Layout() {
     <AddContext.Provider value={(accountId) => setAdding({ accountId })}>
       <div className="min-h-dvh lg:flex">
         {/* Sidebar (wide screens) */}
-        <aside className="no-scrollbar sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-[var(--line)] bg-[var(--surface)] px-4 py-6 lg:flex [&>*]:shrink-0">
-          <p className="px-3 text-[17px] font-bold tracking-tight">Hisaab</p>
-          <button onClick={add} className="pressable accent-fill mt-6 flex h-11 items-center justify-center gap-2 rounded-full text-[15px] font-semibold">
+        <aside className="no-scrollbar sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-4 py-6 lg:flex [&>*]:shrink-0">
+          <p className="px-3 text-title font-bold tracking-tight">Hisaab</p>
+          <button onClick={add} className="pressable accent-fill mt-6 flex h-11 items-center justify-center gap-2 rounded-full text-body font-semibold">
             <Plus size={18} weight="bold" /> Add transaction
           </button>
           <nav aria-label="Main" className="mt-6 space-y-0.5">
@@ -66,7 +66,7 @@ export default function Layout() {
               <SideLink key={i.to} item={i} on={i.match(pathname)} />
             ))}
           </nav>
-          <div className="my-4 border-t border-[var(--line)]" />
+          <div className="my-4 border-t border-line" />
           <nav aria-label="More" className="space-y-0.5">
             {rest.map((i) => (
               <SideLink key={i.to} item={i} on={i.match(pathname)} />
@@ -76,7 +76,7 @@ export default function Layout() {
 
         {!online && (
           <div role="status" className="pointer-events-none fixed inset-x-0 top-[max(env(safe-area-inset-top),0.5rem)] z-[60] flex justify-center">
-            <span className="rounded-full bg-[var(--ink)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--bg)] shadow-[var(--shadow-float)]">
+            <span className="rounded-full bg-ink px-3 py-1.5 text-caption font-medium text-bg shadow-[var(--shadow-float)]">
               Offline · showing what was last loaded
             </span>
           </div>
@@ -87,7 +87,7 @@ export default function Layout() {
         </main>
 
         {/* Bottom tab bar (phones and tablets) */}
-        <nav aria-label="Main" className="glass fixed inset-x-0 bottom-0 z-50 border-t border-[var(--line)] pb-safe lg:hidden">
+        <nav aria-label="Main" className="glass fixed inset-x-0 bottom-0 z-50 border-t border-line pb-safe lg:hidden">
           <div className="mx-auto flex h-16 max-w-2xl items-stretch">
             {main.slice(0, 2).map((i) => (
               <TabLink key={i.to} item={i} on={i.match(pathname)} />
@@ -111,9 +111,9 @@ export default function Layout() {
 
 function TabLink({ item: { to, label, icon: Icon }, on }: { item: Item; on: boolean }) {
   return (
-    <NavLink to={to} className={cx('flex flex-1 flex-col items-center justify-center gap-1 transition-[color,transform] duration-150 active:scale-95', on ? 'text-[var(--ink)]' : 'text-[var(--ink-3)] hover:text-[var(--ink-2)]')}>
+    <NavLink to={to} className={cx('flex flex-1 flex-col items-center justify-center gap-1 transition-[color,transform] duration-quick active:scale-95', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}>
       <Icon size={24} weight={on ? 'fill' : 'regular'} />
-      <span className="text-[11px] font-medium">{label}</span>
+      <span className="text-micro font-medium">{label}</span>
     </NavLink>
   )
 }
@@ -122,7 +122,7 @@ function SideLink({ item: { to, label, icon: Icon }, on }: { item: Item; on: boo
   return (
     <NavLink
       to={to}
-      className={cx('flex h-10 items-center gap-3 rounded-xl px-3 text-[15px] transition-colors duration-150', on ? 'bg-[var(--press)] font-semibold text-[var(--ink)]' : 'text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)] active:bg-[var(--press)]')}
+      className={cx('flex h-10 items-center gap-3 rounded-field px-3 text-body transition-colors duration-quick', on ? 'bg-press font-semibold text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink active:bg-press')}
     >
       <Icon size={20} weight={on ? 'fill' : 'regular'} />
       {label}

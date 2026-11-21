@@ -33,9 +33,9 @@ export default function Review() {
         ) : (
           <>
             <Card className="p-5">
-              <p className="ink-2 text-[14px]">You saved</p>
-              <BigMoney value={r.saved} paise={false} className="block text-[40px] leading-tight" />
-              <p className="ink-2 mt-1 text-[14px]">
+              <p className="ink-2 text-label">You saved</p>
+              <BigMoney value={r.saved} paise={false} className="block text-display-sm leading-tight" />
+              <p className="ink-2 mt-1 text-label">
                 {r.savingsRate != null ? `${r.savingsRate}% of what came in · ` : ''}
                 {money0(r.income)} in, {money0(r.expense)} out
               </p>
@@ -56,7 +56,7 @@ export default function Review() {
                     onSelect={(m) => m && nav(`/reports?view=month&at=${m}-01`)}
                     items={r.months.map((m) => ({ key: m.month, label: monthName(m.month).slice(0, 3), value: m.expense }))}
                   />
-                  <p className="ink-2 mt-3 text-[13px]">
+                  <p className="ink-2 mt-3 text-small">
                     {r.bestMonth && <>Best month: <b>{monthName(r.bestMonth)}</b>. </>}
                     {r.costliestMonth && <>Costliest: <b>{monthName(r.costliestMonth)}</b>. </>}Tap a month to open it.
                   </p>
@@ -87,13 +87,13 @@ export default function Review() {
               <Section title={`Compared with ${year - 1}`}>
                 <Card className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="ink-2 text-[13px]">Spent</p>
-                    <p className="tabular text-[17px] font-semibold">{money0(r.expense)}</p>
+                    <p className="ink-2 text-small">Spent</p>
+                    <p className="tabular text-title font-semibold">{money0(r.expense)}</p>
                     <Delta now={r.expense} before={r.lastYearExpense} goodWhenUp={false} />
                   </div>
                   <div>
-                    <p className="ink-2 text-[13px]">Received</p>
-                    <p className="tabular text-[17px] font-semibold">{money0(r.income)}</p>
+                    <p className="ink-2 text-small">Received</p>
+                    <p className="tabular text-title font-semibold">{money0(r.income)}</p>
                     <Delta now={r.income} before={r.lastYearIncome} />
                   </div>
                 </Card>
@@ -108,9 +108,9 @@ export default function Review() {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="surface rounded-2xl px-3 py-2.5">
-      <p className="ink-2 text-[12px]">{label}</p>
-      <p className="tabular mt-0.5 truncate text-[17px] font-semibold">{value}</p>
+    <div className="surface rounded-box px-3 py-2.5">
+      <p className="ink-2 text-caption">{label}</p>
+      <p className="tabular mt-0.5 truncate text-title font-semibold">{value}</p>
     </div>
   )
 }
@@ -118,9 +118,9 @@ function Fact({ label, value }: { label: string; value: string }) {
 function Line({ label, value, sub }: { label: string; value: string; sub?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <span className="ink-2 w-28 shrink-0 text-[13px]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-right text-[15px] font-medium">{value}</span>
-      {sub && <span className="ink-3 shrink-0 text-[12px]">{sub}</span>}
+      <span className="ink-2 w-28 shrink-0 text-small">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-body font-medium">{value}</span>
+      {sub && <span className="ink-3 shrink-0 text-caption">{sub}</span>}
     </div>
   )
 }

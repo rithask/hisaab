@@ -14,19 +14,18 @@ import {
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { money, money0 } from '../format'
+import { QUICK, BASE, MOVE } from '../motion'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
 // ---- Motion ---------------------------------------------------------------------------------------
 // Short and quiet: things fade or slide from where they come from, and everything settles within 250ms.
 
-export const SPRING = { type: 'spring', duration: 0.25, bounce: 0 } as const
-export const SNAP = { type: 'spring', duration: 0.22, bounce: 0 } as const
 
 /** Page root: a single short fade-in when the page opens. */
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }} className={className}>
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={BASE} className={className}>
       {children}
     </motion.div>
   )
@@ -42,7 +41,7 @@ export function Rise({ children, className }: { children: ReactNode; className?:
 export function Card({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   const Tag = onClick ? 'button' : 'div'
   return (
-    <Tag onClick={onClick} className={cx('surface block w-full rounded-[20px] p-4 text-left', onClick && 'pressable', className)}>
+    <Tag onClick={onClick} className={cx('surface block w-full rounded-card p-4 text-left', onClick && 'pressable', className)}>
       {children}
     </Tag>
   )
@@ -52,7 +51,7 @@ export function Section({ title, action, children, className }: { title: string;
   return (
     <section className={cx('mt-7', className)}>
       <div className="mb-2 flex min-h-6 items-center justify-between px-1">
-        <h2 className="text-[15px] font-semibold">{title}</h2>
+        <h2 className="text-body font-semibold">{title}</h2>
         {action}
       </div>
       {children}
@@ -62,7 +61,7 @@ export function Section({ title, action, children, className }: { title: string;
 
 /** Grouped list inside a card: rows separated by hairlines. */
 export function List({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('surface overflow-hidden rounded-[20px] [&>*+*]:border-t [&>*+*]:border-[var(--line)]', className)}>{children}</div>
+  return <div className={cx('surface overflow-hidden rounded-card [&>*+*]:border-t [&>*+*]:border-line', className)}>{children}</div>
 }
 
 /**
@@ -74,18 +73,18 @@ export function PageHeader({ title, subtitle, action, back, up }: { title: strin
   return (
     <header className="mb-5 pt-1">
       {up ? (
-        <button onClick={() => nav(up.to)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)]">
+        <button onClick={() => nav(up.to)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent">
           <CaretLeft size={16} weight="bold" /> {up.label}
         </button>
       ) : back && (
-        <button onClick={() => nav(-1)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)] lg:hidden">
+        <button onClick={() => nav(-1)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent lg:hidden">
           <CaretLeft size={16} weight="bold" /> Back
         </button>
       )}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em]">{title}</h1>
-          {subtitle && <p className="ink-2 mt-0.5 text-[15px]">{subtitle}</p>}
+          <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
+          {subtitle && <p className="ink-2 mt-0.5 text-body">{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -104,17 +103,17 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md' }) {
   const v: Record<Variant, string> = {
     primary: 'accent-fill',
-    secondary: 'bg-[var(--surface-2)] text-[var(--ink)]',
-    ghost: 'text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)]',
-    danger: 'bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] text-[var(--negative)]',
-    glass: 'glass text-[var(--ink)]',
+    secondary: 'bg-surface-2 text-ink',
+    ghost: 'text-ink-2 hover:bg-hover hover:text-ink',
+    danger: 'bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] text-negative',
+    glass: 'glass text-ink',
   }
   return (
     <button
       {...p}
       className={cx(
         'pressable inline-flex items-center justify-center gap-1.5 rounded-full font-semibold disabled:pointer-events-none disabled:opacity-40',
-        size === 'sm' ? 'h-9 px-4 text-[14px]' : 'h-12 px-5 text-[16px]',
+        size === 'sm' ? 'h-9 px-4 text-label' : 'h-12 px-5 text-body',
         v[variant],
         className,
       )}
@@ -124,7 +123,7 @@ export function Button({
 
 export function IconButton({ icon: Icon, label, className, spinning, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: PhIcon; label: string; spinning?: boolean }) {
   return (
-    <button {...p} aria-label={label} title={label} className={cx('pressable flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink)]', className)}>
+    <button {...p} aria-label={label} title={label} className={cx('pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink', className)}>
       <Icon size={19} className={cx(spinning && 'motion-safe:animate-spin')} />
     </button>
   )
@@ -133,15 +132,15 @@ export function IconButton({ icon: Icon, label, className, spinning, ...p }: But
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block min-w-0 flex-1">
-      <span className="ink-2 mb-1.5 block px-1 text-[13px] font-medium">{label}</span>
+      <span className="ink-2 mb-1.5 block px-1 text-small font-medium">{label}</span>
       {children}
-      {hint && <span className="ink-3 mt-1.5 block px-1 text-xs">{hint}</span>}
+      {hint && <span className="ink-3 mt-1.5 block px-1 text-caption">{hint}</span>}
     </label>
   )
 }
 
 const inputCls =
-  'w-full rounded-xl border border-transparent bg-[var(--surface-2)] px-4 py-3 text-base text-[var(--ink)] outline-none transition-[border-color,box-shadow] duration-150 hover:border-[var(--line-strong)] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-60'
+  'w-full rounded-field border border-transparent bg-surface-2 px-4 py-3 text-input text-ink outline-none transition-[border-color,box-shadow] duration-quick hover:border-line-strong placeholder:text-ink-3 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-60'
 
 export function Input(p: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...p} className={cx(inputCls, p.className)} />
@@ -159,15 +158,15 @@ export function Textarea(p: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 export function Segmented<T extends string>({ value, options, onChange, className }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; className?: string }) {
   const id = useId()
   return (
-    <div className={cx('relative grid rounded-full bg-[var(--surface-2)] p-1', className)} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0,1fr))` }}>
+    <div className={cx('relative grid rounded-full bg-surface-2 p-1', className)} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0,1fr))` }}>
       {options.map((o) => (
         <button
           type="button"
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={cx('relative h-9 rounded-full text-[13px] font-semibold transition-[color,opacity] duration-150 active:opacity-60', o.value === value ? 'text-[var(--ink)]' : 'text-[var(--ink-2)] hover:text-[var(--ink)]')}
+          className={cx('relative h-9 rounded-full text-small font-semibold transition-[color,opacity] duration-quick active:opacity-60', o.value === value ? 'text-ink' : 'text-ink-2 hover:text-ink')}
         >
-          {o.value === value && <motion.span layoutId={`seg-${id}`} transition={SPRING} className="absolute inset-0 rounded-full bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:bg-white/12" />}
+          {o.value === value && <motion.span layoutId={`seg-${id}`} transition={MOVE} className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:bg-white/12" />}
           <span className="relative">{o.label}</span>
         </button>
       ))}
@@ -182,12 +181,12 @@ export function PillSelect({ active, className, ...p }: SelectHTMLAttributes<HTM
       <select
         {...p}
         className={cx(
-          'pressable h-9 appearance-none rounded-full pl-3.5 pr-8 text-[13px] font-semibold outline-none',
-          active ? 'bg-[var(--ink)] text-[var(--surface)]' : 'bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--line-strong)]',
+          'pressable h-9 appearance-none rounded-full pl-3.5 pr-8 text-small font-semibold outline-none',
+          active ? 'bg-ink text-surface' : 'bg-surface text-ink ring-1 ring-line-strong',
           className,
         )}
       />
-      <CaretDown size={14} className={cx('pointer-events-none absolute right-3 top-1/2 -translate-y-1/2', active ? 'text-[var(--bg)]' : 'text-[var(--ink-3)]')} />
+      <CaretDown size={14} className={cx('pointer-events-none absolute right-3 top-1/2 -translate-y-1/2', active ? 'text-bg' : 'text-ink-3')} />
     </span>
   )
 }
@@ -198,8 +197,8 @@ export function Chip({ active, children, onClick }: { active?: boolean; children
       type="button"
       onClick={onClick}
       className={cx(
-        'pressable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150',
-        active ? 'bg-[var(--ink)] text-[var(--surface)]' : 'bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--line-strong)]',
+        'pressable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-small font-semibold transition-colors duration-quick',
+        active ? 'bg-ink text-surface' : 'bg-surface text-ink ring-1 ring-line-strong',
       )}
     >
       {children}
@@ -209,10 +208,10 @@ export function Chip({ active, children, onClick }: { active?: boolean; children
 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="group flex w-full items-center justify-between gap-3 py-1 text-left text-[15px]">
+    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="group flex w-full items-center justify-between gap-3 py-1 text-left text-body">
       <span>{label}</span>
-      <span className={cx('flex h-7 w-12 shrink-0 rounded-full p-0.5 transition-[background-color,filter] duration-200 group-hover:[filter:var(--hover-filter)] group-active:[filter:var(--press-filter)]', checked ? 'justify-end bg-[var(--positive)]' : 'justify-start bg-[var(--line-strong)]')}>
-        <motion.span layout transition={SPRING} className="h-6 w-6 rounded-full bg-white shadow" />
+      <span className={cx('flex h-7 w-12 shrink-0 rounded-full p-0.5 transition-[background-color,filter] duration-base group-hover:[filter:var(--hover-filter)] group-active:[filter:var(--press-filter)]', checked ? 'justify-end bg-positive' : 'justify-start bg-line-strong')}>
+        <motion.span layout transition={MOVE} className="h-6 w-6 rounded-full bg-white shadow" />
       </span>
     </button>
   )
@@ -253,18 +252,18 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       {open &&
         (wide ? (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={title}>
-            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={onClose} />
+            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={BASE} onClick={onClose} />
             <motion.div
-              className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-y-auto overflow-x-hidden overscroll-contain rounded-[24px] bg-[var(--surface)] px-5 pb-6 shadow-[var(--shadow-float)]"
+              className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-y-auto overflow-x-hidden overscroll-contain rounded-dialog bg-surface px-5 pb-6 shadow-[var(--shadow-float)]"
               initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.15 } }}
-              transition={SPRING}
+              exit={{ opacity: 0, y: 8, scale: 0.98, transition: QUICK }}
+              transition={MOVE}
             >
-              <div className="sticky top-0 z-20 -mx-5 mb-3 rounded-t-[24px] bg-[var(--surface)] px-5 pb-2 pt-4">
+              <div className="sticky top-0 z-20 -mx-5 mb-3 rounded-t-dialog bg-surface px-5 pb-2 pt-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[19px] font-semibold">{title}</h3>
-                  <button onClick={onClose} className="pressable flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink-2)] hover:text-[var(--ink)]" aria-label="Close">
+                  <h3 className="text-subheading font-semibold">{title}</h3>
+                  <button onClick={onClose} className="pressable flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-ink-2 hover:text-ink" aria-label="Close">
                     <X size={15} weight="bold" />
                   </button>
                 </div>
@@ -277,18 +276,18 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-[var(--surface)] px-5 pb-safe"
+            className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-surface px-5 pb-safe"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6, transition: { duration: 0.15 } }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, y: 6, transition: QUICK }}
+            transition={BASE}
           >
             {/* the page header, kept in view while the window scrolls */}
-            <header className="sticky top-0 z-20 -mx-5 mb-4 bg-[var(--surface)] px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
-              <button onClick={onClose} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)]">
+            <header className="sticky top-0 z-20 -mx-5 mb-4 bg-surface px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
+              <button onClick={onClose} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent">
                 <CaretLeft size={16} weight="bold" /> Back
               </button>
-              <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em]">{title}</h1>
+              <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
             </header>
             {/* fills the rest of the screen, so a form can keep its button at the bottom (mt-auto) */}
             <div className="flex flex-1 flex-col">{children}</div>
@@ -301,18 +300,18 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
 // ---- Data display ---------------------------------------------------------------------------------
 
-type Tone = 'neutral' | 'green' | 'red' | 'amber' | 'blue' | 'violet'
-const toneCls: Record<Tone, string> = {
-  neutral: 'bg-[var(--surface-2)] text-[var(--ink-2)]',
-  green: 'bg-[color-mix(in_oklab,var(--positive)_14%,transparent)] text-[var(--positive)]',
-  red: 'bg-[color-mix(in_oklab,var(--negative)_13%,transparent)] text-[var(--negative)]',
-  amber: 'bg-amber-500/14 text-amber-700 dark:text-amber-300',
-  blue: 'bg-sky-500/12 text-sky-700 dark:text-sky-300',
-  violet: 'bg-violet-500/12 text-violet-700 dark:text-violet-300',
+/** What a colour means (principles §2.3): good or money in, a problem or money out, needs attention soon, tappable. */
+export type Tone = 'neutral' | 'positive' | 'negative' | 'attention' | 'accent'
+export const toneCls: Record<Tone, string> = {
+  neutral: 'tint-neutral',
+  positive: 'tint-positive',
+  negative: 'tint-negative',
+  attention: 'tint-attention',
+  accent: 'tint-accent',
 }
 
 export function Badge({ children, tone = 'neutral', className }: { children: ReactNode; tone?: Tone; className?: string }) {
-  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', toneCls[tone], className)}>{children}</span>
+  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-semibold', toneCls[tone], className)}>{children}</span>
 }
 
 /** Change vs a previous value. `goodWhenUp` flips the colour meaning (spending up = bad). */
@@ -323,7 +322,7 @@ export function Delta({ now, before, goodWhenUp = true }: { now: number; before:
   const up = pct > 0
   const good = pct === 0 ? true : up === goodWhenUp
   return (
-    <Badge tone={pct === 0 ? 'neutral' : good ? 'green' : 'red'}>
+    <Badge tone={pct === 0 ? 'neutral' : good ? 'positive' : 'negative'}>
       {up ? '↑' : pct < 0 ? '↓' : '→'} {Math.abs(pct)}%
     </Badge>
   )
@@ -331,14 +330,14 @@ export function Delta({ now, before, goodWhenUp = true }: { now: number; before:
 
 export function Empty({ icon: Icon, title, children, action }: { icon?: PhIcon; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="surface flex flex-col items-center rounded-[20px] px-6 py-10 text-center">
+    <div className="surface flex flex-col items-center rounded-card px-6 py-10 text-center">
       {Icon && (
-        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-box bg-accent-soft text-accent">
           <Icon size={26} />
         </div>
       )}
-      <p className="text-[17px] font-semibold">{title}</p>
-      {children && <div className="ink-2 mt-1 max-w-xs text-sm">{children}</div>}
+      <p className="text-title font-semibold">{title}</p>
+      {children && <div className="ink-2 mt-1 max-w-xs text-label">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   )
@@ -346,16 +345,16 @@ export function Empty({ icon: Icon, title, children, action }: { icon?: PhIcon; 
 
 /** Static placeholder blocks while loading (no looping animation). */
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cx('rounded-2xl bg-[var(--surface-2)]', className)} />
+  return <div className={cx('rounded-box bg-surface-2', className)} />
 }
 
 export function PageSkeleton() {
   return (
     <div className="space-y-4 pt-4">
       <Skeleton className="h-8 w-40" />
-      <Skeleton className="h-40 w-full rounded-[20px]" />
-      <Skeleton className="h-24 w-full rounded-[20px]" />
-      <Skeleton className="h-64 w-full rounded-[20px]" />
+      <Skeleton className="h-40 w-full rounded-card" />
+      <Skeleton className="h-24 w-full rounded-card" />
+      <Skeleton className="h-64 w-full rounded-card" />
     </div>
   )
 }
@@ -365,13 +364,13 @@ export function Meter({ pct, color, status, className }: { pct: number; color?: 
   const v = Math.max(0, Math.min(100, pct))
   const c = status ? statusColor(v) : (color ?? 'var(--ink)')
   return (
-    <div className={cx('h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]', className)}>
-      <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${v}%` }} transition={SNAP} style={{ background: c }} />
+    <div className={cx('h-1.5 w-full overflow-hidden rounded-full bg-surface-2', className)}>
+      <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${v}%` }} transition={MOVE} style={{ background: c }} />
     </div>
   )
 }
 
-export const statusColor = (pct: number) => (pct >= 75 ? '#ef4444' : pct >= 40 ? '#f59e0b' : '#22c55e')
+export const statusColor = (pct: number) => (pct >= 75 ? 'var(--negative)' : pct >= 40 ? 'var(--attention)' : 'var(--positive)')
 
 /** Circular progress ring with a centred label. */
 export function Ring({ pct, size = 56, stroke = 6, color, children, track = 'var(--line-strong)' }: { pct: number; size?: number; stroke?: number; color?: string; children?: ReactNode; track?: string }) {
@@ -392,7 +391,7 @@ export function Ring({ pct, size = 56, stroke = 6, color, children, track = 'var
           strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
           animate={{ strokeDashoffset: c * (1 - v / 100) }}
-          transition={SNAP}
+          transition={MOVE}
           style={{ stroke: color ?? statusColor(v) }}
         />
       </svg>
@@ -402,7 +401,7 @@ export function Ring({ pct, size = 56, stroke = 6, color, children, track = 'var
 }
 
 export function Amount({ value, direction, className, muted }: { value: number; direction?: 'DEBIT' | 'CREDIT'; className?: string; muted?: boolean }) {
-  const color = muted ? 'text-[var(--ink-3)]' : direction === 'CREDIT' ? 'text-[var(--positive)]' : ''
+  const color = muted ? 'text-ink-3' : direction === 'CREDIT' ? 'text-positive' : ''
   return (
     <span className={cx('tabular font-semibold tracking-tight', color, className)}>
       {direction === 'CREDIT' ? '+' : direction === 'DEBIT' ? '−' : ''}
@@ -434,7 +433,7 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
     .map((w) => w[0]!.toUpperCase())
     .join('')
   return (
-    <div className="flex shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] font-semibold text-[var(--ink-2)]" style={{ width: size, height: size, fontSize: size * 0.38 }}>
+    <div className="flex shrink-0 items-center justify-center rounded-full bg-surface-2 font-semibold text-ink-2" style={{ width: size, height: size, fontSize: size * 0.38 }}>
       {initials}
     </div>
   )
@@ -442,11 +441,11 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 
 export function ErrorText({ error }: { error: unknown }) {
   if (!error) return null
-  return <p className="anim-pop rounded-2xl bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] px-4 py-3 text-sm text-[var(--negative)]">{(error as Error).message}</p>
+  return <p className="anim-pop rounded-box bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] px-4 py-3 text-label text-negative">{(error as Error).message}</p>
 }
 
-export function Notice({ children, tone = 'green' }: { children: ReactNode; tone?: Tone }) {
-  return <p className={cx('anim-pop rounded-2xl px-4 py-3 text-sm', toneCls[tone])}>{children}</p>
+export function Notice({ children, tone = 'positive' }: { children: ReactNode; tone?: Tone }) {
+  return <p className={cx('anim-pop rounded-box px-4 py-3 text-label', toneCls[tone])}>{children}</p>
 }
 
 /**
@@ -471,7 +470,7 @@ export function FeatureGate({ on, name, children }: { on: boolean | undefined; n
 /** One row in a list of things you could do (a transaction's More list): icon, label, chevron. */
 export function MoreRow({ icon: Icon, onClick, children, tone }: { icon: PhIcon; onClick: () => void; children: ReactNode; tone?: 'danger' }) {
   return (
-    <button type="button" onClick={onClick} className={cx('row flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px]', tone === 'danger' && 'text-[var(--negative)]')}>
+    <button type="button" onClick={onClick} className={cx('row flex w-full items-center gap-3 px-4 py-3.5 text-left text-body', tone === 'danger' && 'text-negative')}>
       <Icon size={19} className={tone === 'danger' ? undefined : 'ink-2'} />
       <span className="min-w-0 flex-1">{children}</span>
       {tone !== 'danger' && <CaretRight size={15} className="ink-3" />}
@@ -490,7 +489,7 @@ export function Confirm({ ask, yes, onYes, busy, className, children }: { ask: R
   if (!asking) return <>{children(() => setAsking(true))}</>
   return (
     <div className={cx('anim-pop flex w-full flex-wrap items-center gap-2', className)}>
-      <span className="min-w-0 flex-1 text-[14px]">{ask}</span>
+      <span className="min-w-0 flex-1 text-label">{ask}</span>
       <Button type="button" size="sm" variant="secondary" onClick={() => setAsking(false)}>
         Cancel
       </Button>
@@ -514,7 +513,7 @@ export function Fold({ open, children }: { open: boolean; children: ReactNode })
           initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
           animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
           exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          transition={BASE}
         >
           {children}
         </motion.div>

@@ -22,13 +22,13 @@ export default function NetWorth() {
         {!q.data ? (
           <PageSkeleton />
         ) : !last ? (
-          <Card className="p-5 text-[15px]">The first snapshot is taken shortly after the app starts. Check back in a minute.</Card>
+          <Card className="p-5 text-body">The first snapshot is taken shortly after the app starts. Check back in a minute.</Card>
         ) : (
           <>
-            <p className="ink-2 text-[15px]">Today</p>
-            <BigMoney value={last.netWorth} className="block text-[40px] leading-tight" />
+            <p className="ink-2 text-body">Today</p>
+            <BigMoney value={last.netWorth} className="block text-display-sm leading-tight" />
             {first && first !== last && (
-              <p className="mt-1 flex items-center gap-2 text-[14px]">
+              <p className="mt-1 flex items-center gap-2 text-label">
                 <Delta now={last.netWorth} before={first.netWorth} />
                 <span className="ink-2">
                   {last.netWorth >= first.netWorth ? '+' : '−'}
@@ -52,7 +52,7 @@ export default function NetWorth() {
               <NetWorthChart points={pts} height={220} />
             </Card>
             {estimated.length > 0 && (
-              <p className="ink-3 mt-2 px-1 text-[12px]">
+              <p className="ink-3 mt-2 px-1 text-caption">
                 The dashed part (until {shortDate(estimated[estimated.length - 1].day)}) is rebuilt from your transactions: bank and card balances are exact, investments are shown at their earliest recorded value.
               </p>
             )}
@@ -74,8 +74,8 @@ export default function NetWorth() {
 function Part({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="ink-2 text-[13px]">{label}</p>
-      <p className={'tabular mt-0.5 text-[17px] font-semibold' + (value < 0 ? ' text-[var(--negative)]' : '')}>
+      <p className="ink-2 text-small">{label}</p>
+      <p className={'tabular mt-0.5 text-title font-semibold' + (value < 0 ? ' text-negative' : '')}>
         {value < 0 ? '−' : ''}
         {money0(Math.abs(value))}
       </p>

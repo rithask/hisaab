@@ -100,7 +100,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
 
   return (
     <form
-      className="anim-pop space-y-3 rounded-2xl bg-[var(--surface-2)] p-4"
+      className="anim-pop space-y-3 rounded-box bg-surface-2 p-4"
       onSubmit={(e) => {
         e.preventDefault()
         teach.mutate(undefined)
@@ -110,15 +110,15 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
         <Segmented<Mark>
           value={mark}
           onChange={setMark}
-          className="bg-[var(--surface)]"
+          className="bg-surface"
           options={[
             { value: 'amount', label: 'Tap the amount' },
             { value: 'payee', label: 'Tap the payee' },
           ]}
         />
-        <p className="ink-3 mt-1.5 px-1 text-xs">{mark === 'amount' ? 'Tap the number that was paid or received.' : 'Tap the first word of the name, then the last. Tap it again to clear.'}</p>
+        <p className="ink-3 mt-1.5 px-1 text-caption">{mark === 'amount' ? 'Tap the number that was paid or received.' : 'Tap the first word of the name, then the last. Tap it again to clear.'}</p>
       </div>
-      <div className="max-h-[38dvh] overflow-auto rounded-xl bg-[var(--surface)] p-2.5 text-[14px] leading-[1.9]" role="group" aria-label="Message words">
+      <div className="max-h-[38dvh] overflow-auto rounded-field bg-surface p-2.5 text-label leading-[1.9]" role="group" aria-label="Message words">
         {toks.map((t, i) => {
           const isAmount = i === amountWord
           const isPayee = !!payeeWords && i >= payeeWords[0] && i <= payeeWords[1]
@@ -129,8 +129,8 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
               onClick={() => tap(i)}
               aria-pressed={isAmount || isPayee}
               className={cx(
-                'mr-1 rounded-md px-1 transition-colors duration-150',
-                isAmount ? 'bg-[var(--ink)] font-semibold text-[var(--surface)]' : isPayee ? 'bg-[var(--accent-soft)] font-semibold text-[var(--accent)]' : 'hover:bg-[var(--surface-2)]',
+                'mr-1 rounded-md px-1 transition-colors duration-quick',
+                isAmount ? 'bg-ink font-semibold text-surface' : isPayee ? 'bg-accent-soft font-semibold text-accent' : 'hover:bg-surface-2',
               )}
             >
               {t.text}
@@ -138,13 +138,13 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
           )
         })}
       </div>
-      <div className="ink-2 flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs">
+      <div className="ink-2 flex flex-wrap gap-x-4 gap-y-1 px-1 text-caption">
         <span>
-          <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[var(--ink)] align-middle" />
+          <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-ink align-middle" />
           Amount
         </span>
         <span>
-          <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[var(--accent)] align-middle" />
+          <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-accent align-middle" />
           Payee
         </span>
       </div>
@@ -152,7 +152,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
       <Segmented<'DEBIT' | 'CREDIT'>
         value={direction}
         onChange={setDirection}
-        className="bg-[var(--surface)]"
+        className="bg-surface"
         options={[
           { value: 'DEBIT', label: 'Money out' },
           { value: 'CREDIT', label: 'Money in' },
@@ -161,15 +161,15 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
       <div className="flex gap-2">
         <div className="w-36 shrink-0">
           <Field label="Amount (₹)">
-            <Input inputMode="decimal" required value={amount} onChange={(e) => (setAmount(e.target.value.replace(/[^\d.]/g, '')), setAmountWord(null))} className="bg-[var(--surface)]" />
+            <Input inputMode="decimal" required value={amount} onChange={(e) => (setAmount(e.target.value.replace(/[^\d.]/g, '')), setAmountWord(null))} className="bg-surface" />
           </Field>
         </div>
         <Field label="Show payee as" hint={marked && name.trim() && name.trim() !== marked ? `Remembered for "${marked}"` : undefined}>
-          <Input value={name} onChange={(e) => (setName(e.target.value), setNameEdited(true))} placeholder={marked || 'Optional'} className="bg-[var(--surface)]" />
+          <Input value={name} onChange={(e) => (setName(e.target.value), setNameEdited(true))} placeholder={marked || 'Optional'} className="bg-surface" />
         </Field>
       </div>
       <div>
-        <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">Account</span>
+        <span className="ink-2 mb-1.5 block px-1 text-caption font-medium">Account</span>
         <div className="flex flex-wrap gap-2">
           {active.map((a) => (
             <Chip key={a.id} active={a.id === accountId} onClick={() => setAccountId(a.id)}>
@@ -179,7 +179,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
         </div>
       </div>
       <div>
-        <span className="ink-2 mb-1.5 block px-1 text-[12.5px] font-medium">Category (optional)</span>
+        <span className="ink-2 mb-1.5 block px-1 text-caption font-medium">Category (optional)</span>
         <div className="flex flex-wrap gap-2">
           {kindCats.map((c) => (
             <Chip key={c.id} active={c.id === category?.id} onClick={() => setCategoryId(c.id === category?.id ? null : c.id)}>
@@ -188,7 +188,7 @@ export default function TeachForm({ id, onDone }: { id: number; onDone: (r: Teac
           ))}
         </div>
         {!payeeWords && !name.trim() && (
-          <p className="ink-2 mt-1.5 px-1 text-xs">No payee in this message? That's fine. Pick a category and messages worded like it will get it.</p>
+          <p className="ink-2 mt-1.5 px-1 text-caption">No payee in this message? That's fine. Pick a category and messages worded like it will get it.</p>
         )}
       </div>
       <ErrorText error={teach.error} />

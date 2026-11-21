@@ -24,14 +24,14 @@ export default function Setup() {
       <PageHeader back title="Setup" />
       <div className="mb-5 flex gap-2">
         {[0, 1].map((i) => (
-          <span key={i} className={cx('h-1.5 flex-1 rounded-full transition-colors duration-200', i <= step ? 'bg-[var(--ink)]' : 'bg-[var(--line-strong)]')} />
+          <span key={i} className={cx('h-1.5 flex-1 rounded-full transition-colors duration-base', i <= step ? 'bg-ink' : 'bg-line-strong')} />
         ))}
       </div>
       {step === 0 && (
         <Card className="anim-pop space-y-4 p-5">
           <div>
-            <p className="text-[20px] font-semibold">What do banks call you?</p>
-            <p className="ink-2 mt-1 text-sm">This lets the app recognise money you move between your own accounts.</p>
+            <p className="text-subheading font-semibold">What do banks call you?</p>
+            <p className="ink-2 mt-1 text-label">This lets the app recognise money you move between your own accounts.</p>
           </div>
           <Field label="Your name">
             <Input autoFocus value={name} onChange={(e) => setOwner(e.target.value)} placeholder="ARJUN RAVI K" />
@@ -44,8 +44,8 @@ export default function Setup() {
       )}
       {step === 1 && (
         <div className="anim-pop">
-          <p className="text-[20px] font-semibold">Add your accounts</p>
-          <p className="ink-2 mb-4 mt-1 text-sm">Use today's balance (or a card's current outstanding). Alerts keep them up to date from here.</p>
+          <p className="text-subheading font-semibold">Add your accounts</p>
+          <p className="ink-2 mb-4 mt-1 text-label">Use today's balance (or a card's current outstanding). Alerts keep them up to date from here.</p>
           <div className="grid grid-cols-3 gap-2">
             {(
               [
@@ -54,8 +54,8 @@ export default function Setup() {
                 ['CASH', Wallet, 'Cash'],
               ] as const
             ).map(([t, Icon, l]) => (
-              <button key={t} onClick={() => setAdding(t)} className="surface pressable flex flex-col items-center gap-2 rounded-2xl py-4 text-[13px] font-semibold">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+              <button key={t} onClick={() => setAdding(t)} className="surface pressable flex flex-col items-center gap-2 rounded-box py-4 text-small font-semibold">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
                   <Icon size={20} />
                 </span>
                 {l}
@@ -70,7 +70,7 @@ export default function Setup() {
                     <Check size={15} />
                   </span>
                   <span className="flex-1 font-semibold">{a.name}</span>
-                  <span className="tabular text-sm">{money(a.balance)}</span>
+                  <span className="tabular text-label">{money(a.balance)}</span>
                 </div>
               ))}
             </List>
@@ -78,7 +78,7 @@ export default function Setup() {
           <Button className="mt-6 w-full" disabled={!accounts.data?.length} onClick={() => nav('/')}>
             Done
           </Button>
-          <p className="ink-3 mt-3 text-center text-xs">Investments and people can be added any time from their tabs.</p>
+          <p className="ink-3 mt-3 text-center text-caption">Investments and people can be added any time from their tabs.</p>
         </div>
       )}
       <Sheet open={!!adding} onClose={() => setAdding(null)} title="Add account">

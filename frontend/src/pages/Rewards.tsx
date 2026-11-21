@@ -33,7 +33,7 @@ export default function Rewards() {
             {q.data.map((c) => (
               <CardSection key={c.accountId} c={c} onEdit={() => setEditing(c)} />
             ))}
-            <p className="ink-3 px-1 text-[13px]">
+            <p className="ink-3 px-1 text-small">
               Estimates from your card's rules as you entered them. Banks exclude some spending and round in their own ways, so the statement has the final number. Refunds on the card take back what they earned; fees and interest never earn.
             </p>
           </div>
@@ -53,10 +53,10 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
     return (
       <Section title={title} className="mt-0">
         <Card className="flex items-center gap-3 p-4">
-          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
             <Gift size={20} />
           </span>
-          <p className="ink-2 min-w-0 flex-1 text-[14px]">Tell the app how this card earns, and it'll track each cycle.</p>
+          <p className="ink-2 min-w-0 flex-1 text-label">Tell the app how this card earns, and it'll track each cycle.</p>
           <Button size="sm" variant="secondary" onClick={onEdit}>
             Set up
           </Button>
@@ -65,17 +65,17 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
     )
   const now = c.cycles[0]
   return (
-    <Section title={title} className="mt-0" action={<button className="link text-[14px] font-medium text-[var(--accent)]" onClick={onEdit}>Edit</button>}>
+    <Section title={title} className="mt-0" action={<button className="link text-label font-medium text-accent" onClick={onEdit}>Edit</button>}>
       {now && (
         <Card className="p-4">
-          <p className="ink-2 text-[13px]">
+          <p className="ink-2 text-small">
             This {c.statementCycles ? 'cycle' : 'month'} · {shortDate(now.from)} – {shortDate(now.to)}
           </p>
-          <p className="display mt-0.5 text-[28px]">
+          <p className="display mt-0.5 text-heading">
             {earned(p, now.earned)}
-            {points(p) && now.value != null && <span className="ink-2 text-[17px] font-normal"> ≈ {moneyAuto(now.value)}</span>}
+            {points(p) && now.value != null && <span className="ink-2 text-title font-normal"> ≈ {moneyAuto(now.value)}</span>}
           </p>
-          <p className="ink-2 text-[13px]">
+          <p className="ink-2 text-small">
             on {money0(now.spent)} spent{now.capped ? ' · cap reached' : ''}
           </p>
           <Lines p={p} cycle={now} />
@@ -83,24 +83,24 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="surface rounded-2xl px-3 py-2.5">
-          <p className="ink-2 text-[12px]">Earned this year</p>
-          <p className="tabular mt-0.5 text-[17px] font-semibold">{earned(p, c.yearEarned ?? 0)}</p>
-          {points(p) && c.yearValue != null && <p className="ink-3 text-[12px]">≈ {moneyAuto(c.yearValue)}</p>}
+        <div className="surface rounded-box px-3 py-2.5">
+          <p className="ink-2 text-caption">Earned this year</p>
+          <p className="tabular mt-0.5 text-title font-semibold">{earned(p, c.yearEarned ?? 0)}</p>
+          {points(p) && c.yearValue != null && <p className="ink-3 text-caption">≈ {moneyAuto(c.yearValue)}</p>}
         </div>
         {points(p) && c.points ? (
-          <div className="surface rounded-2xl px-3 py-2.5">
-            <p className="ink-2 text-[12px]">Points balance (est.)</p>
-            <p className="tabular mt-0.5 text-[17px] font-semibold">{count(c.points.estimate)}</p>
-            <p className="ink-3 text-[12px]">
+          <div className="surface rounded-box px-3 py-2.5">
+            <p className="ink-2 text-caption">Points balance (est.)</p>
+            <p className="tabular mt-0.5 text-title font-semibold">{count(c.points.estimate)}</p>
+            <p className="ink-3 text-caption">
               {count(c.points.balance)} on {shortDate(c.points.asOf)} + {count(c.points.earnedSince)}
             </p>
           </div>
         ) : (
-          <div className="surface rounded-2xl px-3 py-2.5">
-            <p className="ink-2 text-[12px]">{points(p) ? 'Redeemed this year' : 'Credited this year'}</p>
-            <p className="tabular mt-0.5 text-[17px] font-semibold">{moneyAuto(c.yearReceived ?? 0)}</p>
-            <p className="ink-3 text-[12px]">{points(p) ? 'Add your balance in Edit' : 'Cashback the bank paid'}</p>
+          <div className="surface rounded-box px-3 py-2.5">
+            <p className="ink-2 text-caption">{points(p) ? 'Redeemed this year' : 'Credited this year'}</p>
+            <p className="tabular mt-0.5 text-title font-semibold">{moneyAuto(c.yearReceived ?? 0)}</p>
+            <p className="ink-3 text-caption">{points(p) ? 'Add your balance in Edit' : 'Cashback the bank paid'}</p>
           </div>
         )}
       </div>
@@ -110,14 +110,14 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
           {c.cycles.slice(1).map((y) => (
             <div key={y.from} className="flex items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px]">
+                <span className="block text-body">
                   {shortDate(y.from)} – {shortDate(y.to)}
                 </span>
-                <span className="ink-2 block text-[13px]">
+                <span className="ink-2 block text-small">
                   {money0(y.spent)} spent{y.received > 0 ? ` · ${moneyAuto(y.received)} credited` : ''}
                 </span>
               </span>
-              <span className="tabular shrink-0 text-[15px] font-semibold">{earned(p, y.earned)}</span>
+              <span className="tabular shrink-0 text-body font-semibold">{earned(p, y.earned)}</span>
             </div>
           ))}
         </List>
@@ -130,10 +130,10 @@ function Lines({ p, cycle }: { p: RewardProgram; cycle: RewardCycle }) {
   const shown = cycle.lines.filter((l) => l.spent !== 0 || l.cap != null)
   if (shown.length <= 1) return null
   return (
-    <ul className="mt-3 space-y-2.5 border-t border-[var(--line)] pt-3">
+    <ul className="mt-3 space-y-2.5 border-t border-line pt-3">
       {shown.map((l) => (
         <li key={l.label}>
-          <div className="flex items-baseline justify-between gap-2 text-[13.5px]">
+          <div className="flex items-baseline justify-between gap-2 text-small">
             <span className="min-w-0 truncate">
               {l.label} <span className="ink-3">· {l.rate === 0 ? 'no rewards' : rateText(p, l.rate)}</span>
             </span>
@@ -143,7 +143,7 @@ function Lines({ p, cycle }: { p: RewardProgram; cycle: RewardCycle }) {
             </span>
           </div>
           {l.cap != null && <Meter pct={(l.earned / l.cap) * 100} className="mt-1" color={l.capped ? 'var(--positive)' : 'var(--ink)'} />}
-          <p className="ink-3 text-[12px]">{money0(l.spent)} spent{l.capped ? ' · cap reached, more spending here earns nothing this cycle' : ''}</p>
+          <p className="ink-3 text-caption">{money0(l.spent)} spent{l.capped ? ' · cap reached, more spending here earns nothing this cycle' : ''}</p>
         </li>
       ))}
     </ul>
@@ -241,11 +241,11 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
       )}
 
       <div>
-        <p className="mb-1 px-1 text-[15px] font-semibold">Special rates</p>
-        <p className="ink-2 mb-3 px-1 text-[13px]">Checked top to bottom; the first match wins. Use 0 for spending that earns nothing (fuel, rent, wallet loads).</p>
+        <p className="mb-1 px-1 text-body font-semibold">Special rates</p>
+        <p className="ink-2 mb-3 px-1 text-small">Checked top to bottom; the first match wins. Use 0 for spending that earns nothing (fuel, rent, wallet loads).</p>
         <div className="space-y-3">
           {rules.map((r, i) => (
-            <div key={i} className="surface space-y-3 rounded-2xl p-3">
+            <div key={i} className="surface space-y-3 rounded-box p-3">
               <div className="flex items-center gap-2">
                 <Segmented<'merchant' | 'category'>
                   className="flex-1"
@@ -308,7 +308,7 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
           )}
         </Confirm>
       )}
-      <p className="ink-3 px-1 text-[12.5px]">Copy the rates from your card's terms; they change from time to time, so check them now and then.</p>
+      <p className="ink-3 px-1 text-caption">Copy the rates from your card's terms; they change from time to time, so check them now and then.</p>
     </form>
   )
 }

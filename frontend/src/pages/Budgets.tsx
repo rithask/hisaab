@@ -7,7 +7,7 @@ import { money, money0 } from '../format'
 import { categoryIcon, tint } from '../icons'
 import { useCategories, useFeature, useMoneyMutation } from '../hooks'
 
-const barColor = (b: Budget) => (b.status === 'OVER' ? 'var(--negative)' : b.status === 'WARN' ? '#f59e0b' : 'var(--positive)')
+const barColor = (b: Budget) => (b.status === 'OVER' ? 'var(--negative)' : b.status === 'WARN' ? 'var(--attention)' : 'var(--positive)')
 
 /** Monthly limits per spending category, with how this month is going. */
 export default function Budgets() {
@@ -31,9 +31,9 @@ export default function Budgets() {
         ) : (
           <>
             <Card>
-              <p className="ink-2 text-[13px]">Spent of all budgets</p>
-              <p className="display mt-0.5 text-[28px]">
-                {money0(spent)} <span className="ink-3 text-[17px] font-medium">of {money0(limit)}</span>
+              <p className="ink-2 text-small">Spent of all budgets</p>
+              <p className="display mt-0.5 text-heading">
+                {money0(spent)} <span className="ink-3 text-title font-medium">of {money0(limit)}</span>
               </p>
             </Card>
             <Section title="Categories">
@@ -44,7 +44,7 @@ export default function Budgets() {
                   </button>
                 ))}
               </List>
-              <p className="ink-3 mt-2 px-1 text-[13px]">Tap one to change or remove it. Only your share of split bills counts, and money moved between your own accounts never does.</p>
+              <p className="ink-3 mt-2 px-1 text-small">Tap one to change or remove it. Only your share of split bills counts, and money moved between your own accounts never does.</p>
             </Section>
           </>
         )}
@@ -65,15 +65,15 @@ export function BudgetLine({ b }: { b: Budget }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[15px] font-medium">{b.name}</span>
-          <span className="tabular shrink-0 text-[14px]">
+          <span className="truncate text-body font-medium">{b.name}</span>
+          <span className="tabular shrink-0 text-label">
             <b>{money0(b.spent)}</b> <span className="ink-3">/ {money0(b.limit)}</span>
           </span>
         </div>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
-          <div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${Math.min(100, b.pct)}%`, background: barColor(b) }} />
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div className="h-full rounded-full transition-[width] duration-base" style={{ width: `${Math.min(100, b.pct)}%`, background: barColor(b) }} />
         </div>
-        <p className="ink-2 mt-1 text-[12px]">
+        <p className="ink-2 mt-1 text-caption">
           {b.status === 'OVER'
             ? `${money0(-b.remaining)} over`
             : `${money0(b.remaining)} left${b.projected > b.limit ? ` · on pace for ${money0(b.projected)}` : ''}`}
@@ -98,7 +98,7 @@ function BudgetForm({ initial, taken, onDone }: { initial: { categoryId?: number
             <button
               key={c.id}
               onClick={() => setCategoryId(c.id)}
-              className={'pressable h-10 rounded-full px-4 text-[14px] ' + (categoryId === c.id ? 'bg-[var(--ink)] text-[var(--surface)]' : 'bg-[var(--surface-2)]')}
+              className={'pressable h-10 rounded-full px-4 text-label ' + (categoryId === c.id ? 'bg-ink text-surface' : 'bg-surface-2')}
             >
               {c.name}
             </button>

@@ -27,9 +27,9 @@ export function BillsPart() {
         ) : (
           <>
             <Card>
-              <p className="ink-2 text-[13px]">Bills due in the next 14 days</p>
-              <p className="display mt-0.5 text-[28px]">{money(total)}</p>
-              <p className="ink-2 mt-0.5 text-[13px]">
+              <p className="ink-2 text-small">Bills due in the next 14 days</p>
+              <p className="display mt-0.5 text-heading">{money(total)}</p>
+              <p className="ink-2 mt-0.5 text-small">
                 {soon.length} bill{soon.length === 1 ? '' : 's'}
               </p>
             </Card>
@@ -43,7 +43,7 @@ export function BillsPart() {
                 <BillList bills={later} onIgnore={(k) => ignore.mutate(k)} />
               </Section>
             )}
-            <p className="ink-3 mt-4 px-1 text-[13px]">A payee counts as a bill after a few payments at a regular interval with similar amounts. Tap "Not a bill" to stop tracking one.</p>
+            <p className="ink-3 mt-4 px-1 text-small">A payee counts as a bill after a few payments at a regular interval with similar amounts. Tap "Not a bill" to stop tracking one.</p>
           </>
         )}
     </>
@@ -55,25 +55,25 @@ export function BillList({ bills, onIgnore }: { bills: Bill[]; onIgnore?: (key: 
     <List>
       {bills.map((b) => (
         <div key={b.key} className="flex items-center gap-3 px-4 py-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
             {b.card ? <CreditCard size={20} /> : <CalendarCheck size={20} />}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium">{b.name}</span>
-            <span className="ink-2 block truncate text-[13px]">
+            <span className="block truncate text-body font-medium">{b.name}</span>
+            <span className="ink-2 block truncate text-small">
               {shortDate(b.due)} · {b.every}
               {b.account && !b.card ? ` · ${b.account}` : ''}
             </span>
           </span>
           <span className="shrink-0 text-right">
-            <span className="tabular block text-[15px] font-semibold">
+            <span className="tabular block text-body font-semibold">
               {b.amountVaries ? '~' : ''}
               {money(b.amount)}
             </span>
             <span className="mt-0.5 flex items-center justify-end gap-2">
-              <Badge tone={b.overdue ? 'red' : b.daysLeft <= 3 ? 'amber' : 'neutral'}>{whenLabel(b)}</Badge>
+              <Badge tone={b.overdue ? 'negative' : b.daysLeft <= 3 ? 'attention' : 'neutral'}>{whenLabel(b)}</Badge>
               {onIgnore && !b.card && (
-                <button className={cx('link ink-3 text-[12px]')} onClick={() => onIgnore(b.key)}>
+                <button className={cx('link ink-3 text-caption')} onClick={() => onIgnore(b.key)}>
                   Not a bill
                 </button>
               )}

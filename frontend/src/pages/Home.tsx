@@ -28,8 +28,8 @@ export default function Home() {
 
   const header = (
     <header className="flex items-center justify-between pt-1">
-      <h1 className="text-[28px] font-bold tracking-[-0.02em]">Home</h1>
-      <Link to="/more" aria-label="Menu" className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] lg:hidden">
+      <h1 className="text-heading font-bold tracking-[-0.02em]">Home</h1>
+      <Link to="/more" aria-label="Menu" className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 lg:hidden">
         <MenuIcon size={20} />
       </Link>
     </header>
@@ -40,8 +40,8 @@ export default function Home() {
       <Page>
         {header}
         <Card className="mt-6 p-6">
-          <p className="text-[20px] font-semibold">Let's set you up</p>
-          <p className="ink-2 mt-1.5 text-[15px] leading-relaxed">Add your bank accounts and cards with today's balances. Bank alerts keep them up to date from then on.</p>
+          <p className="text-subheading font-semibold">Let's set you up</p>
+          <p className="ink-2 mt-1.5 text-body leading-relaxed">Add your bank accounts and cards with today's balances. Bank alerts keep them up to date from then on.</p>
           <Button className="mt-5 w-full" onClick={() => nav('/setup')}>
             Start setup
           </Button>
@@ -61,16 +61,16 @@ export default function Home() {
 
       {/* The one number: what's really mine to spend, cash after what I owe on cards. */}
       <section className="mt-5">
-        <Link to="/accounts" className="block transition-opacity duration-150 active:opacity-60" aria-label="Accounts and cards">
-          <p className="ink-2 flex items-center gap-1 text-[15px]">
+        <Link to="/accounts" className="block transition-opacity duration-quick active:opacity-60" aria-label="Accounts and cards">
+          <p className="ink-2 flex items-center gap-1 text-body">
             You have <CaretRight size={13} className="ink-3" />
           </p>
-          <BigMoney value={have} className={cx('mt-0.5 block text-[44px] leading-tight', have < 0 && 'text-[var(--negative)]')} />
-          <p className="ink-2 text-[13px]">
+          <BigMoney value={have} className={cx('mt-0.5 block text-display-sm leading-tight', have < 0 && 'text-negative')} />
+          <p className="ink-2 text-small">
             {t.cardOutstanding > 0 ? `${money0(t.cash)} in your accounts, less ${money0(t.cardOutstanding)} on cards` : 'In your accounts'}
           </p>
         </Link>
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-label">
           <Link to="/reports" className="link flex items-center gap-1">
             <span className="ink-2">Spent this month</span> <span className="tabular font-semibold">{money0(d.month.expense)}</span>
             {prev && <Delta now={d.month.expense} before={prev.expense} goodWhenUp={false} />}
@@ -86,9 +86,9 @@ export default function Home() {
 
       {/* Year in review comes to Home at the turn of the year, instead of living in the menu. */}
       {(new Date().getMonth() === 11 || new Date().getMonth() === 0) && (
-        <Link to={`/review?year=${new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()}`} className="pressable surface mt-4 flex items-center gap-3 rounded-[20px] p-4">
-          <Sparkle size={22} weight="fill" className="text-[var(--accent)]" />
-          <span className="min-w-0 flex-1 text-[15px] font-medium">Your {new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()} in review</span>
+        <Link to={`/review?year=${new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()}`} className="pressable surface mt-4 flex items-center gap-3 rounded-card p-4">
+          <Sparkle size={22} weight="fill" className="text-accent" />
+          <span className="min-w-0 flex-1 text-body font-medium">Your {new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()} in review</span>
           <CaretRight size={16} className="ink-3" />
         </Link>
       )}
@@ -98,7 +98,7 @@ export default function Home() {
           {(recent.data?.items ?? []).map((tx) => (
             <TxnRow key={tx.id} t={tx} onClick={() => setOpen(tx)} />
           ))}
-          {recent.data?.items.length === 0 && <p className="ink-2 p-6 text-center text-sm">No transactions yet. They appear as bank alerts arrive.</p>}
+          {recent.data?.items.length === 0 && <p className="ink-2 p-6 text-center text-label">No transactions yet. They appear as bank alerts arrive.</p>}
         </List>
       </Section>
 
@@ -109,7 +109,7 @@ export default function Home() {
 
 function More({ to, children }: { to: string; children: string }) {
   return (
-    <Link to={to} className="link flex items-center gap-0.5 text-[14px] text-[var(--accent)]">
+    <Link to={to} className="link flex items-center gap-0.5 text-label text-accent">
       {children}
       <CaretRight size={12} weight="bold" />
     </Link>

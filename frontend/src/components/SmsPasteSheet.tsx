@@ -56,36 +56,36 @@ export function SmsResultCard({ r }: { r: SmsResult }) {
   const Icon = ok ? CheckCircle : WarningCircle
   return (
     <div className="space-y-3">
-      <div className={ok ? 'flex items-start gap-3 rounded-[20px] bg-emerald-500/10 p-4' : 'flex items-start gap-3 rounded-[20px] bg-amber-500/10 p-4'}>
-        <Icon size={20} className={ok ? 'mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400' : 'mt-0.5 shrink-0 text-amber-600 dark:text-amber-400'} />
-        <div className="min-w-0 text-sm">
+      <div className={ok ? 'flex items-start gap-3 rounded-card tint-positive p-4' : 'flex items-start gap-3 rounded-card tint-attention p-4'}>
+        <Icon size={20} className={ok ? 'mt-0.5 shrink-0 text-positive' : 'mt-0.5 shrink-0 text-attention'} />
+        <div className="min-w-0 text-label">
           <p className="font-semibold">{ok ? 'Recorded' : r.status === 'DUPLICATE' ? 'Already recorded' : r.status === 'IGNORED' ? 'Not a transaction' : 'Needs attention'}</p>
           <p className="ink-2 mt-0.5">{r.message}</p>
         </div>
       </div>
       {(t || p) && (
-        <div className="surface rounded-[20px] p-4">
+        <div className="surface rounded-card p-4">
           <div className="flex items-center gap-3">
             <span
               className={
                 (t?.direction ?? p?.direction) === 'CREDIT'
-                  ? 'flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
-                  : 'flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-2)] ink-2'
+                  ? 'flex h-10 w-10 items-center justify-center rounded-full tint-positive'
+                  : 'flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 ink-2'
               }
             >
               {(t?.direction ?? p?.direction) === 'CREDIT' ? <ArrowDownLeft size={19} /> : <ArrowUpRight size={19} />}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{t?.counterparty ?? p?.counterparty ?? 'Unknown payee'}</p>
-              <p className="ink-2 truncate text-xs">{t ? [t.account, t.category].filter(Boolean).join(' · ') : `${p!.bank} ${p!.accountType === 'CREDIT_CARD' ? 'card' : 'account'}${p!.last4 ? ` ••${p!.last4}` : ''}`}</p>
+              <p className="ink-2 truncate text-caption">{t ? [t.account, t.category].filter(Boolean).join(' · ') : `${p!.bank} ${p!.accountType === 'CREDIT_CARD' ? 'card' : 'account'}${p!.last4 ? ` ••${p!.last4}` : ''}`}</p>
             </div>
-            <p className="tabular text-[17px] font-semibold">
+            <p className="tabular text-title font-semibold">
               {(t?.direction ?? p?.direction) === 'CREDIT' ? '+' : '−'}
               {p && p.currency !== 'INR' ? `${p.currency} ${p.amount}` : money(t?.amount ?? p!.amount)}
             </p>
           </div>
           {p && (
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-[var(--line)] pt-3 text-xs">
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-3 text-caption">
               <Detail k="Bank" v={p.bank} />
               <Detail k="Account" v={p.last4 ? `•••• ${p.last4}` : '—'} />
               <Detail k="Date" v={[p.date, p.time?.slice(0, 5)].filter(Boolean).join(' ') || 'from SMS time'} />

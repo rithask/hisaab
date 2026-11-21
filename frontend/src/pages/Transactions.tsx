@@ -80,16 +80,16 @@ export default function Transactions() {
   return (
     <Page>
       <Rise className="mb-3 pt-2">
-        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em]">{account ? account.name : 'Activity'}</h1>
+        <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{account ? account.name : 'Activity'}</h1>
         {total != null && (
-          <p className="ink-2 mt-1.5 text-sm">
+          <p className="ink-2 mt-1.5 text-label">
             {total} transaction{total === 1 ? '' : 's'}
             {groups.length > 0 && (
               <>
                 {' · '}
                 <span className="tabular">−{money0(totalOut)}</span>
                 {' · '}
-                <span className="tabular text-[var(--positive)]">+{money0(totalIn)}</span>
+                <span className="tabular text-positive">+{money0(totalIn)}</span>
               </>
             )}
           </p>
@@ -108,7 +108,7 @@ export default function Transactions() {
           >
             <MagnifyingGlass size={17} className="ink-3 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
-              className="surface h-11 w-full rounded-full pl-11 pr-10 text-[15px] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--ink-3)] hover:border-[var(--line-strong)] focus:shadow-[0_0_0_4px_var(--accent-soft)]"
+              className="surface h-11 w-full rounded-full pl-11 pr-10 text-body outline-none transition-[border-color,box-shadow] duration-quick placeholder:text-ink-3 hover:border-line-strong focus:shadow-[0_0_0_4px_var(--accent-soft)]"
               placeholder="Search payee, notes, ref no."
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -123,7 +123,7 @@ export default function Transactions() {
           <button
             type="button"
             onClick={() => setFiltering(true)}
-            className={cx('pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold', active.length ? 'bg-[var(--ink)] text-[var(--bg)]' : 'surface')}
+            className={cx('pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-label font-semibold', active.length ? 'bg-ink text-bg' : 'surface')}
           >
             <Sliders size={16} /> Filter{active.length ? ` · ${active.length}` : ''}
           </button>
@@ -142,7 +142,7 @@ export default function Transactions() {
       </div>
 
       {filters.uncategorized === 'true' && total != null && total > 0 && (
-        <p className="ink-2 mt-1 rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-[14px] leading-relaxed">
+        <p className="ink-2 mt-1 rounded-box bg-surface-2 px-4 py-3 text-label leading-relaxed">
           Tap a transaction and pick its category. The app remembers your choice for that payee, so future ones are sorted for you.
         </p>
       )}
@@ -151,7 +151,7 @@ export default function Transactions() {
         {list.isLoading && (
           <div className="space-y-3">
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-64 rounded-[20px]" />
+            <Skeleton className="h-64 rounded-card" />
           </div>
         )}
         {!list.isLoading && groups.length === 0 && (
@@ -162,8 +162,8 @@ export default function Transactions() {
         {groups.map((g) => (
           <section key={g.key}>
             <div className="mb-2 flex items-baseline justify-between px-1">
-              <span className="text-[13px] font-semibold ink-2">{g.label}</span>
-              {g.out > 0 && <span className="tabular ink-3 text-[12.5px] font-medium">−{money(g.out)}</span>}
+              <span className="text-small font-semibold ink-2">{g.label}</span>
+              {g.out > 0 && <span className="tabular ink-3 text-caption font-medium">−{money(g.out)}</span>}
             </div>
             <List>
               {g.items.map((t) => (
@@ -322,7 +322,7 @@ function FilterForm({ params, onApply }: { params: URLSearchParams; onApply: (kv
           ]}
         />
       </Group>
-      <div className="rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
+      <div className="rounded-box bg-surface-2 px-4 py-2.5">
         <Toggle checked={moves} onChange={setMoves} label="Include money moved between my accounts" />
       </div>
       <Button
@@ -351,7 +351,7 @@ function FilterForm({ params, onApply }: { params: URLSearchParams; onApply: (kv
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="ink-2 mb-2 px-1 text-[13px] font-medium">{label}</p>
+      <p className="ink-2 mb-2 px-1 text-small font-medium">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )

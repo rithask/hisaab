@@ -11,7 +11,8 @@ import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
 import { settledLabel } from './TxnRow'
-import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold } from './ui'
+import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold } from './ui'
+import { QUICK, MOVE } from '../motion'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
   return (
@@ -90,12 +91,12 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <span className={cx('inline-flex items-baseline', t.transfer ? 'ink-3' : t.direction === 'CREDIT' ? 'text-[var(--positive)]' : '')}>
-          <span className="display mr-1 text-[40px] leading-none">{t.direction === 'CREDIT' ? '+' : '−'}</span>
-          <BigMoney value={t.amount} className="text-[56px] leading-none" />
+        <span className={cx('inline-flex items-baseline', t.transfer ? 'ink-3' : t.direction === 'CREDIT' ? 'text-positive' : '')}>
+          <span className="display mr-1 text-display-sm leading-none">{t.direction === 'CREDIT' ? '+' : '−'}</span>
+          <BigMoney value={t.amount} className="text-display leading-none" />
         </span>
         {t.amountEstimated && (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 text-caption text-attention">
             Estimated from {t.originalCurrency} {t.originalAmount}. Correct it once the statement arrives.
           </p>
         )}
@@ -114,24 +115,24 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             </Button>
           </form>
         ) : (
-          <button className="pressable mx-auto mt-3 flex items-center gap-1.5 rounded-full px-2 text-[17px] font-semibold" onClick={() => (setName(t.counterparty ?? ''), setRenaming(true))} aria-label="Rename payee">
+          <button className="pressable mx-auto mt-3 flex items-center gap-1.5 rounded-full px-2 text-title font-semibold" onClick={() => (setName(t.counterparty ?? ''), setRenaming(true))} aria-label="Rename payee">
             {t.counterparty ?? t.description ?? 'Add a name'}
             <PencilSimple size={14} className="ink-3" />
           </button>
         )}
         {renamed && (
-          <p className="anim-pop mx-auto mt-2 max-w-xs rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--accent)]">
+          <p className="anim-pop mx-auto mt-2 max-w-xs rounded-box bg-accent-soft px-3 py-2 text-caption text-accent">
             Learned. Future alerts from this payee will be named <b>{renamed.to}</b>
             {renamed.others > 0 ? `, and ${renamed.others} earlier one${renamed.others > 1 ? 's were' : ' was'} renamed too` : ''}.
           </p>
         )}
-        <p className="ink-2 text-sm">
+        <p className="ink-2 text-label">
           {paidBy ? `Paid by ${paidBy.name}` : t.account?.name} · {dateTime(t.occurredAt)}
         </p>
       </div>
 
       {fixed && (
-        <p className="anim-pop rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-center text-xs text-[var(--accent)]">
+        <p className="anim-pop rounded-box bg-accent-soft px-3 py-2 text-center text-caption text-accent">
           Fixed.{' '}
           {fixed.learnedFormat
             ? 'Learned from it, so the next message like this is read right.'
@@ -146,14 +147,14 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
       {/* Only what already applies to this payment shows here; everything you could add is under More. */}
       {paidBy && (
-        <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">
+        <div className="flex items-start gap-3 rounded-box bg-surface-2 p-4 text-label">
           <Users size={18} className="mt-0.5 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">
               {paidBy.name} paid {money(t.paidTotal ?? t.amount)}, your share {money(t.amount)}
             </p>
             <p className="ink-2">Counted in your spending, and taken off what {paidBy.name} owes you. No account of yours was charged.</p>
-            <button className="link mt-2 font-semibold text-[var(--accent)]" onClick={() => setEditingShare(true)}>
+            <button className="link mt-2 font-semibold text-accent" onClick={() => setEditingShare(true)}>
               Change amounts
             </button>
           </div>
@@ -172,21 +173,21 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       </Sheet>
 
       {t.transfer ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[var(--surface-2)] p-4 text-sm">
+        <div className="flex items-start gap-3 rounded-box bg-surface-2 p-4 text-label">
           <ArrowsLeftRight size={18} className="mt-0.5 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">Money moved between my accounts</p>
             <p className="ink-2">
               {t.linkedAccount ? `Matched with ${t.linkedAccount.name}. ` : ''}Not counted as income or spending.
             </p>
-            <button className="link mt-2 font-semibold text-[var(--accent)]" onClick={() => update.mutate({ transfer: false })}>
+            <button className="link mt-2 font-semibold text-accent" onClick={() => update.mutate({ transfer: false })}>
               It wasn't
             </button>
           </div>
         </div>
       ) : settled ? null : choosing ? (
         <div>
-          <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-[13px] font-medium">
+          <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-small font-medium">
             {cat ? 'Change category' : 'What was it?'}
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -198,8 +199,8 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
                   key={c.id}
                   onClick={() => (update.mutate({ categoryId: c.id }), setChangingCategory(false))}
                   className={cx(
-                    'pressable flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2.5 text-[12px] font-medium leading-tight transition-colors duration-150',
-                    on ? 'bg-[var(--ink)] text-[var(--surface)]' : 'bg-[var(--surface-2)] text-[var(--ink-2)]',
+                    'pressable flex flex-col items-center gap-1.5 rounded-box px-1 py-2.5 text-caption font-medium leading-tight transition-colors duration-quick',
+                    on ? 'bg-ink text-surface' : 'bg-surface-2 text-ink-2',
                   )}
                 >
                   <Icon size={20} weight={on ? 'fill' : 'regular'} style={on ? undefined : { color: c.color }} />
@@ -210,24 +211,24 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-box bg-surface-2 px-4 py-2.5">
           <CatIcon size={20} style={{ color: cat!.color }} />
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-medium">{cat!.name}</span>
-            {t.categorySuggested && <span className="ink-2 block text-[12.5px]">A guess from your earlier choices</span>}
+            <span className="block text-body font-medium">{cat!.name}</span>
+            {t.categorySuggested && <span className="ink-2 block text-caption">A guess from your earlier choices</span>}
           </span>
           {t.categorySuggested && (
             <Button size="sm" disabled={update.isPending} onClick={() => update.mutate({ categoryId: cat!.id })}>
               Right
             </Button>
           )}
-          <button className="link h-9 px-1 text-[14px] font-medium text-[var(--accent)]" onClick={() => setChangingCategory(true)}>
+          <button className="link h-9 px-1 text-label font-medium text-accent" onClick={() => setChangingCategory(true)}>
             Change
           </button>
         </div>
       )}
       {learned && !t.transfer && (
-        <div className="anim-pop -mt-2 rounded-2xl bg-[var(--accent-soft)] p-3 text-sm">
+        <div className="anim-pop -mt-2 rounded-box bg-accent-soft p-3 text-label">
           {learned.payee ? (
             <p>
               Learned: future payments {t.direction === 'CREDIT' ? 'from' : 'to'} <b>{learned.payee}</b> will be <b>{learned.category}</b>.
@@ -261,18 +262,18 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
       {/* Everything else, folded away */}
       <div>
-        <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 flex w-full items-center justify-between rounded-2xl px-1 py-2 text-[14px] font-medium">
+        <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="ink-2 flex w-full items-center justify-between rounded-box px-1 py-2 text-label font-medium">
           <span>
             More
-            {extras && !more ? <span className="ml-2 text-[var(--accent)]">{extras}</span> : null}
+            {extras && !more ? <span className="ml-2 text-accent">{extras}</span> : null}
           </span>
-          <motion.span animate={{ rotate: more ? 180 : 0 }} transition={SPRING}>
+          <motion.span animate={{ rotate: more ? 180 : 0 }} transition={MOVE}>
             <CaretDown size={14} weight="bold" />
           </motion.span>
         </button>
         <Fold open={more}>
           <div className="space-y-3 pt-2">
-            <div className="surface overflow-hidden rounded-[20px] [&>*+*]:border-t [&>*+*]:border-[var(--line)]">
+            <div className="surface overflow-hidden rounded-card [&>*+*]:border-t [&>*+*]:border-line">
               {t.direction === 'DEBIT' && !t.transfer && !paidBy && <SplitEditor txn={t} part="ask" />}
               {!t.transfer && !paidBy && <RepaymentRow txn={t} part="ask" />}
               {!t.transfer && !paidBy && (
@@ -294,7 +295,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
               {/* Asked in place, not with a browser pop-up: those can be blocked (Safari, the installed app). */}
               {deleting ? (
                 <div className="anim-pop flex items-center gap-2 px-4 py-2.5">
-                  <span className="min-w-0 flex-1 text-[15px]">Delete this transaction?</span>
+                  <span className="min-w-0 flex-1 text-body">Delete this transaction?</span>
                   <Button size="sm" variant="secondary" onClick={() => setDeleting(false)}>
                     Cancel
                   </Button>
@@ -310,7 +311,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             </div>
             <ErrorText error={del.error} />
             <Fold open={showEmail}>
-              <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-[18px] bg-[var(--surface-2)] p-3 font-mono text-[11px] leading-relaxed">
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-card bg-surface-2 p-3 font-mono text-micro leading-relaxed">
                 {email.data ? `${email.data.subject ?? ''}\n\n${email.data.bodyText ?? ''}` : 'Loading…'}
               </pre>
             </Fold>
@@ -320,7 +321,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             <Field label="Tags" hint="Comma separated, e.g. trip-goa, office">
               <Input value={tags} onChange={(e) => setTags(e.target.value)} onBlur={() => tags !== t.tags.join(', ') && update.mutate({ tags: tags.split(',') })} />
             </Field>
-            <p className="ink-3 px-1 text-[12.5px]">
+            <p className="ink-3 px-1 text-caption">
               {t.source === 'EMAIL' ? 'From a bank email' : t.source === 'SMS' ? 'From a bank SMS' : t.source === 'STATEMENT' ? 'From a statement' : t.source === 'ADJUSTMENT' ? 'Balance correction' : t.source === 'PERSON' ? 'Your share of what someone else paid' : t.addedBy ? `Added by ${t.addedBy}` : 'Added by hand'}
               {t.referenceNo ? ` · Ref ${t.referenceNo}` : ''}
               {t.reportedBalance != null ? ` · Balance after: ${money(t.reportedBalance)}` : ''}
@@ -392,26 +393,26 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
   if (!editing) {
     const s = split.data
     return (
-      <div className="rounded-2xl bg-[var(--surface-2)] p-4">
+      <div className="rounded-box bg-surface-2 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[15px] font-semibold">{s.shares.length > 0 && s.myShare === 0 ? 'Money you lent' : 'Split with others'}</p>
-            {!s?.shares.length && <p className="ink-2 text-xs">Paid for a group? Track who owes you.</p>}
-            {s.shares.length > 0 && s.myShare === 0 && <p className="ink-2 text-xs">Not counted as your spending.</p>}
+            <p className="text-body font-semibold">{s.shares.length > 0 && s.myShare === 0 ? 'Money you lent' : 'Split with others'}</p>
+            {!s?.shares.length && <p className="ink-2 text-caption">Paid for a group? Track who owes you.</p>}
+            {s.shares.length > 0 && s.myShare === 0 && <p className="ink-2 text-caption">Not counted as your spending.</p>}
           </div>
           <Button variant="primary" size="sm" onClick={() => setEditing(true)}>
             {s?.shares.length ? 'Edit' : 'Split'}
           </Button>
         </div>
         {s && s.shares.length > 0 && (
-          <div className="mt-3 space-y-2 text-sm">
+          <div className="mt-3 space-y-2 text-label">
             {s.shares.map((x) => (
               <div key={x.id} className="flex items-center justify-between">
                 <span>{x.personName} owes</span>
                 <span className="tabular font-semibold">{money(x.amount)}</span>
               </div>
             ))}
-            <div className="ink-2 flex justify-between border-t border-[var(--line-strong)] pt-2">
+            <div className="ink-2 flex justify-between border-t border-line-strong pt-2">
               <span>My share</span>
               <span className="tabular">{money(s.myShare)}</span>
             </div>
@@ -422,11 +423,11 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
   }
 
   return (
-    <div className="anim-pop space-y-3 rounded-2xl bg-[var(--surface-2)] p-4">
+    <div className="anim-pop space-y-3 rounded-box bg-surface-2 p-4">
       <Segmented<Method>
         value={method}
         onChange={setMethod}
-        className="bg-[var(--surface)]"
+        className="bg-surface"
         options={[
           { value: 'EQUAL', label: 'Equally' },
           { value: 'EXACT', label: 'Amounts' },
@@ -434,7 +435,7 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
         ]}
       />
       {method === 'EQUAL' && <Toggle checked={includeMe} onChange={setIncludeMe} label="Include me in the split" />}
-      {(people.data ?? []).length === 0 && <p className="ink-2 text-sm">Add people under the Splits tab first.</p>}
+      {(people.data ?? []).length === 0 && <p className="ink-2 text-label">Add people under the Splits tab first.</p>}
       <div className="space-y-1">
         {(people.data ?? []).map((p) => (
           <div key={p.id} className="flex items-center gap-2">
@@ -443,12 +444,12 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
               type="button"
               aria-pressed={p.id in values}
               onClick={() => toggle(p.id)}
-              className="row flex min-h-11 flex-1 select-none items-center gap-3 rounded-2xl px-2 py-2 text-left text-[15px] [-webkit-touch-callout:none]"
+              className="row flex min-h-11 flex-1 select-none items-center gap-3 rounded-box px-2 py-2 text-left text-body [-webkit-touch-callout:none]"
             >
-              <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150', p.id in values ? 'border-[var(--ink)] accent-fill' : 'border-[var(--line-strong)]')}>
+              <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-quick', p.id in values ? 'border-ink accent-fill' : 'border-line-strong')}>
                 <AnimatePresence initial={false}>
                   {p.id in values && (
-                    <motion.span key="tick" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }} className="flex">
+                    <motion.span key="tick" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={QUICK} className="flex">
                       <Check size={13} weight="bold" />
                     </motion.span>
                   )}
@@ -458,7 +459,7 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
             </button>
             {method !== 'EQUAL' && p.id in values && (
               <Input
-                className="w-28 bg-[var(--surface)] py-2 text-right"
+                className="w-28 bg-surface py-2 text-right"
                 inputMode="decimal"
                 placeholder={method === 'PERCENT' ? '%' : '₹'}
                 value={values[p.id]}
@@ -468,7 +469,7 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
           </div>
         ))}
       </div>
-      <p className="ink-2 px-1 text-xs font-medium">{preview}</p>
+      <p className="ink-2 px-1 text-caption font-medium">{preview}</p>
       <ErrorText error={save.error} />
       <div className="flex gap-2">
         <Button variant="secondary" className="flex-1" onClick={() => setEditing(false)}>
@@ -644,12 +645,12 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           { value: 'CREDIT', label: 'Received' },
         ]}
       />
-      <label className={cx('mt-6 flex cursor-text items-baseline justify-center', direction === 'CREDIT' && 'text-[var(--positive)]')}>
-        <span className={cx('mr-1.5 text-[24px] font-medium', amount ? 'opacity-70' : 'ink-3')} style={{ transform: 'translateY(-0.9em)' }}>
+      <label className={cx('mt-6 flex cursor-text items-baseline justify-center', direction === 'CREDIT' && 'text-positive')}>
+        <span className={cx('mr-1.5 text-subheading font-medium', amount ? 'opacity-70' : 'ink-3')} style={{ transform: 'translateY(-0.9em)' }}>
           {symbol}
         </span>
         {/* The hidden twin sizes the input to its content so the symbol hugs the digits. */}
-        <span className="display relative inline-grid text-[72px] leading-none">
+        <span className="display relative inline-grid text-display-lg leading-none">
           <span aria-hidden className="invisible col-start-1 row-start-1 whitespace-pre px-0.5">
             {amount || '0'}
           </span>
@@ -661,18 +662,18 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
             onChange={(e) => typeAmount(e.target.value)}
             placeholder="0"
             aria-label="Amount"
-            className="col-start-1 row-start-1 w-full min-w-0 bg-transparent px-0.5 text-center outline-none placeholder:text-[var(--ink-3)]"
+            className="col-start-1 row-start-1 w-full min-w-0 bg-transparent px-0.5 text-center outline-none placeholder:text-ink-3"
           />
         </span>
       </label>
-      {paidByOther && <p className="ink-2 mt-1 text-center text-[13px]">What {payer?.name ?? 'they'} paid altogether</p>}
+      {paidByOther && <p className="ink-2 mt-1 text-center text-small">What {payer?.name ?? 'they'} paid altogether</p>}
       <div className={cx('mt-2 flex justify-center', paidByOther && 'hidden')}>
         <span className="relative">
           <select
             aria-label="Currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="ink-2 h-7 appearance-none rounded-full bg-[var(--surface-2)] pl-3 pr-7 text-[11.5px] font-semibold tracking-wide outline-none"
+            className="ink-2 h-7 appearance-none rounded-full bg-surface-2 pl-3 pr-7 text-micro font-semibold tracking-wide outline-none"
           >
             {CURRENCIES.map((c) => (
               <option key={c}>{c}</option>
@@ -684,20 +685,20 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
 
       {/* 2. Who */}
       <div className="mt-7">
-        <div className="flex items-center gap-3 rounded-[20px] bg-[var(--surface-2)] px-4 focus-within:shadow-[0_0_0_4px_var(--accent-soft)]">
+        <div className="flex items-center gap-3 rounded-card bg-surface-2 px-4 focus-within:shadow-[0_0_0_4px_var(--accent-soft)]">
           <Storefront size={19} className="ink-3 shrink-0" />
           <input
             value={counterparty}
             onChange={(e) => setCounterparty(e.target.value)}
             placeholder={paidByOther ? 'Where (optional)' : direction === 'DEBIT' ? 'Paid to (optional)' : 'Received from (optional)'}
             aria-label={direction === 'DEBIT' ? 'Paid to' : 'Received from'}
-            className="h-[52px] min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-[var(--ink-3)]"
+            className="h-[52px] min-w-0 flex-1 bg-transparent text-input outline-none placeholder:text-ink-3"
           />
         </div>
         {payees.length > 0 && (
           <ChipRow className="mt-2.5">
             {payees.map((t) => (
-              <button key={t.id} type="button" onClick={() => pickPayee(t)} className="pressable surface flex h-9 shrink-0 items-center gap-1.5 rounded-full pl-2.5 pr-3.5 text-[13px] font-medium">
+              <button key={t.id} type="button" onClick={() => pickPayee(t)} className="pressable surface flex h-9 shrink-0 items-center gap-1.5 rounded-full pl-2.5 pr-3.5 text-small font-medium">
                 <ClockCounterClockwise size={14} className="ink-3" />
                 <span className="max-w-[150px] truncate">{t.counterparty}</span>
               </button>
@@ -807,7 +808,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         <div className="space-y-4 pt-4">
           <PersonChips people={people.data ?? []} value={personId} onChange={setPersonId} />
           <div>
-            <p className="ink-2 mb-2 px-1 text-[13px] font-medium">Your share</p>
+            <p className="ink-2 mb-2 px-1 text-small font-medium">Your share</p>
             <ShareFields total={value} mode={shareMode} setMode={setShareMode} exact={exactShare} setExact={setExactShare} />
           </div>
           {payer && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
@@ -816,7 +817,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <Fold open={splitting && !paidByOther}>
         <div className="space-y-3 pt-4">
           {(people.data ?? []).length === 0 ? (
-            <p className="ink-2 px-1 text-sm">Add people under Splits first.</p>
+            <p className="ink-2 px-1 text-label">Add people under Splits first.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {(people.data ?? []).map((p) => {
@@ -827,7 +828,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSplitWith((w) => (on ? w.filter((x) => x !== p.id) : [...w, p.id]))}
-                    className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[14px] font-medium transition-colors duration-150', on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)]')}
+                    className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-label font-medium transition-colors duration-quick', on ? 'bg-ink text-bg' : 'bg-surface-2')}
                   >
                     <Avatar name={p.name} size={32} />
                     {p.name}
@@ -853,7 +854,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
               .map((p) => (
                 <div key={p.id} className="flex items-center gap-3">
                   <Avatar name={p.name} size={32} />
-                  <span className="min-w-0 flex-1 truncate text-[15px]">{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-body">{p.name}</span>
                   <div className="w-28 shrink-0">
                     <Input
                       className="py-2 text-right"
@@ -867,7 +868,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
                 </div>
               ))}
           {splitWith.length > 0 && value > 0 && (
-            <p className={cx('px-1 text-[13px]', splitProblem ? 'text-[var(--negative)]' : 'ink-2')}>
+            <p className={cx('px-1 text-small', splitProblem ? 'text-negative' : 'ink-2')}>
               {splitProblem ??
                 (splitMethod === 'EQUAL'
                   ? `Split equally with you: ${money(Math.floor((value / (splitWith.length + 1)) * 100) / 100)} each. Change it later on the transaction.`
@@ -880,7 +881,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         <div className="space-y-3 pt-4">
           <PersonChips people={people.data ?? []} value={lendTo} onChange={setLendTo} />
           {borrower && value > 0 && (
-            <p className="ink-2 px-1 text-[13px]">
+            <p className="ink-2 px-1 text-small">
               {borrower.name} will owe you {money(value)}. Not counted as your spending; when they pay you back, link it to them.
             </p>
           )}
@@ -935,8 +936,8 @@ function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; c
       aria-pressed={on}
       onClick={onClick}
       className={cx(
-        'pressable flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-[14px] font-medium transition-colors duration-150',
-        on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)] text-[var(--ink)]',
+        'pressable flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-label font-medium transition-colors duration-quick',
+        on ? 'bg-ink text-bg' : 'bg-surface-2 text-ink',
       )}
     >
       {children}
@@ -951,10 +952,10 @@ function Guess({ on, onClick, children }: { on: boolean; onClick: () => void; ch
       type="button"
       aria-expanded={on}
       onClick={onClick}
-      className={cx('pressable flex h-11 max-w-full items-center gap-2 rounded-full px-4 text-[14px] font-medium transition-colors duration-150', on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)] text-[var(--ink)]')}
+      className={cx('pressable flex h-11 max-w-full items-center gap-2 rounded-full px-4 text-label font-medium transition-colors duration-quick', on ? 'bg-ink text-bg' : 'bg-surface-2 text-ink')}
     >
       <span className="flex min-w-0 items-center gap-2 truncate">{children}</span>
-      <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-150', on ? 'rotate-180' : 'opacity-50')} />
+      <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-quick', on ? 'rotate-180' : 'opacity-50')} />
     </button>
   )
 }
@@ -984,25 +985,25 @@ function RefundWatcher({ txnId, part }: { txnId: number; part: 'linked' | 'ask' 
       </MoreRow>
     )
   return (
-    <div className="rounded-2xl bg-[var(--surface-2)] p-4">
+    <div className="rounded-box bg-surface-2 p-4">
       {r && !editing ? (
         <>
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium">Refund</p>
-            <Badge tone={r.status === 'ARRIVED' ? 'green' : r.status === 'LATE' ? 'red' : 'amber'}>
+            <Badge tone={r.status === 'ARRIVED' ? 'positive' : r.status === 'LATE' ? 'negative' : 'attention'}>
               {r.status === 'ARRIVED' ? 'arrived' : r.status === 'LATE' ? 'late' : 'waiting'}
             </Badge>
           </div>
-          <p className="ink-2 mt-1 text-[13px]">
+          <p className="ink-2 mt-1 text-small">
             {r.status === 'ARRIVED'
               ? `${money(r.refunded ?? 0)} came back on ${shortDate(r.refundedAt!)}.`
               : r.status === 'LATE'
                 ? `Expected by ${shortDate(r.expectedBy)}. Worth chasing up.`
                 : `Expected by ${shortDate(r.expectedBy)}. You'll be told if it doesn't arrive.`}
           </p>
-          <div className="mt-2 flex gap-4 text-[13px]">
+          <div className="mt-2 flex gap-4 text-small">
             {r.status !== 'ARRIVED' && (
-              <button className="link font-medium text-[var(--accent)]" onClick={() => (setBy(r.expectedBy < today ? today : r.expectedBy), setEditing(true))}>
+              <button className="link font-medium text-accent" onClick={() => (setBy(r.expectedBy < today ? today : r.expectedBy), setEditing(true))}>
                 Change date
               </button>
             )}

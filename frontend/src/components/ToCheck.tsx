@@ -152,9 +152,9 @@ export default function ToCheck({ d }: { d: Dashboard }) {
   return (
     <section className="mt-7">
       <div className="mb-2.5 flex items-baseline justify-between px-1">
-        <h2 className="text-[17px] font-semibold">To check</h2>
+        <h2 className="text-title font-semibold">To check</h2>
         {!loading && queue.length > 1 && (
-          <button className="link text-[14px] font-medium text-[var(--accent)]" onClick={toggleAll}>
+          <button className="link text-label font-medium text-accent" onClick={toggleAll}>
             {all ? 'One at a time' : `See all ${queue.length}`}
           </button>
         )}
@@ -163,8 +163,8 @@ export default function ToCheck({ d }: { d: Dashboard }) {
         <Card className="h-[148px] animate-pulse">{null}</Card>
       ) : !shown ? (
         <Card className="flex items-center gap-3 p-4">
-          <CheckCircle size={22} weight="fill" className="text-[var(--positive)]" />
-          <p className="text-[15px] font-medium">All caught up</p>
+          <CheckCircle size={22} weight="fill" className="text-positive" />
+          <p className="text-body font-medium">All caught up</p>
         </Card>
       ) : all ? (
         <div className="space-y-2">
@@ -187,17 +187,17 @@ function ItemCard({ item, onLater }: { item: Item; onLater?: () => void }) {
   return (
     <Card className="anim-pop p-4">
       <div className="flex gap-3">
-        <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', item.urgent ? 'bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] text-[var(--negative)]' : 'bg-[var(--surface-2)]')}>
+        <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', item.urgent ? 'bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] text-negative' : 'bg-surface-2')}>
           <item.icon size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[16px] font-semibold leading-snug">{item.title}</p>
-          {item.detail && <p className="ink-2 mt-0.5 text-[14px] leading-relaxed">{item.detail}</p>}
+          <p className="text-body font-semibold leading-snug">{item.title}</p>
+          {item.detail && <p className="ink-2 mt-0.5 text-label leading-relaxed">{item.detail}</p>}
         </div>
       </div>
       <div className="mt-3.5">{item.body}</div>
       {onLater && (
-        <button className="link ink-3 mt-3 text-[13px] font-medium" onClick={onLater}>
+        <button className="link ink-3 mt-3 text-small font-medium" onClick={onLater}>
           Later
         </button>
       )}
@@ -217,7 +217,7 @@ function Answers({ children, error }: { children: ReactNode; error?: unknown }) 
 function Go({ to, children }: { to: string; children: string }) {
   return (
     <Answers>
-      <Link to={to} className="pressable accent-fill inline-flex h-9 items-center rounded-full px-4 text-[14px] font-semibold">
+      <Link to={to} className="pressable accent-fill inline-flex h-9 items-center rounded-full px-4 text-label font-semibold">
         {children}
       </Link>
     </Answers>
@@ -304,14 +304,14 @@ function CategoryAnswers({ txn, options, onOther }: { txn: Txn; options: { id: n
         {options.map((c) => {
           const Icon = categoryIcon(c)
           return (
-            <button key={c.id} disabled={set.isPending} onClick={() => set.mutate(c.id)} className="pressable flex flex-col items-center gap-1.5 rounded-2xl bg-[var(--surface-2)] px-1 py-2.5 text-[12px] font-medium leading-tight disabled:opacity-40">
+            <button key={c.id} disabled={set.isPending} onClick={() => set.mutate(c.id)} className="pressable flex flex-col items-center gap-1.5 rounded-box bg-surface-2 px-1 py-2.5 text-caption font-medium leading-tight disabled:opacity-40">
               <Icon size={20} style={{ color: c.color }} />
               <span className="line-clamp-1 text-center">{c.name}</span>
             </button>
           )
         })}
-        <button onClick={onOther} className="pressable ink-2 flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-[var(--surface-2)] px-1 py-2.5 text-[12px] font-medium">
-          <span className="text-[18px] leading-5">…</span>
+        <button onClick={onOther} className="pressable ink-2 flex flex-col items-center justify-center gap-1.5 rounded-box bg-surface-2 px-1 py-2.5 text-caption font-medium">
+          <span className="text-title leading-5">…</span>
           Something else
         </button>
       </div>

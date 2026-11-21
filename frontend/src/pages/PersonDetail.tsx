@@ -80,13 +80,13 @@ export default function PersonDetail() {
       <PageHeader up={{ to: '/people', label: 'Splits' }} title="" action={<IconButton icon={PencilSimple} label="Edit" onClick={() => setSheet('edit')} />} />
       <div className="-mt-6 flex flex-col items-center text-center">
         <Avatar name={p.name} size={76} />
-        <h1 className="mt-3 text-[24px] font-bold">{p.name}</h1>
-        {p.upiName && <p className="ink-2 text-xs">UPI: {p.upiName}</p>}
+        <h1 className="mt-3 text-subheading font-bold">{p.name}</h1>
+        {p.upiName && <p className="ink-2 text-caption">UPI: {p.upiName}</p>}
       </div>
 
       <Card className="mt-5 p-5 text-center">
-        <p className="ink-2 text-[13px] font-medium">{v > 0 ? `${first} owes you` : v < 0 ? `You owe ${first}` : 'All square'}</p>
-        <BigMoney value={Math.abs(v)} className={v < 0 ? 'mt-1 text-[40px] leading-tight text-[var(--negative)]' : 'mt-1 text-[40px] leading-tight'} />
+        <p className="ink-2 text-small font-medium">{v > 0 ? `${first} owes you` : v < 0 ? `You owe ${first}` : 'All square'}</p>
+        <BigMoney value={Math.abs(v)} className={v < 0 ? 'mt-1 text-display-sm leading-tight text-negative' : 'mt-1 text-display-sm leading-tight'} />
         {v !== 0 && (
           <Button className="mt-4 w-full" onClick={() => setSheet('payment')}>
             Settle up
@@ -115,15 +115,15 @@ export default function PersonDetail() {
                   <Confirm ask="Remove this payment?" yes="Remove" busy={delSettlement.isPending} onYes={() => l.settlement && delSettlement.mutate(l.settlement.id)}>
                   {(ask) => (<>
                   <button className="min-w-0 flex-1 text-left" disabled={!l.txn} onClick={() => l.txn && setOpen(l.txn)}>
-                    <p className="truncate text-[15px] font-semibold">{l.title}</p>
-                    <p className="ink-2 truncate text-xs">
+                    <p className="truncate text-body font-semibold">{l.title}</p>
+                    <p className="ink-2 truncate text-caption">
                       {dateTime(l.at)} · {l.sub}
                     </p>
                   </button>
                   {l.settlement && l.settlement.status === 'SUGGESTED' ? (
                     <span className="flex shrink-0 items-center gap-1.5">
-                      <span className="tabular mr-1 text-[15px] font-semibold">{money(l.settlement.amount)}?</span>
-                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-2)]" onClick={() => rejectSettlement.mutate(l.settlement!.id)} aria-label="Not a repayment">
+                      <span className="tabular mr-1 text-body font-semibold">{money(l.settlement.amount)}?</span>
+                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-surface-2" onClick={() => rejectSettlement.mutate(l.settlement!.id)} aria-label="Not a repayment">
                         <X size={16} />
                       </button>
                       <button className="pressable flex h-9 w-9 items-center justify-center rounded-full accent-fill" onClick={() => confirmSettlement.mutate(l.settlement!.id)} aria-label="Confirm repayment">
@@ -131,7 +131,7 @@ export default function PersonDetail() {
                       </button>
                     </span>
                   ) : (
-                    <span className="tabular shrink-0 text-[15px] font-semibold">
+                    <span className="tabular shrink-0 text-body font-semibold">
                       {l.delta >= 0 ? '+' : '−'}
                       {money(Math.abs(l.delta))}
                     </span>
@@ -146,7 +146,7 @@ export default function PersonDetail() {
                 </div>
               ))}
             </List>
-            <p className="ink-3 mt-2 px-1 text-xs">+ adds to what {first} owes you; − takes it off.</p>
+            <p className="ink-3 mt-2 px-1 text-caption">+ adds to what {first} owes you; − takes it off.</p>
           </>
         )}
       </Section>
@@ -179,12 +179,12 @@ function PickPayment({ first, onPick }: { first: string; onPick: (t: Txn) => voi
   const list = (q.data?.items ?? []).filter((t) => !t.paidBy && !t.transfer && !t.sharedAmount)
   return (
     <div>
-      <p className="ink-2 mb-3 px-1 text-sm">Pick what you paid for, then tap Split and choose {first}.</p>
+      <p className="ink-2 mb-3 px-1 text-label">Pick what you paid for, then tap Split and choose {first}.</p>
       <List>
         {list.map((t) => (
           <TxnRow key={t.id} t={t} onClick={() => onPick(t)} showDate />
         ))}
-        {q.data && list.length === 0 && <p className="ink-2 p-5 text-center text-sm">No recent payments to split.</p>}
+        {q.data && list.length === 0 && <p className="ink-2 p-5 text-center text-label">No recent payments to split.</p>}
       </List>
     </div>
   )
@@ -223,7 +223,7 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
     onClose,
   )
   const flip = () => (setDirection(direction === 'IN' ? 'OUT' : 'IN'), setPicked(undefined), setAmount(null))
-  if (!open.data) return <div className="h-48 animate-pulse rounded-[20px] bg-[var(--surface-2)]" />
+  if (!open.data) return <div className="h-48 animate-pulse rounded-card bg-surface-2" />
 
   const others = open.data.filter((t) => t.id !== txn?.id).slice(0, 6)
   return (
@@ -235,9 +235,9 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
       }}
     >
       <div className="text-center">
-        <p className="ink-2 text-[15px]">{direction === 'IN' ? `${first} pays you` : `You pay ${first}`}</p>
+        <p className="ink-2 text-body">{direction === 'IN' ? `${first} pays you` : `You pay ${first}`}</p>
         <button type="button" onClick={() => setChanging(changing === 'amount' ? null : 'amount')} className="mt-1 inline-flex items-baseline gap-2">
-          <BigMoney value={value} className="text-[44px] leading-tight" />
+          <BigMoney value={value} className="text-display-sm leading-tight" />
           <PencilSimple size={16} className="ink-3" />
         </button>
         <Fold open={changing === 'amount'}>
@@ -245,39 +245,39 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
             <Input autoFocus inputMode="decimal" aria-label="Amount" className="text-center" value={amount ?? String(value)} onChange={(e) => setAmount(e.target.value)} />
           </div>
         </Fold>
-        <p className="ink-2 mt-1 text-[13px]">
-          {standing(person.outstanding, first)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
+        <p className="ink-2 mt-1 text-small">
+          {standing(person.outstanding, first)} → <b className="text-ink">{standing(person.outstanding + (direction === 'OUT' ? value : -value), first)}</b>
         </p>
       </div>
 
       {/* The money it was: the best match is picked already; anything else is one tap away. */}
-      <button type="button" onClick={() => setChanging(changing === 'payment' ? null : 'payment')} className="row flex w-full items-center gap-3 rounded-[20px] bg-[var(--surface-2)] px-4 py-3 text-left">
+      <button type="button" onClick={() => setChanging(changing === 'payment' ? null : 'payment')} className="row flex w-full items-center gap-3 rounded-card bg-surface-2 px-4 py-3 text-left">
         {txn ? <HandCoins size={20} className="shrink-0" /> : <Wallet size={20} className="shrink-0" />}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium">{txn ? (txn.counterparty ?? txn.description ?? 'Payment') : 'Cash or another account'}</span>
-          <span className="ink-2 block truncate text-[12.5px]">
+          <span className="block truncate text-body font-medium">{txn ? (txn.counterparty ?? txn.description ?? 'Payment') : 'Cash or another account'}</span>
+          <span className="ink-2 block truncate text-caption">
             {txn ? `${money(txn.amount)} · ${dateTime(txn.occurredAt)} · ${txn.account?.name ?? ''}` : 'Money the app didn\'t see'}
           </span>
         </span>
-        <span className="shrink-0 text-[14px] font-medium text-[var(--accent)]">Change</span>
+        <span className="shrink-0 text-label font-medium text-accent">Change</span>
       </button>
       <Fold open={changing === 'payment'}>
         <List >
           {others.map((t) => (
             <button key={t.id} type="button" onClick={() => (setPicked(t), setAmount(null), setChanging(null))} className="row flex w-full items-center gap-3 px-4 py-3 text-left">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium">{t.counterparty ?? t.description ?? (direction === 'IN' ? 'Money received' : 'Payment')}</span>
-                <span className="ink-2 block truncate text-xs">
+                <span className="block truncate text-body font-medium">{t.counterparty ?? t.description ?? (direction === 'IN' ? 'Money received' : 'Payment')}</span>
+                <span className="ink-2 block truncate text-caption">
                   {dateTime(t.occurredAt)} · {t.account?.name}
                 </span>
               </span>
-              <span className="tabular shrink-0 text-[15px] font-semibold">{money(t.amount)}</span>
+              <span className="tabular shrink-0 text-body font-semibold">{money(t.amount)}</span>
             </button>
           ))}
           {txn && (
             <button type="button" onClick={() => (setPicked(null), setAmount(null), setChanging(null))} className="row flex w-full items-center gap-3 px-4 py-3 text-left">
               <Wallet size={19} className="ink-2 shrink-0" />
-              <span className="flex-1 text-[15px] font-medium">Cash or another account</span>
+              <span className="flex-1 text-body font-medium">Cash or another account</span>
             </button>
           )}
         </List>
@@ -293,7 +293,7 @@ function SettleForm({ onClose, person }: { onClose: () => void; person: Person }
       <Button type="submit" className="w-full" disabled={save.isPending || !(value > 0) || (!!txn && value > txn.amount)}>
         Settle {money(value)}
       </Button>
-      <button type="button" className="link ink-2 mx-auto block text-[13px] font-medium" onClick={flip}>
+      <button type="button" className="link ink-2 mx-auto block text-small font-medium" onClick={flip}>
         {direction === 'IN' ? `It was you paying ${first}` : `It was ${first} paying you`}
       </button>
     </form>

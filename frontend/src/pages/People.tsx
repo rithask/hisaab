@@ -33,19 +33,19 @@ export default function People() {
       <PageHeader title="Splits" action={<IconButton icon={UserPlus} label="Add person" onClick={() => setAdding(true)} />} />
 
       <Card className="p-5">
-        <p className="ink-2 text-[13px] font-medium">People owe you</p>
-        <BigMoney value={owed} paise={false} className="mt-1 block text-[40px] leading-tight" />
+        <p className="ink-2 text-small font-medium">People owe you</p>
+        <BigMoney value={owed} paise={false} className="mt-1 block text-display-sm leading-tight" />
         {shared > 0 && (
           <>
             <Meter pct={(paid / shared) * 100} className="mt-3 h-2" />
-            <p className="ink-2 mt-2 text-xs">
-              <span className="tabular font-semibold text-[var(--ink)]">{money0(paid)}</span> of {money0(shared)} settled
+            <p className="ink-2 mt-2 text-caption">
+              <span className="tabular font-semibold text-ink">{money0(paid)}</span> of {money0(shared)} settled
             </p>
           </>
         )}
         {iOwe > 0 && (
-          <p className="ink-2 mt-3 border-t border-[var(--line)] pt-3 text-[13px]">
-            You owe others <span className="tabular font-semibold text-[var(--negative)]">{money0(iOwe)}</span>
+          <p className="ink-2 mt-3 border-t border-line pt-3 text-small">
+            You owe others <span className="tabular font-semibold text-negative">{money0(iOwe)}</span>
           </p>
         )}
       </Card>
@@ -64,9 +64,9 @@ export default function People() {
                   <Link to={`/people/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                     <Avatar name={p.name} size={44} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold">{p.name}</p>
+                      <p className="truncate text-body font-semibold">{p.name}</p>
                       {/* One sentence: where you stand. */}
-                      <p className={cx('truncate text-[13.5px]', v > 0 ? 'text-[var(--ink)]' : v < 0 ? 'text-[var(--negative)]' : 'ink-3')}>
+                      <p className={cx('truncate text-small', v > 0 ? 'text-ink' : v < 0 ? 'text-negative' : 'ink-3')}>
                         {v > 0 ? `owes you ${money(v)}` : v < 0 ? `you owe ${money(-v)}` : p.owed > 0 || p.paidForMe > 0 ? 'all square' : 'no splits yet'}
                       </p>
                       {progress(p).due > 0 && v > 0 && <Meter pct={(progress(p).cleared / progress(p).due) * 100} className="mt-1.5 max-w-[140px]" />}

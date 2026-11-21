@@ -47,8 +47,8 @@ export function ShareFields({ total, mode, setMode, exact, setExact }: { total: 
       {mode === 'EXACT' ? (
         <Input className="mt-2.5" inputMode="decimal" placeholder="Your share, ₹" value={exact} onChange={(e) => setExact(e.target.value.replace(/[^\d.]/g, ''))} aria-label="Your share" />
       ) : (
-        <p className="ink-2 mt-2 px-1 text-[13px]">
-          Your share <b className="tabular text-[var(--ink)]">{money(share)}</b>
+        <p className="ink-2 mt-2 px-1 text-small">
+          Your share <b className="tabular text-ink">{money(share)}</b>
           {total > 0 && mode === 'HALF' ? ` of ${money(total)}` : ''}
         </p>
       )}
@@ -61,15 +61,15 @@ export function BalanceChange({ person, change }: { person?: Person; change: num
   if (!person) return null
   const after = person.outstanding - change
   return (
-    <p className="ink-2 rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-[13px] leading-relaxed">
-      <b className="text-[var(--ink)]">{person.name}</b>: {standing(person.outstanding)} → <b className="text-[var(--ink)]">{standing(after)}</b>
+    <p className="ink-2 rounded-box bg-surface-2 px-4 py-3 text-small leading-relaxed">
+      <b className="text-ink">{person.name}</b>: {standing(person.outstanding)} → <b className="text-ink">{standing(after)}</b>
     </p>
   )
 }
 
 /** Choose a person, as chips. */
 export function PersonChips({ people, value, onChange }: { people: Person[]; value: number | ''; onChange: (id: number) => void }) {
-  if (people.length === 0) return <p className="ink-2 px-1 text-sm">Add people under Splits first.</p>
+  if (people.length === 0) return <p className="ink-2 px-1 text-label">Add people under Splits first.</p>
   return (
     <div className="flex flex-wrap gap-2">
       {people.map((p) => (
@@ -78,7 +78,7 @@ export function PersonChips({ people, value, onChange }: { people: Person[]; val
           type="button"
           aria-pressed={p.id === value}
           onClick={() => onChange(p.id)}
-          className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[14px] font-medium transition-colors duration-150', p.id === value ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)]')}
+          className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-label font-medium transition-colors duration-quick', p.id === value ? 'bg-ink text-bg' : 'bg-surface-2')}
         >
           <Avatar name={p.name} size={32} />
           {p.name}
@@ -127,7 +127,7 @@ export function PaidByForm({ person, txn, onDone }: { person?: Person; txn?: Txn
         </Group>
       )}
       <Group label="What they paid">
-        <Input autoFocus={!txn} inputMode="decimal" placeholder="₹" value={total} onChange={(e) => setTotal(e.target.value.replace(/[^\d.]/g, ''))} aria-label="What they paid" className="text-lg" />
+        <Input autoFocus={!txn} inputMode="decimal" placeholder="₹" value={total} onChange={(e) => setTotal(e.target.value.replace(/[^\d.]/g, ''))} aria-label="What they paid" className="text-title" />
       </Group>
       <Group label="Your share">
         <ShareFields total={value} mode={mode} setMode={setMode} exact={exact} setExact={setExact} />
@@ -138,7 +138,7 @@ export function PaidByForm({ person, txn, onDone }: { person?: Person; txn?: Txn
             const Icon = categoryIcon(c)
             const on = c.id === categoryId
             return (
-              <button key={c.id} type="button" aria-pressed={on} onClick={() => setCategoryId(on ? '' : c.id)} className={cx('pressable flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium transition-colors duration-150', on ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-[var(--surface-2)]')}>
+              <button key={c.id} type="button" aria-pressed={on} onClick={() => setCategoryId(on ? '' : c.id)} className={cx('pressable flex h-10 items-center gap-1.5 rounded-full px-3.5 text-small font-medium transition-colors duration-quick', on ? 'bg-ink text-bg' : 'bg-surface-2')}>
                 <Icon size={16} weight={on ? 'fill' : 'regular'} style={on ? undefined : { color: c.color }} />
                 {c.name}
               </button>
@@ -167,7 +167,7 @@ export function PaidByForm({ person, txn, onDone }: { person?: Person; txn?: Txn
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="ink-2 mb-2 px-1 text-[13px] font-medium">{label}</p>
+      <p className="ink-2 mb-2 px-1 text-small font-medium">{label}</p>
       {children}
     </div>
   )

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { formatDay, ymd } from '../format'
 import { isIos } from '../pwa'
 import { cx, Input, Sheet } from './ui'
+import { QUICK } from '../motion'
 
 /** yyyy-mm-dd arithmetic on calendar dates (no time zone involved). */
 const key = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toISOString().slice(0, 10)
@@ -60,7 +61,7 @@ function NativeDatePicker({ value, onChange, min, max, disabled, placeholder = '
           onChange(v && min && v < min ? min : v && max && v > max ? max : v)
         }}
       />
-      {!value && <span className="ink-3 pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-base">{placeholder}</span>}
+      {!value && <span className="ink-3 pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-input">{placeholder}</span>}
     </div>
   )
 }
@@ -168,7 +169,7 @@ function CalendarDatePicker({
         <button type="button" aria-label="Previous month" disabled={years} onClick={() => shift(-1)} className="pressable ink-2 flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-0">
           <CaretLeft size={18} />
         </button>
-        <button type="button" onClick={() => setYears((y) => !y)} aria-label={years ? 'Back to days' : 'Choose a year'} className="pressable rounded-full px-3 py-1.5 text-[15px] font-semibold">
+        <button type="button" onClick={() => setYears((y) => !y)} aria-label={years ? 'Back to days' : 'Choose a year'} className="pressable rounded-full px-3 py-1.5 text-body font-semibold">
           {years ? 'Choose a year' : formatDay(first, { month: 'long', year: 'numeric' })}
         </button>
         <button type="button" aria-label="Next month" disabled={years || (!!max && key(vy, vm, 1) > max)} onClick={() => shift(1)} className="pressable ink-2 flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
@@ -186,7 +187,7 @@ function CalendarDatePicker({
                 type="button"
                 disabled={!ok}
                 onClick={() => (setFocus(key(y, vm - 1, Math.min(parts(focus)[2], 28))), setYears(false))}
-                className={cx('pressable h-11 rounded-xl text-[15px] font-medium disabled:opacity-30', y === vy ? 'bg-[var(--ink)] text-[var(--surface)]' : 'hover:bg-[var(--surface-2)]')}
+                className={cx('pressable h-11 rounded-field text-body font-medium disabled:opacity-30', y === vy ? 'bg-ink text-surface' : 'hover:bg-surface-2')}
               >
                 {y}
               </button>
@@ -195,7 +196,7 @@ function CalendarDatePicker({
         </div>
       ) : (
         <div ref={grid} role="grid">
-          <div className="ink-3 mb-1 grid grid-cols-7 text-center text-[11px] font-semibold">
+          <div className="ink-3 mb-1 grid grid-cols-7 text-center text-micro font-semibold">
             {WEEKDAYS.map((w) => (
               <span key={w}>{w}</span>
             ))}
@@ -217,9 +218,9 @@ function CalendarDatePicker({
                   onClick={() => pick(d)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), pick(focus))}
                   className={cx(
-                    'tabular mx-auto flex h-10 w-10 items-center justify-center rounded-full text-[14px] transition-colors duration-150 disabled:opacity-25',
-                    selected ? 'bg-[var(--ink)] font-semibold text-[var(--surface)]' : ok && 'hover:bg-[var(--surface-2)]',
-                    !selected && d === today && 'font-semibold text-[var(--accent)] ring-1 ring-[var(--accent)]',
+                    'tabular mx-auto flex h-10 w-10 items-center justify-center rounded-full text-label transition-colors duration-quick disabled:opacity-25',
+                    selected ? 'bg-ink font-semibold text-surface' : ok && 'hover:bg-surface-2',
+                    !selected && d === today && 'font-semibold text-accent ring-1 ring-accent',
                     !inMonth && !selected && 'ink-3',
                   )}
                 >
@@ -231,8 +232,8 @@ function CalendarDatePicker({
         </div>
       )}
       {clearable && value && (
-        <div className="mt-2 flex justify-end border-t border-[var(--line)] pt-2">
-          <button type="button" onClick={() => (onChange(''), setOpen(false))} className="pressable ink-2 rounded-full px-3 py-1.5 text-[13px] font-semibold">
+        <div className="mt-2 flex justify-end border-t border-line pt-2">
+          <button type="button" onClick={() => (onChange(''), setOpen(false))} className="pressable ink-2 rounded-full px-3 py-1.5 text-small font-semibold">
             Clear
           </button>
         </div>
@@ -250,7 +251,7 @@ function CalendarDatePicker({
         aria-controls={id}
         aria-label={label ? `${label}: ${value ? formatDay(value, { day: 'numeric', month: 'long', year: 'numeric' }) : placeholder}` : undefined}
         onClick={() => (open ? setOpen(false) : show())}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-transparent bg-[var(--surface-2)] px-4 py-3 text-left text-base outline-none transition-[border-color,box-shadow] duration-150 hover:border-[var(--line-strong)] focus-visible:border-[var(--accent)] focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-60"
+        className="flex w-full items-center gap-2.5 rounded-field border border-transparent bg-surface-2 px-4 py-3 text-left text-input outline-none transition-[border-color,box-shadow] duration-quick hover:border-line-strong focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-60"
       >
         <CalendarBlank size={18} className="ink-2 shrink-0" />
         <span className={cx('min-w-0 flex-1 truncate', !value && 'ink-3')}>
@@ -276,10 +277,10 @@ function CalendarDatePicker({
               initial={{ opacity: 0, y: pos.bottom != null ? 4 : -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: pos.bottom != null ? 4 : -4 }}
-              transition={{ duration: 0.15 }}
+              transition={QUICK}
               onKeyDown={onKey}
               style={pos}
-              className="surface fixed z-[70] w-[20rem] rounded-2xl p-3 shadow-[var(--shadow-float)] ring-1 ring-[var(--line)]"
+              className="surface fixed z-[70] w-[20rem] rounded-box p-3 shadow-[var(--shadow-float)] ring-1 ring-line"
             >
               {calendar}
             </motion.div>

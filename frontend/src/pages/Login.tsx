@@ -3,7 +3,8 @@ import { Lock, SignIn } from '@phosphor-icons/react'
 import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { Button, ErrorText, Field, Input, SPRING } from '../components/ui'
+import { Button, ErrorText, Field, Input } from '../components/ui'
+import { MOVE } from '../motion'
 
 interface Options {
   passwordLogin: boolean
@@ -74,19 +75,19 @@ export default function Login() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">
-      <motion.div className="w-full max-w-sm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={SPRING}>
+      <motion.div className="w-full max-w-sm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={MOVE}>
         <div className="mb-8 text-center">
-          <img src="/icon.svg" alt="" className="mx-auto mb-5 h-16 w-16 rounded-[18px]" />
-          <h1 className="text-[28px] font-bold tracking-[-0.02em]">Hisaab</h1>
-          <p className="ink-2 mt-1.5 text-[15px]">{redirecting ? `Taking you to ${o!.oidc!.name}…` : 'Your money, in one place.'}</p>
+          <img src="/icon.svg" alt="" className="mx-auto mb-5 h-16 w-16 rounded-card" />
+          <h1 className="text-heading font-bold tracking-[-0.02em]">Hisaab</h1>
+          <p className="ink-2 mt-1.5 text-body">{redirecting ? `Taking you to ${o!.oidc!.name}…` : 'Your money, in one place.'}</p>
         </div>
 
         {linking && <LinkPrompt onDone={(me) => qc.setQueryData(['me'], me)} />}
 
         {!linking && !redirecting && o && (
-          <div className="surface space-y-4 rounded-[20px] p-5">
-            {loginError && <p className="anim-pop rounded-xl bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] px-4 py-3 text-sm text-[var(--negative)]">{loginError}</p>}
-            {flag(SIGNED_OUT_KEY) && !loginError && <p className="ink-2 text-center text-sm">You're signed out.</p>}
+          <div className="surface space-y-4 rounded-card p-5">
+            {loginError && <p className="anim-pop rounded-field bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] px-4 py-3 text-label text-negative">{loginError}</p>}
+            {flag(SIGNED_OUT_KEY) && !loginError && <p className="ink-2 text-center text-label">You're signed out.</p>}
 
             {o.oidc && (
               <Button className="w-full" onClick={startOidc}>
@@ -95,8 +96,8 @@ export default function Login() {
             )}
 
             {o.oidc && showPassword && (
-              <div className="ink-3 flex items-center gap-3 text-xs">
-                <span className="h-px flex-1 bg-[var(--line)]" /> or <span className="h-px flex-1 bg-[var(--line)]" />
+              <div className="ink-3 flex items-center gap-3 text-caption">
+                <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
               </div>
             )}
 
@@ -165,8 +166,8 @@ function LinkPrompt({ onDone }: { onDone: (me: { username: string }) => void }) 
 
   if (pending.isError)
     return (
-      <div className="surface space-y-4 rounded-[20px] p-5 text-center">
-        <p className="ink-2 text-[15px]">That sign-in has expired. Please sign in again.</p>
+      <div className="surface space-y-4 rounded-card p-5 text-center">
+        <p className="ink-2 text-body">That sign-in has expired. Please sign in again.</p>
         <Button className="w-full" onClick={leave}>
           Back to sign in
         </Button>
@@ -175,11 +176,11 @@ function LinkPrompt({ onDone }: { onDone: (me: { username: string }) => void }) 
   const p = pending.data
   if (!p) return null
   return (
-    <form onSubmit={confirm} className="surface space-y-4 rounded-[20px] p-5">
+    <form onSubmit={confirm} className="surface space-y-4 rounded-card p-5">
       <div>
-        <p className="text-[17px] font-semibold">Link your {p.provider} account?</p>
-        <p className="ink-2 mt-1.5 text-[15px] leading-relaxed">
-          <b className="text-[var(--ink)]">{p.email ?? p.name ?? 'This account'}</b> isn't linked to Hisaab yet. Once linked, you'll sign in with {p.provider} from now on.
+        <p className="text-title font-semibold">Link your {p.provider} account?</p>
+        <p className="ink-2 mt-1.5 text-body leading-relaxed">
+          <b className="text-ink">{p.email ?? p.name ?? 'This account'}</b> isn't linked to Hisaab yet. Once linked, you'll sign in with {p.provider} from now on.
         </p>
       </div>
       {p.passwordRequired && (

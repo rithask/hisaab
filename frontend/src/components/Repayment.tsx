@@ -43,12 +43,12 @@ export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' 
     <div className="space-y-2">
       {list.map((s) =>
         s.status === 'SUGGESTED' ? (
-          <div key={s.id} className="anim-pop flex items-center gap-3 rounded-2xl bg-[var(--accent-soft)] p-3">
+          <div key={s.id} className="anim-pop flex items-center gap-3 rounded-box bg-accent-soft p-3">
             <Avatar name={s.personName} size={36} />
-            <p className="min-w-0 flex-1 text-sm">
+            <p className="min-w-0 flex-1 text-label">
               {s.direction === 'OUT' ? `Paying ${first(s.personName)} back` : `${first(s.personName)} paying you back`} <b className="tabular">{money(s.amount)}</b>?
             </p>
-            <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface)]" onClick={() => reject.mutate(s)} aria-label="No">
+            <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-surface" onClick={() => reject.mutate(s)} aria-label="No">
               <X size={17} />
             </button>
             <button className="pressable flex h-9 w-9 items-center justify-center rounded-full accent-fill" onClick={() => confirm.mutate(s)} aria-label="Yes">
@@ -56,13 +56,13 @@ export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' 
             </button>
           </div>
         ) : (
-          <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-[var(--surface-2)] p-3 text-sm">
+          <div key={s.id} className="flex items-center gap-3 rounded-box bg-surface-2 p-3 text-label">
             <HandCoins size={18} className="shrink-0" />
             <p className="min-w-0 flex-1">
               {s.direction === 'OUT' ? `You paid ${first(s.personName)} back` : `${first(s.personName)} paid you back`} <b className="tabular">{money(s.amount)}</b>
-              <span className="ink-2 block text-xs">Not counted as {s.direction === 'OUT' ? 'spending' : 'income'}.</span>
+              <span className="ink-2 block text-caption">Not counted as {s.direction === 'OUT' ? 'spending' : 'income'}.</span>
             </p>
-            <button className="link ink-2 shrink-0 text-[13px] font-medium" onClick={() => undo.mutate(s)}>
+            <button className="link ink-2 shrink-0 text-small font-medium" onClick={() => undo.mutate(s)}>
               Undo
             </button>
           </div>
@@ -74,7 +74,7 @@ export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' 
         </MoreRow>
       )}
       {remembered && (
-        <p className="anim-pop rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--accent)]">
+        <p className="anim-pop rounded-box bg-accent-soft px-3 py-2 text-caption text-accent">
           Remembered “{remembered.name}” as {remembered.person}, so their next payment is matched by name.
         </p>
       )}
@@ -109,11 +109,11 @@ function LinkForm({ txn, people, onDone }: { txn: Txn; people: Person[]; onDone:
     <div className="space-y-4">
       <div className="space-y-1">
         {sorted.map((p) => (
-          <button key={p.id} type="button" onClick={() => pick(p)} className={cx('pressable flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left', person?.id === p.id && 'bg-[var(--surface-2)]')}>
+          <button key={p.id} type="button" onClick={() => pick(p)} className={cx('pressable flex w-full items-center gap-3 rounded-box px-2 py-2 text-left', person?.id === p.id && 'bg-surface-2')}>
             <Avatar name={p.name} size={40} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-semibold">{p.name}</span>
-              <span className={cx('block text-xs', due(p) > 0 ? 'text-[var(--ink-2)]' : 'ink-3')}>{standing(p.outstanding)}</span>
+              <span className="block truncate text-body font-semibold">{p.name}</span>
+              <span className={cx('block text-caption', due(p) > 0 ? 'text-ink-2' : 'ink-3')}>{standing(p.outstanding)}</span>
             </span>
             {person?.id === p.id && <Check size={18} />}
           </button>
@@ -125,8 +125,8 @@ function LinkForm({ txn, people, onDone }: { txn: Txn; people: Person[]; onDone:
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
           </Field>
           {value > 0 && (
-            <p className="ink-2 rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-[13px]">
-              <b className="text-[var(--ink)]">{person.name}</b>: {standing(person.outstanding)} → <b className="text-[var(--ink)]">{standing(person.outstanding + (incoming ? -value : value))}</b>
+            <p className="ink-2 rounded-box bg-surface-2 px-4 py-3 text-small">
+              <b className="text-ink">{person.name}</b>: {standing(person.outstanding)} → <b className="text-ink">{standing(person.outstanding + (incoming ? -value : value))}</b>
             </p>
           )}
         </>
