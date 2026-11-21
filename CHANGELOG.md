@@ -15,6 +15,8 @@ must do when upgrading (marked **Upgrade:**).
 - **Lent to someone** in Add transaction: pick the person, and the payment is recorded as all theirs. It isn't
   counted as your spending, needs no category and shows as "Lent to …". A repayment you link to someone reads
   "Paid back by …" instead of "No category", and To check no longer asks for a category for either.
+- Splitting a payment while adding it can be **by amounts or percent**, not only equally. The form shows each
+  share as you type and won't save a split that adds up to more than the payment.
 
 ## [0.12.0] - 2026-11-21
 

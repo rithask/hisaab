@@ -510,6 +510,9 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const [noting, setNoting] = useState(false)
   const [splitting, setSplitting] = useState(false)
   const [splitWith, setSplitWith] = useState<number[]>([])
+  // how to split while adding: equally (me included), or each person's amount or percent (I keep the rest)
+  const [splitMethod, setSplitMethod] = useState<Method>('EQUAL')
+  const [splitValues, setSplitValues] = useState<Record<number, string>>({})
   // Lent to someone: the whole payment is theirs, so it's a split without me and needs no category
   const [lending, setLending] = useState(false)
   const [lendTo, setLendTo] = useState<number | ''>('')
@@ -533,7 +536,20 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const payer = (people.data ?? []).find((p) => p.id === personId)
   const lendNow = lending && !paidByOther && !transfer && direction === 'DEBIT'
   const splitNow = splitting && !paidByOther && !transfer && direction === 'DEBIT' && splitWith.length > 0
-  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== '' && (!lendNow || lendTo !== '')
+  // Each person's share as entered (amounts or percent); checked here so a payment is never saved with a split the server would refuse
+  const theirShares = splitWith.map((id) => Number(splitValues[id] || 0))
+  const theirTotal =
+    splitMethod === 'EXACT' ? theirShares.reduce((a, b) => a + b, 0) : splitMethod === 'PERCENT' ? Math.round(theirShares.reduce((a, b) => a + b, 0) * value) / 100 : 0
+  const splitProblem = !splitNow || splitMethod === 'EQUAL'
+    ? null
+    : theirShares.some((x) => !(x > 0))
+      ? splitMethod === 'EXACT' ? 'Enter an amount for each person' : 'Enter a percent for each person'
+      : splitMethod === 'PERCENT' && theirShares.reduce((a, b) => a + b, 0) > 100
+        ? 'Percentages add up to more than 100%'
+        : theirTotal > value
+          ? `Shares add up to ${money(theirTotal)}, more than ${money(value)}`
+          : null
+  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== '' && (!lendNow || lendTo !== '') && !splitProblem
   const borrower = (people.data ?? []).find((p) => p.id === lendTo)
   const account = active.find((a) => a.id === accountId)
   const AccountIcon = account?.type === 'CREDIT_CARD' ? CreditCard : account?.type === 'CASH' ? Wallet : Bank
@@ -590,7 +606,10 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         lendNow
           ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: false, participants: [{ personId: lendTo, value: null }] } })
           : splitNow
-            ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: true, participants: splitWith.map((personId) => ({ personId, value: null })) } })
+            ? api(`/transactions/${t.id}/split`, {
+                method: 'PUT',
+                body: { method: splitMethod, includeMe: true, participants: splitWith.map((personId) => ({ personId, value: splitMethod === 'EQUAL' ? null : Number(splitValues[personId] || 0) })) },
+              })
             : t,
       ),
     onClose,
@@ -806,9 +825,42 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
               })}
             </div>
           )}
+          {splitWith.length > 0 && (
+            <Segmented<Method>
+              value={splitMethod}
+              onChange={setSplitMethod}
+              options={[
+                { value: 'EQUAL', label: 'Equally' },
+                { value: 'EXACT', label: 'Amounts' },
+                { value: 'PERCENT', label: 'Percent' },
+              ]}
+            />
+          )}
+          {splitMethod !== 'EQUAL' &&
+            (people.data ?? [])
+              .filter((p) => splitWith.includes(p.id))
+              .map((p) => (
+                <div key={p.id} className="flex items-center gap-3">
+                  <Avatar name={p.name} size={32} />
+                  <span className="min-w-0 flex-1 truncate text-[15px]">{p.name}</span>
+                  <div className="w-28 shrink-0">
+                    <Input
+                      className="py-2 text-right"
+                      inputMode="decimal"
+                      placeholder={splitMethod === 'PERCENT' ? '%' : '₹'}
+                      aria-label={`${p.name}'s ${splitMethod === 'PERCENT' ? 'percent' : 'amount'}`}
+                      value={splitValues[p.id] ?? ''}
+                      onChange={(e) => setSplitValues((v) => ({ ...v, [p.id]: e.target.value.replace(/[^\d.]/g, '') }))}
+                    />
+                  </div>
+                </div>
+              ))}
           {splitWith.length > 0 && value > 0 && (
-            <p className="ink-2 px-1 text-[13px]">
-              Split equally with you: {money(Math.floor((value / (splitWith.length + 1)) * 100) / 100)} each. Change it later on the transaction.
+            <p className={cx('px-1 text-[13px]', splitProblem ? 'text-[var(--negative)]' : 'ink-2')}>
+              {splitProblem ??
+                (splitMethod === 'EQUAL'
+                  ? `Split equally with you: ${money(Math.floor((value / (splitWith.length + 1)) * 100) / 100)} each. Change it later on the transaction.`
+                  : `They owe you ${money(theirTotal)}; your share is ${money(value - theirTotal)}.`)}
             </p>
           )}
         </div>
@@ -833,7 +885,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <div className="sticky bottom-0 z-10 -mx-5 mt-4 bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${lendNow && borrower ? `, lent to ${borrower.name}` : splitNow ? `, split ${splitWith.length + 1} ways` : ''}` : lendNow && value > 0 && lendTo === '' ? 'Who did you lend it to?' : 'Enter an amount'}
+          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${lendNow && borrower ? `, lent to ${borrower.name}` : splitNow ? (splitMethod === 'EQUAL' ? `, split ${splitWith.length + 1} ways` : `, your share ${money(value - theirTotal)}`) : ''}` : lendNow && value > 0 && lendTo === '' ? 'Who did you lend it to?' : value > 0 && splitProblem ? 'Check the split' : 'Enter an amount'}
         </Button>
       </div>
     </form>
