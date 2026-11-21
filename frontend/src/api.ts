@@ -128,6 +128,13 @@ export interface Txn {
   /** someone else paid; amount is my share of paidTotal */
   paidBy?: { id: number; name: string }
   paidTotal?: number
+  /** what's mine of it after splits and repayments; 0 for money I lent or a repayment */
+  myAmount?: number
+  /** a payment that's all someone else's: money I lent them */
+  lentTo?: { id: number; name: string }[]
+  /** confirmed repayments on it: who paid me back (money in), whom I paid back (money out) */
+  paidBackBy?: { id: number; name: string }[]
+  paidBackTo?: { id: number; name: string }[]
 }
 
 export interface Page<T> {

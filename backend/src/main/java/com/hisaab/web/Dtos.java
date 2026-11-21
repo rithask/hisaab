@@ -34,8 +34,19 @@ public final class Dtos {
                          AccountRef linkedAccount, BigDecimal sharedAmount, boolean categorySuggested,
                          /* name of the API token that added it, when an app did */ String addedBy,
                          /* someone else paid (account is null): who, and what they paid altogether */
-                         PersonRef paidBy, BigDecimal paidTotal) {
+                         PersonRef paidBy, BigDecimal paidTotal,
+                         /* what's mine of it after splits and repayments; 0 for a loan or a repayment */
+                         BigDecimal myAmount,
+                         /* everyone's share of a payment that isn't mine at all (money I lent) */
+                         List<PersonRef> lentTo,
+                         /* confirmed repayments on it: who paid me back (money in), whom I paid back (money out) */
+                         List<PersonRef> paidBackBy, List<PersonRef> paidBackTo) {
         static TxnDto of(Txn t, BigDecimal shared) {
+            return of(t, shared, null, List.of(), List.of(), List.of());
+        }
+
+        static TxnDto of(Txn t, BigDecimal shared, BigDecimal myAmount, List<PersonRef> lentTo,
+                         List<PersonRef> paidBackBy, List<PersonRef> paidBackTo) {
             return new TxnDto(t.getId(), AccountRef.of(t.getAccount()), t.getDirection(), t.getAmount(),
                     t.getOriginalAmount(), t.getOriginalCurrency(), t.isAmountEstimated(), t.getOccurredAt(),
                     t.getCounterparty(), t.getDescription(), t.getReferenceNo(), t.getReportedBalance(),
@@ -46,7 +57,8 @@ public final class Dtos {
                     t.getLinkedTxn() == null ? null : AccountRef.of(t.getLinkedTxn().getAccount()), shared,
                     t.isCategorySuggested() && t.getCategory() != null,
                     t.getApiToken() == null ? null : t.getApiToken().getName(),
-                    t.getPaidBy() == null ? null : new PersonRef(t.getPaidBy().getId(), t.getPaidBy().getName()), t.getPaidTotal());
+                    t.getPaidBy() == null ? null : new PersonRef(t.getPaidBy().getId(), t.getPaidBy().getName()), t.getPaidTotal(),
+                    myAmount, lentTo, paidBackBy, paidBackTo);
         }
     }
 

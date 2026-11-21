@@ -12,6 +12,9 @@ must do when upgrading (marked **Upgrade:**).
 ### Added
 - **Gifts**, a spending category for presents you buy ("Gift" was only for money coming in). Reset puts it back
   with the other built-in categories.
+- **Lent to someone** in Add transaction: pick the person, and the payment is recorded as all theirs. It isn't
+  counted as your spending, needs no category and shows as "Lent to …". A repayment you link to someone reads
+  "Paid back by …" instead of "No category", and To check no longer asks for a category for either.
 
 ## [0.12.0] - 2026-11-21
 

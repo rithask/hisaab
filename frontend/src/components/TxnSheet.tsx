@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowCounterClockwise, ArrowsLeftRight, Bank, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowsLeftRight, Bank, HandCoins, NotePencil, Users, UsersThree, CalendarBlank, GraduationCap, CaretDown, ClockCounterClockwise, CreditCard, Envelope, PencilSimple, Sparkle, Storefront, Trash, Wallet } from '@phosphor-icons/react'
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, type RefundWatch, type Split, type TeachResult, type Txn } from '../api'
@@ -10,6 +10,7 @@ import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
 import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
+import { settledLabel } from './TxnRow'
 import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, SPRING, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold } from './ui'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
@@ -82,6 +83,8 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const CatIcon = categoryIcon(cat)
   // Picking a category is open only when there isn't one yet; otherwise it's one row (a guess asks "Right?").
   const choosing = changingCategory || !cat
+  // Money I lent or a repayment, none of it mine: the split or repayment below says what it is; no category needed.
+  const settled = !t.transfer && !paidBy && t.myAmount === 0 && !cat && !changingCategory && !!settledLabel(t)
   const extras = [notes && 'note', t.tags.length > 0 && `${t.tags.length} tag${t.tags.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
 
   return (
@@ -181,7 +184,7 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             </button>
           </div>
         </div>
-      ) : choosing ? (
+      ) : settled ? null : choosing ? (
         <div>
           <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-[13px] font-medium">
             {cat ? 'Change category' : 'What was it?'}
@@ -344,6 +347,7 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
     if (!split.data || split.data.shares.length === 0) return
     const m = split.data.shares[0].method
     setMethod(m)
+    setIncludeMe(split.data.myShare > 0) // money I lent stays lent when edited
     setValues(Object.fromEntries(split.data.shares.map((s) => [s.personId, m === 'EQUAL' ? '' : String(s.input ?? s.amount)])))
   }, [split.data])
 
@@ -391,8 +395,9 @@ function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
       <div className="rounded-2xl bg-[var(--surface-2)] p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[15px] font-semibold">Split with others</p>
+            <p className="text-[15px] font-semibold">{s.shares.length > 0 && s.myShare === 0 ? 'Money you lent' : 'Split with others'}</p>
             {!s?.shares.length && <p className="ink-2 text-xs">Paid for a group? Track who owes you.</p>}
+            {s.shares.length > 0 && s.myShare === 0 && <p className="ink-2 text-xs">Not counted as your spending.</p>}
           </div>
           <Button variant="primary" size="sm" onClick={() => setEditing(true)}>
             {s?.shares.length ? 'Edit' : 'Split'}
@@ -505,6 +510,9 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const [noting, setNoting] = useState(false)
   const [splitting, setSplitting] = useState(false)
   const [splitWith, setSplitWith] = useState<number[]>([])
+  // Lent to someone: the whole payment is theirs, so it's a split without me and needs no category
+  const [lending, setLending] = useState(false)
+  const [lendTo, setLendTo] = useState<number | ''>('')
   // "Someone else paid": a friend paid; I record my share, with no account of mine
   const people = usePeople()
   const [someone, setSomeone] = useState(false)
@@ -523,12 +531,14 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const paidByOther = someone && direction === 'DEBIT'
   const share = shareOf(value, shareMode, exactShare)
   const payer = (people.data ?? []).find((p) => p.id === personId)
-  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== ''
+  const lendNow = lending && !paidByOther && !transfer && direction === 'DEBIT'
+  const splitNow = splitting && !paidByOther && !transfer && direction === 'DEBIT' && splitWith.length > 0
+  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== '' && (!lendNow || lendTo !== '')
+  const borrower = (people.data ?? []).find((p) => p.id === lendTo)
   const account = active.find((a) => a.id === accountId)
   const AccountIcon = account?.type === 'CREDIT_CARD' ? CreditCard : account?.type === 'CASH' ? Wallet : Bank
   const category = kindCats.find((c) => c.id === categoryId)
   const CatIcon = category ? categoryIcon(category) : Sparkle
-  const splitNow = splitting && !paidByOther && !transfer && direction === 'DEBIT' && splitWith.length > 0
 
   // People and shops I've paid before (or been paid by): one tap fills payee, category and account.
   const payees = useMemo(() => {
@@ -570,14 +580,18 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           amount: value,
           currency,
           counterparty,
-          categoryId: transfer ? null : categoryId || null,
+          categoryId: transfer || lendNow ? null : categoryId || null,
           occurredAt: occurredAt(),
           notes,
           transfer,
         },
       }).then((t) =>
         // Split with friends: equally, me included; the split can be changed on the transaction later.
-        splitNow ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: true, participants: splitWith.map((personId) => ({ personId, value: null })) } }) : t,
+        lendNow
+          ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: false, participants: [{ personId: lendTo, value: null }] } })
+          : splitNow
+            ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: true, participants: splitWith.map((personId) => ({ personId, value: null })) } })
+            : t,
       ),
     onClose,
   )
@@ -670,7 +684,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           {paidByOther ? <Users size={17} /> : <AccountIcon size={17} />}
           {paidByOther ? (payer ? `By ${payer.name}` : 'By someone else') : (account?.name ?? 'Account')}
         </Guess>
-        {!transfer && (
+        {!transfer && !lendNow && (
           <Guess on={open === 'category'} onClick={() => toggle('category')}>
             <CatIcon size={17} style={category ? { color: category.color } : undefined} />
             {category?.name ?? (paidByOther ? 'No category' : 'Category: auto')}
@@ -736,20 +750,25 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <Label>Also</Label>
       <ChipRow>
         {direction === 'DEBIT' && (
-          <Choice on={someone} onClick={() => (setSomeone(!someone), setSplitting(false), setTransfer(false), setCurrency('INR'), setOpen(null))}>
+          <Choice on={someone} onClick={() => (setSomeone(!someone), setSplitting(false), setLending(false), setTransfer(false), setCurrency('INR'), setOpen(null))}>
             <Users size={17} weight={someone ? 'fill' : 'regular'} /> Someone else paid
           </Choice>
         )}
         {direction === 'DEBIT' && !someone && (
-          <Choice on={splitting} onClick={() => (setSplitting(!splitting), setTransfer(false))}>
+          <Choice on={splitting} onClick={() => (setSplitting(!splitting), setLending(false), setTransfer(false))}>
             <UsersThree size={17} weight={splitting ? 'fill' : 'regular'} /> Split with friends
+          </Choice>
+        )}
+        {direction === 'DEBIT' && !someone && (
+          <Choice on={lending} onClick={() => (setLending(!lending), setSplitting(false), setTransfer(false), setOpen(null))}>
+            <HandCoins size={17} weight={lending ? 'fill' : 'regular'} /> Lent to someone
           </Choice>
         )}
         <Choice on={noting} onClick={() => setNoting(!noting)}>
           <NotePencil size={17} weight={noting ? 'fill' : 'regular'} /> Note
         </Choice>
         {!someone && (
-          <Choice on={transfer} onClick={() => (setTransfer(!transfer), setSplitting(false))}>
+          <Choice on={transfer} onClick={() => (setTransfer(!transfer), setSplitting(false), setLending(false))}>
             <ArrowsLeftRight size={17} weight={transfer ? 'fill' : 'regular'} /> Between my accounts
           </Choice>
         )}
@@ -794,6 +813,16 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
           )}
         </div>
       </Fold>
+      <Fold open={lendNow}>
+        <div className="space-y-3 pt-4">
+          <PersonChips people={people.data ?? []} value={lendTo} onChange={setLendTo} />
+          {borrower && value > 0 && (
+            <p className="ink-2 px-1 text-[13px]">
+              {borrower.name} will owe you {money(value)}. Not counted as your spending; when they pay you back, link it to them.
+            </p>
+          )}
+        </div>
+      </Fold>
       <Fold open={noting}>
         <div className="pt-2.5">
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note" aria-label="Notes" autoFocus />
@@ -804,7 +833,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <div className="sticky bottom-0 z-10 -mx-5 mt-4 bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${splitNow ? `, split ${splitWith.length + 1} ways` : ''}` : 'Enter an amount'}
+          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${lendNow && borrower ? `, lent to ${borrower.name}` : splitNow ? `, split ${splitWith.length + 1} ways` : ''}` : lendNow && value > 0 && lendTo === '' ? 'Who did you lend it to?' : 'Enter an amount'}
         </Button>
       </div>
     </form>

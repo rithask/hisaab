@@ -427,6 +427,15 @@ public class TransactionService {
             if (Boolean.TRUE.equals(f.uncategorized())) {
                 ps.add(cb.isNull(root.get("category")));
                 ps.add(cb.isFalse(root.get("transfer")));
+                // Nothing of it is mine (money I lent, a repayment either way): it needs no category.
+                var shared = query.subquery(BigDecimal.class);
+                var share = shared.from(SplitShare.class);
+                shared.select(cb.coalesce(cb.sum(share.<BigDecimal>get("amount")), BigDecimal.ZERO)).where(cb.equal(share.get("txn"), root));
+                var repaid = query.subquery(BigDecimal.class);
+                var st = repaid.from(Settlement.class);
+                repaid.select(cb.coalesce(cb.sum(st.<BigDecimal>get("amount")), BigDecimal.ZERO))
+                        .where(cb.equal(st.get("txn"), root), cb.equal(st.get("status"), Enums.SettlementStatus.CONFIRMED));
+                ps.add(cb.gt(cb.diff(cb.diff(root.<BigDecimal>get("amount"), shared), repaid), BigDecimal.ZERO));
             } else if (f.categoryId() != null) {
                 ps.add(cb.equal(root.get("category").get("id"), f.categoryId()));
             }

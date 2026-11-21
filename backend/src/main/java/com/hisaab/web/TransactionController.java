@@ -2,8 +2,14 @@ package com.hisaab.web;
 
 import com.hisaab.domain.Enums.Direction;
 import com.hisaab.domain.Enums.SplitMethod;
+import com.hisaab.domain.Enums.SettlementDirection;
+import com.hisaab.domain.Enums.SettlementStatus;
+import com.hisaab.domain.Settlement;
+import com.hisaab.domain.SplitShare;
 import com.hisaab.domain.Txn;
+import com.hisaab.repo.SettlementRepo;
 import com.hisaab.repo.SplitShareRepo;
+import com.hisaab.web.Dtos.PersonRef;
 import com.hisaab.service.*;
 import com.hisaab.service.TransactionService.Filter;
 import com.hisaab.service.TransactionService.ManualTxn;
@@ -30,20 +36,43 @@ public class TransactionController {
     private final TransferService transfers;
     private final SplitService splits;
     private final SplitShareRepo shares;
+    private final SettlementRepo settlements;
 
     public TransactionController(TransactionService service, AccountService accounts, CategorizationService categorizer,
-                                 TransferService transfers, SplitService splits, SplitShareRepo shares) {
+                                 TransferService transfers, SplitService splits, SplitShareRepo shares,
+                                 SettlementRepo settlements) {
         this.service = service;
         this.accounts = accounts;
         this.categorizer = categorizer;
         this.transfers = transfers;
         this.splits = splits;
         this.shares = shares;
+        this.settlements = settlements;
     }
 
+    /**
+     * With what's mine of it, so the app can say "Lent to Fabis" or "Paid back by Fabis" instead of asking for a
+     * category: a payment that's all someone else's isn't spending, and a repayment isn't income.
+     */
     TxnDto dto(Txn t) {
-        BigDecimal shared = shares.totalForTxn(t);
-        return TxnDto.of(t, shared.signum() == 0 ? null : shared);
+        List<SplitShare> split = shares.findByTxn(t);
+        List<Settlement> repaid = settlements.findByTxn(t).stream().filter(s -> s.getStatus() == SettlementStatus.CONFIRMED).toList();
+        BigDecimal shared = split.stream().map(SplitShare::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal in = sum(repaid, SettlementDirection.IN), out = sum(repaid, SettlementDirection.OUT);
+        BigDecimal mine = ReportService.myAmount(t.getDirection(), t.getAmount(), shared, in, out);
+        List<PersonRef> lentTo = t.getDirection() == Direction.DEBIT && mine.signum() == 0 && out.signum() == 0
+                ? people(split.stream().map(SplitShare::getPerson)) : List.of();
+        return TxnDto.of(t, shared.signum() == 0 ? null : shared, mine, lentTo,
+                people(repaid.stream().filter(s -> s.getDirection() == SettlementDirection.IN).map(Settlement::getPerson)),
+                people(repaid.stream().filter(s -> s.getDirection() == SettlementDirection.OUT).map(Settlement::getPerson)));
+    }
+
+    private static BigDecimal sum(List<Settlement> list, SettlementDirection d) {
+        return list.stream().filter(s -> s.getDirection() == d).map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static List<PersonRef> people(java.util.stream.Stream<com.hisaab.domain.Person> s) {
+        return s.distinct().map(p -> new PersonRef(p.getId(), p.getName())).toList();
     }
 
     public record PageDto<T>(List<T> items, int page, int size, long total, boolean hasMore) {}
