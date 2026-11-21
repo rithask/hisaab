@@ -1,0 +1,11 @@
+package com.hisaab.accounts;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface AlertRepo extends JpaRepository<Alert, Long> {
+    List<Alert> findByDismissedFalseOrderByCreatedAtDesc();
+
+    long countByDismissedFalse();
+}

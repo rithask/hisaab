@@ -1,6 +1,6 @@
 package com.hisaab.config;
 
-import com.hisaab.service.SettingsService;
+import com.hisaab.settings.SettingsService;
 import org.springframework.stereotype.Service;
 
 import java.io.Serializable;

@@ -1,9 +1,9 @@
 package com.hisaab.config;
 
-import com.hisaab.domain.ApiToken;
-import com.hisaab.domain.ApiToken.Job;
-import com.hisaab.features.FeatureService;
-import com.hisaab.service.ApiTokenService;
+import com.hisaab.dataapi.ApiToken;
+import com.hisaab.dataapi.ApiToken.Job;
+import com.hisaab.dataapi.ApiTokenService;
+import com.hisaab.settings.FeatureService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
