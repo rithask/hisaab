@@ -104,7 +104,7 @@ function LinkForm({ txn, people, onDone }: { txn: Txn; people: Person[]; onDone:
     <div className="space-y-4">
       <div className="space-y-1">
         {sorted.map((p) => (
-          <button key={p.id} type="button" onClick={() => pick(p)} className={cx('pressable flex w-full items-center gap-3 rounded-box px-2 py-2 text-left', person?.id === p.id && 'bg-surface-2')}>
+          <button key={p.id} type="button" onClick={() => pick(p)} className={cx('row flex w-full items-center gap-3 rounded-box px-2 py-2 text-left', person?.id === p.id && 'bg-surface-2')}>
             <Avatar name={p.name} size={40} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-body font-semibold">{p.name}</span>

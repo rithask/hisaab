@@ -228,7 +228,7 @@ export function PeriodBars({ items, selected, onSelect, highlightLast }: { items
             aria-pressed={selected === it.key}
             aria-label={`${it.label}: ${money(it.value)} spent`}
             onClick={() => onSelect(selected === it.key ? null : it.key)}
-            className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg transition-transform duration-quick active:scale-95 disabled:opacity-35"
+            className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5 rounded-lg pressable disabled:opacity-35"
           >
             <span className={cx('tabular truncate text-micro font-medium transition-opacity duration-quick', on ? 'text-ink' : 'ink-3', dim && 'opacity-40')}>{it.value > 0 && (items.length <= 7 || on) ? compact(it.value) : ''}</span>
             <span className="flex w-full flex-1 items-end">

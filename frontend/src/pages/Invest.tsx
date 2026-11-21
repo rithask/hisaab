@@ -239,7 +239,7 @@ function HoldingForm({ type, holding, onClose }: { type: 'STOCK' | 'MF'; holding
                   type="button"
                   key={s.code}
                   onClick={() => (setSymbol(s.code), setName(s.name), setSearch(''))}
-                  className="pressable block w-full rounded-box px-3 py-2.5 text-left text-label hover:bg-surface-2"
+                  className="row block w-full rounded-box px-3 py-2.5 text-left text-label"
                 >
                   <span className="font-medium">{s.name}</span>
                   <span className="ink-2 block text-caption">

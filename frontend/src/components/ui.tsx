@@ -61,7 +61,7 @@ export function Section({ title, action, children, className }: { title: string;
 
 /** Grouped list inside a card: rows separated by hairlines. */
 export function List({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('surface overflow-hidden rounded-card [&>*+*]:border-t [&>*+*]:border-line', className)}>{children}</div>
+  return <div className={cx('list-enter surface overflow-hidden rounded-card [&>*+*]:border-t [&>*+*]:border-line', className)}>{children}</div>
 }
 
 /**
@@ -308,13 +308,13 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       {open &&
         (wide ? (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={title}>
-            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={BASE} onClick={onClose} />
+            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: QUICK }} transition={BASE} onClick={onClose} />
             <motion.div
               className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-y-auto overflow-x-hidden overscroll-contain rounded-dialog bg-surface px-5 pb-6 shadow-[var(--shadow-float)]"
               initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98, transition: QUICK }}
-              transition={MOVE}
+              transition={BASE}
             >
               <div className="sticky top-0 z-20 -mx-5 mb-3 rounded-t-dialog bg-surface px-5 pb-2 pt-4">
                 <div className="flex items-center justify-between">
@@ -333,9 +333,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
             aria-modal="true"
             aria-label={title}
             className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-surface px-5 pb-safe"
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6, transition: QUICK }}
+            exit={{ opacity: 0, y: 8, transition: QUICK }}
             transition={BASE}
           >
             {/* the page header, kept in view while the window scrolls */}

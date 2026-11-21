@@ -111,7 +111,7 @@ export default function Layout() {
 
 function TabLink({ item: { to, label, icon: Icon }, on }: { item: Item; on: boolean }) {
   return (
-    <NavLink to={to} className={cx('flex flex-1 flex-col items-center justify-center gap-1 transition-[color,transform] duration-quick active:scale-95', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}>
+    <NavLink to={to} className={cx('flex flex-1 flex-col items-center justify-center gap-1 pressable', on ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}>
       <Icon size={24} weight={on ? 'fill' : 'regular'} />
       <span className="text-micro font-medium">{label}</span>
     </NavLink>
