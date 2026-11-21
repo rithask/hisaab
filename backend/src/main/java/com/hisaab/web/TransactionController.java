@@ -97,7 +97,6 @@ public class TransactionController {
     @Transactional
     public TxnDto createPaidBy(@RequestBody TransactionService.PaidByInput in) {
         Txn t = service.createPaidBy(in);
-        splits.rescan(); // they may already have sent the difference
         return dto(t);
     }
 
@@ -105,7 +104,6 @@ public class TransactionController {
     @Transactional
     public TxnDto updatePaidBy(@PathVariable Long id, @RequestBody TransactionService.PaidByInput in) {
         Txn t = service.updatePaidBy(id, in);
-        splits.rescan();
         return dto(t);
     }
 
@@ -173,7 +171,6 @@ public class TransactionController {
         var saved = splits.setSplit(t, req.method() == null ? SplitMethod.EQUAL : req.method(),
                 Boolean.TRUE.equals(req.includeMe()),
                 req.participants());
-        splits.rescan(); // a repayment may have arrived before I split it
         return splitDto(t, saved.stream().map(ShareDto::of).toList());
     }
 

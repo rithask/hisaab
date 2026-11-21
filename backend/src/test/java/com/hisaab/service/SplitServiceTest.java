@@ -30,7 +30,10 @@ class SplitServiceTest {
     private final SettlementRepo settlements = mock(SettlementRepo.class);
     private final TxnRepo txns = mock(TxnRepo.class);
     private final PersonRepo people = mock(PersonRepo.class);
-    private final SplitService splits = new SplitService(shares, settlements, people, txns);
+    // events go straight to the service, as Spring does within a transaction
+    private final SplitService[] self = new SplitService[1];
+    private final SplitService splits = self[0] = new SplitService(shares, settlements, people, txns,
+            e -> self[0].onBalancesChanged((BalancesChanged) e));
     private final Person rahul = new Person();
 
     {
@@ -120,5 +123,12 @@ class SplitServiceTest {
         given("500", "0", "0", "0");
         splits.suggestSettlement(money(Direction.DEBIT, "500", "RAHUL"));
         verify(settlements, never()).save(any());
+    }
+
+    @Test
+    void savingAPersonLooksAgainAtRecentMoney() {
+        when(people.save(any())).thenAnswer(i -> i.getArgument(0));
+        splits.savePerson(rahul);
+        verify(txns).findUnsettledSince(any());
     }
 }

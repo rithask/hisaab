@@ -12,12 +12,12 @@ import com.hisaab.repo.TagRepo;
 import com.hisaab.repo.TxnRepo;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -42,9 +42,13 @@ public class TransactionService {
     private final PayeeAliasService aliases;
     private final PersonRepo people;
 
+    private final ApplicationEventPublisher events;
+
     public TransactionService(TxnRepo txns, CategoryRepo categories, TagRepo tags, CategorizationService categorizer,
                               TransferService transfers, BalanceService balances, SplitService splits,
-                              PriceService prices, PayeeAliasService aliases, PersonRepo people) {
+                              PriceService prices, PayeeAliasService aliases, PersonRepo people,
+                              ApplicationEventPublisher events) {
+        this.events = events;
         this.aliases = aliases;
         this.people = people;
         this.txns = txns;
@@ -227,6 +231,11 @@ public class TransactionService {
         t.setAmount(Money.r2(rate == null ? amount : amount.multiply(rate)));
     }
 
+    /**
+     * What follows saving a new transaction, as direct calls rather than events on purpose: the order matters (a
+     * transfer is never a repayment, so transfers are found first) and each source does a different subset (a
+     * statement line has no reported balance; a manual entry has no card-payment hint).
+     */
     private void afterCreate(Txn t, boolean cardPaymentHint) {
         transfers.detect(t, cardPaymentHint);
         categorizer.categorize(t);
@@ -282,7 +291,9 @@ public class TransactionService {
         t.setSource(TxnSource.PERSON);
         applyPaidBy(t, in);
         if (in.tags() != null) t.setTags(resolveTags(in.tags()));
-        return txns.save(t);
+        txns.save(t);
+        events.publishEvent(new BalancesChanged("they paid for me")); // they may already have sent the difference
+        return t;
     }
 
     @Transactional
@@ -291,6 +302,7 @@ public class TransactionService {
         if (!t.isPaidByPerson()) throw new IllegalArgumentException("This wasn't paid by someone else");
         applyPaidBy(t, in);
         if (in.tags() != null) t.setTags(resolveTags(in.tags()));
+        events.publishEvent(new BalancesChanged("they paid for me"));
         return t;
     }
 

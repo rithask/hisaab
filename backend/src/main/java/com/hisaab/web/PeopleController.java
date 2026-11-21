@@ -18,7 +18,6 @@ import com.hisaab.web.Dtos.TxnDto;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -70,16 +69,14 @@ public class PeopleController {
     @PostMapping("/people")
     @Transactional
     public PersonDto create(@RequestBody PersonInput in) {
-        Person p = people.save(apply(new Person(), in));
-        splits.rescan(); // a payment from them may already be here
+        Person p = splits.savePerson(apply(new Person(), in));
         return dto(p);
     }
 
     @PutMapping("/people/{id}")
     @Transactional
     public PersonDto update(@PathVariable Long id, @RequestBody PersonInput in) {
-        Person p = people.save(apply(person(id), in));
-        splits.rescan(); // a new UPI name can match a payment that's already here
+        Person p = splits.savePerson(apply(person(id), in));
         return dto(p);
     }
 
@@ -192,9 +189,6 @@ public class PeopleController {
     @DeleteMapping("/settlements/{id}")
     @Transactional
     public void deleteSettlement(@PathVariable Long id) {
-        settlements.deleteById(id);
-        Audit.log("Repayment removed id={}", id);
-        settlements.flush();
-        splits.rescan();
+        splits.removeSettlement(id);
     }
 }

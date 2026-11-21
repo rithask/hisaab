@@ -1,5 +1,6 @@
 package com.hisaab.service;
 
+import com.hisaab.config.Audit;
 import com.hisaab.domain.Enums.SettlementDirection;
 import com.hisaab.domain.Enums.SettlementStatus;
 import com.hisaab.domain.Enums.SplitMethod;
@@ -11,6 +12,8 @@ import com.hisaab.repo.PersonRepo;
 import com.hisaab.repo.SettlementRepo;
 import com.hisaab.repo.SplitShareRepo;
 import com.hisaab.repo.TxnRepo;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,12 +34,15 @@ public class SplitService {
     private final SettlementRepo settlements;
     private final PersonRepo people;
     private final TxnRepo txns;
+    private final ApplicationEventPublisher events;
 
-    public SplitService(SplitShareRepo shares, SettlementRepo settlements, PersonRepo people, TxnRepo txns) {
+    public SplitService(SplitShareRepo shares, SettlementRepo settlements, PersonRepo people, TxnRepo txns,
+                        ApplicationEventPublisher events) {
         this.shares = shares;
         this.settlements = settlements;
         this.people = people;
         this.txns = txns;
+        this.events = events;
     }
 
     public record Participant(Long personId, BigDecimal value) {}
@@ -52,7 +58,10 @@ public class SplitService {
         settlements.findByTxn(txn).stream().filter(s -> s.getStatus() == SettlementStatus.SUGGESTED).forEach(settlements::delete);
         shares.deleteByTxn(txn);
         shares.flush();
-        if (participants == null || participants.isEmpty()) return List.of();
+        if (participants == null || participants.isEmpty()) {
+            events.publishEvent(new BalancesChanged("split removed"));
+            return List.of();
+        }
         BigDecimal total = txn.getAmount();
         List<SplitShare> out = new ArrayList<>();
 
@@ -89,7 +98,9 @@ public class SplitService {
         for (SplitShare s : out) {
             if (s.getAmount().signum() <= 0) throw new IllegalArgumentException("Each share must be more than zero");
         }
-        return shares.saveAll(out);
+        List<SplitShare> saved = shares.saveAll(out);
+        events.publishEvent(new BalancesChanged("split changed")); // a repayment may have arrived before I split it
+        return saved;
     }
 
     private SplitShare share(Txn txn, Long personId, SplitMethod method, BigDecimal input, BigDecimal amount) {
@@ -213,6 +224,28 @@ public class SplitService {
     @Transactional
     public void rescan() {
         for (Txn t : txns.findUnsettledSince(Instant.now().minus(LOOK_BACK))) suggestSettlement(t);
+    }
+
+    @EventListener
+    void onBalancesChanged(BalancesChanged e) {
+        rescan();
+    }
+
+    /** Add or change a person; a payment from them (or to their new UPI name) may already be here. */
+    @Transactional
+    public Person savePerson(Person p) {
+        Person saved = people.save(p);
+        events.publishEvent(new BalancesChanged("person saved"));
+        return saved;
+    }
+
+    /** Remove a repayment; the money it was linked to is free to match something else. */
+    @Transactional
+    public void removeSettlement(Long id) {
+        settlements.deleteById(id);
+        Audit.log("Repayment removed id={}", id);
+        settlements.flush();
+        events.publishEvent(new BalancesChanged("repayment removed"));
     }
 
     /**
