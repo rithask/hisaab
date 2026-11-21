@@ -10,9 +10,17 @@ must do when upgrading (marked **Upgrade:**).
 ## [Unreleased]
 
 ### Changed
+- Faster, especially as your history grows. Activity loads a page of transactions with 10 database queries instead
+  of 175, Home with 28 instead of 46, and Splits with 4 instead of 13; the database has indexes for looking up a
+  transaction's splits and repayments. The app also opens with about 40% less to download: other pages load the
+  first time you open them.
+- With Budgets or Backups switched off, removing a budget and the backup actions are refused too, like the rest
+  of a switched-off feature.
 - A tidier, more consistent look: text, corners and colours now come from one small set of sizes and colours, so
   the same kind of thing looks the same on every screen. Buttons dip when pressed while rows just highlight, lists
   ease in when a page opens, and windows open and close the same way on phones and computers.
+- **Upgrade:** take a backup first; this release adds database indexes (no data changes), so going back means
+  restoring it.
 
 ## [0.13.0] - 2026-11-21
 

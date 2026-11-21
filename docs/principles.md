@@ -7,7 +7,7 @@ file in the same change.
 **What the app is:** Hisaab (Hindi/Urdu for "accounts", as in *hisaab-kitaab*) is a personal money tracker for **one person**, used mostly on a **phone**, **self-hosted** on a
 home server. It reads bank alert emails, forwarded SMS and statement PDFs, and turns them into one accurate
 picture of accounts, cards, spending, people who owe money, and investments. Amounts are in Indian rupees; days are
-counted in the time zone set with `TZ` (section 3.3).
+counted in the time zone set with `TZ` (section 3.4).
 
 ---
 
@@ -29,7 +29,7 @@ counted in the time zone set with `TZ` (section 3.3).
    activity, net worth, year in review, search) is always on: turning it off saves nothing and hides answers.
    Only what takes setup, space or trust gets a switch in Settings → Features: budgets, rewards, backups, and the
    Data API (which lets other apps in, so it starts off). A feature that's off is hidden from every screen, its
-   endpoints refuse requests, and its background jobs don't run. New switches follow section 3.6.
+   endpoints refuse requests, and its background jobs don't run. New switches follow section 3.7.
 6. **Private by default.** Personal data stays on the user's server. No analytics or third-party calls apart
    from the price feeds for investments, which can be turned off with `PRICES_ENABLED=false`. Other apps get
    data only through tokens the owner creates, limited to what the owner chose.
@@ -96,17 +96,50 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 - **Boring, current technology.** Java 25 with Spring Boot 4, PostgreSQL, Flyway; React 19 with TypeScript, Vite,
   Tailwind 4 and TanStack Query. Add a dependency only when it removes real work, and prefer what's already in.
 
-### 3.2 Backend layers (`backend/src/main/java/com/hisaab`)
+### 3.2 Backend packages (`backend/src/main/java/com/hisaab`)
 
-| Package | Holds | Rule |
-|---|---|---|
-| `web` | REST controllers, DTOs (`Dtos.java`, records), `ApiExceptionHandler` | Thin: parse input, call a service, return a DTO. No business logic, never return entities. |
-| `service` | Core logic: transactions, balances, categorisation, splits, transfers, prices, settings | Transaction boundaries (`@Transactional`) live here. |
-| `features` | Bills, budgets, net worth, review, backups, and `FeatureService` | Switchable ones check their switch first. May use `NamedParameterJdbcTemplate` for reporting SQL. |
-| `mail`, `mail/parser` | IMAP sync, email processing, bank email parsers, `SmsParser`, SMS learning | One parser per bank and format, behind `BankEmailParser`. |
-| `statement` | PDF text extraction and statement parsers, the review-then-import flow | One parser per bank and card, behind `StatementParser`. |
-| `domain`, `repo` | JPA entities and Spring Data repositories | Entities only change through services. |
-| `config` | Security, OIDC, sign-in logging, the API token filter, SPA routing, `AppProperties` | |
+The backend is packaged **by feature**: each package holds a feature's entities, repositories, services and
+controllers, so everything about one thing is in one place. Inside a package the usual layers still apply:
+controllers are thin (parse input, call a service, return a DTO; never return entities), services hold the logic
+and the transaction boundaries (`@Transactional`), and entities only change through services.
+
+| Package | Holds |
+|---|---|
+| `accounts` | Accounts and cards, balances, card billing cycles, balance-mismatch alerts |
+| `transactions` | Transactions and tags, transfers between my accounts, `TransactionViews` |
+| `categories` | Categories, auto-filing rules and votes, payee names |
+| `people` | People, splits, repayments, `BalancesChanged` |
+| `investments` | Holdings, mutual fund schemes, prices |
+| `messages` | Bank emails and SMS: IMAP sync, taking messages in, teaching, SMS learning; `parser/` (one parser per bank and format, behind `BankEmailParser`, plus `SmsParser`) and `reading/` (the reading pipeline) |
+| `statements` | PDF text, statement parsers (one per bank and card, behind `StatementParser`), the review-then-import flow |
+| `reports` | Home's totals, income and spending reports, net worth history, year in review |
+| `watch` | Bills, subscriptions, unusual activity, card rewards |
+| `budgets`, `backups` | Those optional features |
+| `settings` | Small settings, feature switches (`FeatureService`, `@RequiresFeature`), Reset |
+| `dataapi` | The Data API (`/api/v1`) and its tokens |
+| `common` | Shared by many features: `Money`, `Names`, `Enums`, `Dtos`, `NotFound`, `Audit`, the error handler |
+| `config` | Security, sign-in (password, OIDC), the API token filter, SPA routing, `AppProperties` |
+
+A new feature gets its own package. Something two features need goes in the one that owns it (and is `public`), or
+in `common` only when no feature owns it.
+
+### 3.3 Patterns
+
+- **Strategy for formats.** One class per bank and format: `BankEmailParser`, `StatementParser`. Adding a bank is
+  adding a class (and a test with made-up text), never an `if` in shared code.
+- **Read models for busy screens.** A screen that lists many rows gets one class that builds them with a query per
+  table, never a query per row (`TransactionViews`; grouped queries like `BalanceService.current(list)` and
+  `SplitService.balances(list)`). Check with the query count, not just the timing: test data is small.
+- **Domain events for follow-ups.** When a change means other things must be looked at again, the service that
+  made it publishes an event and the owner listens: `BalancesChanged` (something changed what people owe) makes
+  `SplitService` look for repayments again. Use direct calls instead when the order matters or each caller needs a
+  different subset; say why in a comment (as `TransactionService.afterCreate` does).
+- **Pipeline for incoming messages.** `MessageReader` runs small steps in order of trust (known format, parsers,
+  sender check, account, balance check, record, learn). A new rule is a new step or a change to one step, not
+  another branch in a long method.
+- **Switches by annotation.** An optional feature's endpoints carry `@RequiresFeature(Feature.X)`; they're refused
+  while it's off (§3.7).
+- **Lookups by id** use `orElseThrow(notFound("Account"))` (a 404 with "Account not found").
 
 - **Reporting reads use SQL; writes use JPA.** Aggregates (budgets, review, net worth) are plain SQL through
   `NamedParameterJdbcTemplate`. Creating and changing data goes through entities and services, so the rules
@@ -118,7 +151,7 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
   Every new bank format comes with a test using **made-up** sample text (`src/test`). Never commit real
   statements, real SMS or real account numbers.
 
-### 3.3 Money, time and identity
+### 3.4 Money, time and identity
 
 - **Money is `BigDecimal`** in Java and `numeric(14,2)` in the database, rounded with `Money.r2` (half up).
   Never `double` for amounts. Amounts are stored **positive** with a `direction` (DEBIT/CREDIT). In JSON they're
@@ -136,7 +169,7 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 - **De-duplicate everything that arrives.** The same payment can come by email, by SMS and in a statement; match
   it to one transaction (fill in missing details) instead of creating three.
 
-### 3.4 Data and migrations
+### 3.5 Data and migrations
 
 - The schema changes only through **Flyway migrations** (`db/migration/V<n>__what.sql`). Never edit one that has
   been released (see `docs/versioning.md`). Prefer additive changes: new tables, nullable columns.
@@ -148,7 +181,7 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 - **Back up before destructive work.** Automatic backups produce one zip with `database.sql` and the files; any
   script or migration that rewrites data should tell the user to take one first.
 
-### 3.5 Security
+### 3.6 Security
 
 - **Single owner.** One account with role `OWNER`. Sign-in is by app password (bcrypt), OIDC (Pocket ID), or
   both. OIDC follows the standard: issuer discovery, authorization code with PKCE, identity = issuer + `sub`
@@ -170,11 +203,11 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 - The container runs as an **unprivileged user** (uid 10001); the entrypoint is root only long enough to fix
   folder ownership.
 
-### 3.6 Adding an optional feature (checklist)
+### 3.7 Adding an optional feature (checklist)
 
 First ask whether it needs a switch at all (principle 5). If it only reads your data, it doesn't.
 
-1. Add it to `FeatureService.Feature` (on by default unless it's risky).
+1. Add it to `FeatureService.Feature` in `settings` (on by default unless it's risky), and give it its own package.
 2. Backend: mark its controller or each endpoint `@RequiresFeature(Feature.X)` (requests are refused while it's
    off), and check `features.on(Feature.X)` before any scheduled work.
 3. Frontend: add the key to the `Feature` type in `api.ts` and a row in `FEATURES` in `Settings.tsx`; wrap the
@@ -184,7 +217,7 @@ First ask whether it needs a switch at all (principle 5). If it only reads your 
    card in `ToCheck.tsx`.
 4. Add an `Added` line to `CHANGELOG.md`.
 
-### 3.7 Frontend (`frontend/src`)
+### 3.8 Frontend (`frontend/src`)
 
 - **Server state lives in TanStack Query**, nowhere else. Read with `useQuery` and the `api()` helper; write with
   `useMoneyMutation`, which refreshes every query afterwards, because one change (a category) affects many screens
@@ -202,7 +235,7 @@ First ask whether it needs a switch at all (principle 5). If it only reads your 
   `clearSavedData()` (`pwa.ts`) forgets the data on sign-out. Saving needs a connection; there's no offline
   queue, which keeps money data from conflicting. New files in `public/` are picked up automatically.
 
-### 3.8 Operations
+### 3.9 Operations
 
 - **Data lives in plain folders** next to `compose.yaml` (`./data/db`, `./data/files`, `./data/backups`), not in
   Docker named volumes, so the owner can see it, copy it and back it up with ordinary tools.
