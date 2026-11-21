@@ -23,6 +23,8 @@ must do when upgrading (marked **Upgrade:**).
   fills in with a tick.
 - Statements and the Reset card squeezed their text into a narrow column; their buttons now sit under the text.
   The Reset button reads just "Reset".
+- The date and time fields in Add transaction ran off the screen on iPhone; they now share the row. On iPhone
+  and iPad, dates use Safari's own date picker.
 
 ## [0.12.0] - 2026-11-21
 

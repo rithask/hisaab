@@ -241,6 +241,17 @@ select:disabled {
   }
 }
 
+/* Safari (iPhone) draws date and time inputs at its own width and height, wider than the box they're given.
+   Without its styling they fill the box like any other input. */
+input[type="date"],
 input[type="time"] {
   min-height: 2.75rem;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
 }

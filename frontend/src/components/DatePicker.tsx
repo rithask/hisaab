@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDay, ymd } from '../format'
+import { isIos } from '../pwa'
 import { cx, Input, Sheet } from './ui'
 
 /** yyyy-mm-dd arithmetic on calendar dates (no time zone involved). */
@@ -21,7 +22,50 @@ const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
  * from the field, or up when there isn't room below. Both are rendered on top of the page, so it works inside a
  * Sheet or a <Field> label too. Keyboard: arrows move a day (or a week), Enter picks, Escape closes.
  */
-export function DatePicker({
+type DateProps = {
+  value: string
+  onChange: (v: string) => void
+  min?: string
+  max?: string
+  disabled?: boolean
+  placeholder?: string
+  /** accessible name for the field when there's no visible <Field> label */
+  label?: string
+  /** "11 Nov 2026" instead of "Wed, 11 November 2026", for narrow fields */
+  short?: boolean
+  /** offer "Clear" (for optional dates such as filters) */
+  clearable?: boolean
+}
+
+/** On iPhone and iPad, Safari's own date wheel (it matches the time field beside it); elsewhere the app's calendar. */
+export function DatePicker(p: DateProps) {
+  return isIos() ? <NativeDatePicker {...p} /> : <CalendarDatePicker {...p} />
+}
+
+/** Safari's own picker, dressed as the app's field. Its "Clear" gives an empty value; dates outside min/max are clamped. */
+function NativeDatePicker({ value, onChange, min, max, disabled, placeholder = 'Pick a date', label }: DateProps) {
+  return (
+    <div className="relative">
+      <CalendarBlank size={18} className="ink-2 pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" />
+      <Input
+        type="date"
+        className="h-full pl-11"
+        value={value}
+        min={min}
+        max={max}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(e) => {
+          const v = e.target.value
+          onChange(v && min && v < min ? min : v && max && v > max ? max : v)
+        }}
+      />
+      {!value && <span className="ink-3 pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-base">{placeholder}</span>}
+    </div>
+  )
+}
+
+function CalendarDatePicker({
   value,
   onChange,
   min,
@@ -260,12 +304,13 @@ export function DateTimePicker({ value, onChange, max, label = 'Date' }: { value
     onChange(max && v > max ? max : v)
   }
   return (
-    <div className="flex gap-2">
-      <div className="min-w-0 flex-1">
+    // Date about 3/5 of the row, time the rest; neither may grow past its share (Safari's time field wants to).
+    <div className="flex items-stretch gap-2">
+      <div className="min-w-0 flex-[3]">
         <DatePicker value={day} onChange={(d) => set(d, hm)} max={max?.slice(0, 10)} label={label} short />
       </div>
-      <div className="w-[7.5rem] shrink-0">
-        <Input type="time" value={hm} onChange={(e) => set(day, e.target.value)} aria-label="Time" />
+      <div className="flex min-w-0 flex-[2]">
+        <Input type="time" className="h-full py-0" value={hm} onChange={(e) => set(day, e.target.value)} aria-label="Time" />
       </div>
     </div>
   )
