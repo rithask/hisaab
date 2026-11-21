@@ -13,6 +13,9 @@ import java.util.List;
 public interface SplitShareRepo extends JpaRepository<SplitShare, Long> {
     List<SplitShare> findByTxn(Txn txn);
 
+    /** Every share of these transactions in one query (for a page of rows). */
+    List<SplitShare> findByTxnInOrderById(java.util.Collection<Txn> txns);
+
     List<SplitShare> findByPersonOrderByTxnOccurredAtDesc(Person person);
 
     void deleteByTxn(Txn txn);

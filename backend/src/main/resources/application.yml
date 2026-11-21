@@ -11,6 +11,8 @@ spring:
       ddl-auto: validate
     properties:
       hibernate.jdbc.time_zone: UTC
+      # Load what rows point at (category, account, tags …) for many rows in one query, not one query per row
+      hibernate.default_batch_fetch_size: 100
   flyway:
     enabled: true
   jackson:

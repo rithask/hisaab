@@ -19,6 +19,9 @@ public interface SettlementRepo extends JpaRepository<Settlement, Long> {
 
     List<Settlement> findByTxn(Txn txn);
 
+    /** Every repayment linked to these transactions in one query (for a page of rows). */
+    List<Settlement> findByTxnInOrderById(java.util.Collection<Txn> txns);
+
     long countByStatus(SettlementStatus status);
 
     @Query("""
