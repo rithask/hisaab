@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle, FilePdf, Question, UploadSimple, WarningCircle
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type ImportLine, type ImportResult, type LineDecision, type StatementImport } from '../api'
-import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Page, PageHeader, PageSkeleton, Section, Toggle } from '../components/ui'
+import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Page, PageHeader, PageSkeleton, Section, Toggle, IconBadge } from '../components/ui'
 import { formatDay, money, shortDate, timeZone } from '../format'
 import { useAccounts, useMoneyMutation } from '../hooks'
 
@@ -49,7 +49,7 @@ function Upload() {
       <Card className="p-5">
         <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => (setFile(e.target.files?.[0] ?? null), upload.reset())} />
         <button onClick={() => fileRef.current?.click()} className="pressable flex w-full items-center gap-3 rounded-box border border-dashed border-line-strong p-4 text-left">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">{file ? <FilePdf size={22} /> : <UploadSimple size={22} />}</span>
+          <IconBadge icon={file ? FilePdf : UploadSimple} size="lg" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body font-medium">{file ? file.name : 'Choose a statement PDF'}</span>
             <span className="ink-2 block text-small">{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'Canara, Axis bank, Axis card or HDFC card'}</span>

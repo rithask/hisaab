@@ -89,3 +89,24 @@ export const institutionColor: Record<string, string> = {
 export const moneyAuto = (v: number | null | undefined) => (v == null ? '—' : Number.isInteger(Math.round(v * 100) / 100) ? money0(v) : money(v))
 /** 1,347 (Indian grouping) for points and counts. */
 export const count = (v: number) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(v)
+
+/** "Fabis" from "Fabis Rahman": how the app talks about someone in a sentence. */
+export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name
+
+/** "a", "a and b", "a, b and c"; empty parts are left out. */
+export const joinList = (parts: (string | false | null | undefined)[]) => {
+  const p = parts.filter((x): x is string => !!x)
+  return p.length <= 1 ? (p[0] ?? '') : `${p.slice(0, -1).join(', ')} and ${p[p.length - 1]}`
+}
+
+/** "Fabis, Faris and Priya" */
+export const joinNames = (people: { name: string }[]) => joinList(people.map((p) => p.name))
+
+/** "1 account", "3 accounts", "2 people" (Indian digit grouping). */
+export const plural = (n: number, one: string, many = one + 's') => `${count(n)} ${n === 1 ? one : many}`
+
+/** "6.3 MB", "420 KB" */
+export const fileSize = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
+
+/** "12.5%" with the sign left off: the caller says up or down with an arrow or word. */
+export const percent = (v: number, digits = 1) => `${Math.abs(v).toFixed(digits)}%`

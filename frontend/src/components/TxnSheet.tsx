@@ -8,10 +8,10 @@ import { useAccounts, useCategories, useMoneyMutation, usePeople } from '../hook
 import { categoryIcon } from '../icons'
 import { DatePicker, DateTimePicker } from './DatePicker'
 import { RepaymentRow } from './Repayment'
-import { BalanceChange, PaidByForm, PersonChips, ShareFields, shareOf, type ShareMode } from './PaidBy'
+import { BalanceChange, PaidByForm, PersonPicker, ShareFields, shareOf, type ShareMode } from './PaidBy'
 import TeachForm from './TeachForm'
 import { settledLabel } from './TxnRow'
-import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold } from './ui'
+import { Badge, Button, cx, ErrorText, Field, Input, Segmented, Sheet, Textarea, Toggle, BigMoney, MoreRow, Avatar, Fold, InfoBox, TextButton, FieldLabel } from './ui'
 import { QUICK, MOVE } from '../motion'
 
 export default function TxnSheet({ txn, onClose }: { txn: Txn | null; onClose: () => void }) {
@@ -147,18 +147,13 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
 
       {/* Only what already applies to this payment shows here; everything you could add is under More. */}
       {paidBy && (
-        <div className="flex items-start gap-3 rounded-box bg-surface-2 p-4 text-label">
-          <Users size={18} className="mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-medium">
-              {paidBy.name} paid {money(t.paidTotal ?? t.amount)}, your share {money(t.amount)}
-            </p>
-            <p className="ink-2">Counted in your spending, and taken off what {paidBy.name} owes you. No account of yours was charged.</p>
-            <button className="link mt-2 font-semibold text-accent" onClick={() => setEditingShare(true)}>
-              Change amounts
-            </button>
-          </div>
-        </div>
+        <InfoBox
+          icon={Users}
+          title={`${paidBy.name} paid ${money(t.paidTotal ?? t.amount)}, your share ${money(t.amount)}`}
+          action={<TextButton onClick={() => setEditingShare(true)}>Change amounts</TextButton>}
+        >
+          Counted in your spending, and taken off what {paidBy.name} owes you. No account of yours was charged.
+        </InfoBox>
       )}
       <Sheet open={editingShare} onClose={() => setEditingShare(false)} title="Someone else paid">
         {editingShare && (
@@ -173,21 +168,12 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
       </Sheet>
 
       {t.transfer ? (
-        <div className="flex items-start gap-3 rounded-box bg-surface-2 p-4 text-label">
-          <ArrowsLeftRight size={18} className="mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-medium">Money moved between my accounts</p>
-            <p className="ink-2">
-              {t.linkedAccount ? `Matched with ${t.linkedAccount.name}. ` : ''}Not counted as income or spending.
-            </p>
-            <button className="link mt-2 font-semibold text-accent" onClick={() => update.mutate({ transfer: false })}>
-              It wasn't
-            </button>
-          </div>
-        </div>
+        <InfoBox icon={ArrowsLeftRight} title="Money moved between my accounts" action={<TextButton onClick={() => update.mutate({ transfer: false })}>It wasn't</TextButton>}>
+          {t.linkedAccount ? `Matched with ${t.linkedAccount.name}. ` : ''}Not counted as income or spending.
+        </InfoBox>
       ) : settled ? null : choosing ? (
         <div>
-          <p className="ink-2 mb-2 flex items-baseline gap-2 px-1 text-small font-medium">
+          <p className="mb-2 flex items-baseline gap-2 px-1 text-small font-medium text-ink-2">
             {cat ? 'Change category' : 'What was it?'}
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -222,9 +208,9 @@ function TxnDetail({ txn, onClose }: { txn: Txn; onClose: () => void }) {
               Right
             </Button>
           )}
-          <button className="link h-9 px-1 text-label font-medium text-accent" onClick={() => setChangingCategory(true)}>
+          <TextButton className="h-9 px-1 text-label" onClick={() => setChangingCategory(true)}>
             Change
-          </button>
+          </TextButton>
         </div>
       )}
       {learned && !t.transfer && (
@@ -708,7 +694,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </div>
 
       {/* 3. What the app filled in: one line of guesses, each opens only if tapped. */}
-      <Label>{direction === 'DEBIT' ? 'Paid' : 'Received'}</Label>
+      <FieldLabel className="mt-6">{direction === 'DEBIT' ? 'Paid' : 'Received'}</FieldLabel>
       <div className="flex flex-wrap gap-2">
         <Guess on={open === 'account'} onClick={() => toggle('account')}>
           {paidByOther ? <Users size={17} /> : <AccountIcon size={17} />}
@@ -777,7 +763,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </Fold>
 
       {/* 4. The rare extras, as chips: each opens its own few fields. */}
-      <Label>Also</Label>
+      <FieldLabel className="mt-6">Also</FieldLabel>
       {/* wraps instead of scrolling: only a few, and each should be seen */}
       <ChipRow wrap>
         {direction === 'DEBIT' && (
@@ -806,9 +792,9 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </ChipRow>
       <Fold open={paidByOther}>
         <div className="space-y-4 pt-4">
-          <PersonChips people={people.data ?? []} value={personId} onChange={setPersonId} />
+          <PersonPicker people={people.data ?? []} value={personId} onChange={setPersonId} />
           <div>
-            <p className="ink-2 mb-2 px-1 text-small font-medium">Your share</p>
+            <FieldLabel>Your share</FieldLabel>
             <ShareFields total={value} mode={shareMode} setMode={setShareMode} exact={exactShare} setExact={setExactShare} />
           </div>
           {payer && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
@@ -816,27 +802,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </Fold>
       <Fold open={splitting && !paidByOther}>
         <div className="space-y-3 pt-4">
-          {(people.data ?? []).length === 0 ? (
-            <p className="ink-2 px-1 text-label">Add people under Splits first.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {(people.data ?? []).map((p) => {
-                const on = splitWith.includes(p.id)
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setSplitWith((w) => (on ? w.filter((x) => x !== p.id) : [...w, p.id]))}
-                    className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-label font-medium transition-colors duration-quick', on ? 'bg-ink text-bg' : 'bg-surface-2')}
-                  >
-                    <Avatar name={p.name} size={32} />
-                    {p.name}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <PersonPicker multiple people={people.data ?? []} value={splitWith} onChange={setSplitWith} />
           {splitWith.length > 0 && (
             <Segmented<Method>
               value={splitMethod}
@@ -879,7 +845,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </Fold>
       <Fold open={lendNow}>
         <div className="space-y-3 pt-4">
-          <PersonChips people={people.data ?? []} value={lendTo} onChange={setLendTo} />
+          <PersonPicker people={people.data ?? []} value={lendTo} onChange={setLendTo} />
           {borrower && value > 0 && (
             <p className="ink-2 px-1 text-small">
               {borrower.name} will owe you {money(value)}. Not counted as your spending; when they pay you back, link it to them.
@@ -902,10 +868,6 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </div>
     </form>
   )
-}
-
-function Label({ children }: { children: ReactNode }) {
-  return <p className="eyebrow ink-3 mb-2.5 mt-6 px-1">{children}</p>
 }
 
 /** Horizontally scrolling chip strip that bleeds to the sheet edges. */
@@ -1003,9 +965,9 @@ function RefundWatcher({ txnId, part }: { txnId: number; part: 'linked' | 'ask' 
           </p>
           <div className="mt-2 flex gap-4 text-small">
             {r.status !== 'ARRIVED' && (
-              <button className="link font-medium text-accent" onClick={() => (setBy(r.expectedBy < today ? today : r.expectedBy), setEditing(true))}>
+              <TextButton onClick={() => (setBy(r.expectedBy < today ? today : r.expectedBy), setEditing(true))}>
                 Change date
-              </button>
+              </TextButton>
             )}
             <button className="link ink-2 font-medium" onClick={() => stop.mutate(undefined)}>
               {r.status === 'ARRIVED' ? 'Remove' : 'Stop waiting'}

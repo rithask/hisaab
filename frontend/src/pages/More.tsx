@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api, type Settings as S } from '../api'
 import { secondary, shown } from '../components/Layout'
 import { useSignOut } from '../hooks'
-import { Avatar, Badge, List, PageHeader, Page, Rise } from '../components/ui'
+import { Avatar, Badge, List, PageHeader, Page, Rise, IconBadge } from '../components/ui'
 
 export default function More() {
   const signOut = useSignOut()
@@ -23,9 +23,7 @@ export default function More() {
         <List>
           {secondary.filter((i) => shown(i, s.data?.features)).map(({ to, icon: Icon, label, hint }) => (
             <Link key={to} to={to} className="flex items-center gap-3.5 px-4 py-3.5 row">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
-                <Icon size={20} />
-              </span>
+              <IconBadge icon={Icon} />
               <span className="min-w-0 flex-1">
                 <span className="block text-body font-medium">{label}</span>
                 <span className="ink-2 block truncate text-caption">{hint}</span>

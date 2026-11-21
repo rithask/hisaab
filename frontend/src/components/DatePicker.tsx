@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDay, ymd } from '../format'
 import { isIos } from '../pwa'
-import { cx, Input, Sheet } from './ui'
+import { cx, Input, Sheet, IconButton } from './ui'
 import { QUICK } from '../motion'
 
 /** yyyy-mm-dd arithmetic on calendar dates (no time zone involved). */
@@ -166,15 +166,11 @@ function CalendarDatePicker({
   const calendar = (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <button type="button" aria-label="Previous month" disabled={years} onClick={() => shift(-1)} className="pressable ink-2 flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-0">
-          <CaretLeft size={18} />
-        </button>
+        <IconButton icon={CaretLeft} label="Previous month" size="sm" variant="plain" className="disabled:opacity-0" disabled={years} onClick={() => shift(-1)} />
         <button type="button" onClick={() => setYears((y) => !y)} aria-label={years ? 'Back to days' : 'Choose a year'} className="pressable rounded-full px-3 py-1.5 text-body font-semibold">
           {years ? 'Choose a year' : formatDay(first, { month: 'long', year: 'numeric' })}
         </button>
-        <button type="button" aria-label="Next month" disabled={years || (!!max && key(vy, vm, 1) > max)} onClick={() => shift(1)} className="pressable ink-2 flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-30">
-          <CaretRight size={18} />
-        </button>
+        <IconButton icon={CaretRight} label="Next month" size="sm" variant="plain" disabled={years || (!!max && key(vy, vm, 1) > max)} onClick={() => shift(1)} />
       </div>
 
       {years ? (

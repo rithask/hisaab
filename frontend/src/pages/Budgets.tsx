@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Target } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type Budget } from '../api'
-import { Button, Card, Empty, FeatureGate, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
+import { Button, Card, Empty, FeatureGate, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet, IconBadge } from '../components/ui'
 import { money, money0 } from '../format'
-import { categoryIcon, tint } from '../icons'
+import { categoryIcon } from '../icons'
 import { useCategories, useFeature, useMoneyMutation } from '../hooks'
 
 const barColor = (b: Budget) => (b.status === 'OVER' ? 'var(--negative)' : b.status === 'WARN' ? 'var(--attention)' : 'var(--positive)')
@@ -60,9 +60,7 @@ export function BudgetLine({ b }: { b: Budget }) {
   const Icon = categoryIcon(b)
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: tint(b.color, 0.13), color: b.color }}>
-        <Icon size={20} />
-      </span>
+      <IconBadge icon={Icon} color={b.color} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-body font-medium">{b.name}</span>

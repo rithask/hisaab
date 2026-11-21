@@ -7,7 +7,7 @@ import { api, qs, type Page as Paged, type Report, type Txn } from '../api'
 import { CategoryList, PeriodBars, SpendCalendar } from '../components/charts'
 import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
-import { Card, cx, Delta, Empty, List, Page, PageHeader, Section, Segmented, Skeleton } from '../components/ui'
+import { Card, cx, Delta, Empty, List, Page, PageHeader, Section, Segmented, Skeleton, IconButton } from '../components/ui'
 import { money, money0, ymd, zonedInstant } from '../format'
 import { BASE } from '../motion'
 
@@ -111,13 +111,9 @@ export default function Reports() {
       />
 
       <div className="mt-3 flex items-center justify-between">
-        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2" onClick={() => set({ at: shift(view, start, -1), day: null })} aria-label="Previous">
-          <CaretLeft size={18} />
-        </button>
+        <IconButton icon={CaretLeft} label="Previous" onClick={() => set({ at: shift(view, start, -1), day: null })} />
         <span className="text-body font-semibold">{periodLabel(view, start)}</span>
-        <button className="pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 disabled:opacity-30" disabled={!canNext} onClick={() => set({ at: shift(view, start, 1), day: null })} aria-label="Next">
-          <CaretRight size={18} />
-        </button>
+        <IconButton icon={CaretRight} label="Next" disabled={!canNext} onClick={() => set({ at: shift(view, start, 1), day: null })} />
       </div>
 
       {/* The chosen day, with one tap back to the whole period */}

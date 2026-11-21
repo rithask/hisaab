@@ -3,7 +3,7 @@ import { CreditCard, Gift, Plus, Trash } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type CardRewards, type RewardCycle, type RewardProgram, type RewardRule } from '../api'
 import { DatePicker } from '../components/DatePicker'
-import { Button, Card, Confirm, cx, Empty, ErrorText, FeatureGate, Field, Input, List, Meter, Page, PageHeader, PageSkeleton, Section, Segmented, Select, Sheet } from '../components/ui'
+import { Button, Card, Confirm, cx, Empty, ErrorText, FeatureGate, Field, Input, List, Meter, Page, PageHeader, PageSkeleton, Section, Segmented, Select, Sheet, IconBadge, IconButton, TextButton } from '../components/ui'
 import { count, money0, moneyAuto, shortDate, ymd } from '../format'
 import { useCategories, useFeature, useMoneyMutation } from '../hooks'
 
@@ -53,9 +53,7 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
     return (
       <Section title={title} className="mt-0">
         <Card className="flex items-center gap-3 p-4">
-          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            <Gift size={20} />
-          </span>
+          <IconBadge icon={Gift} />
           <p className="ink-2 min-w-0 flex-1 text-label">Tell the app how this card earns, and it'll track each cycle.</p>
           <Button size="sm" variant="secondary" onClick={onEdit}>
             Set up
@@ -65,7 +63,7 @@ function CardSection({ c, onEdit }: { c: CardRewards; onEdit: () => void }) {
     )
   const now = c.cycles[0]
   return (
-    <Section title={title} className="mt-0" action={<button className="link text-label font-medium text-accent" onClick={onEdit}>Edit</button>}>
+    <Section title={title} className="mt-0" action={<TextButton className="text-label" onClick={onEdit}>Edit</TextButton>}>
       {now && (
         <Card className="p-4">
           <p className="ink-2 text-small">
@@ -256,9 +254,7 @@ function RewardForm({ c, onDone }: { c: CardRewards; onDone: () => void }) {
                     { value: 'category', label: 'Category' },
                   ]}
                 />
-                <button type="button" aria-label="Remove this rate" className="pressable ink-2 flex h-10 w-10 items-center justify-center rounded-full" onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))}>
-                  <Trash size={18} />
-                </button>
+                <IconButton icon={Trash} label="Remove this rate" variant="plain" onClick={() => setRules((rs) => rs.filter((_, j) => j !== i))} />
               </div>
               {r.by === 'merchant' ? (
                 <Field label="Payee contains" hint="e.g. swiggy, amazon">

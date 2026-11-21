@@ -49,7 +49,10 @@ The tokens and the short form of these rules are at the top of `frontend/src/ind
    (`−₹500`, "Over budget").
 4. **Familiar patterns.** Lists of rows, chips for filters, segmented controls for views, sheets for forms,
    a switch for on/off. Reuse the components in `components/ui.tsx` (`Card`, `List`, `Section`, `Sheet`, `Chip`,
-   `Segmented`, `Toggle`, `Button`, `Field`, `Empty`, `FeatureGate`, …) instead of making new ones.
+   `Segmented`, `Toggle`, `Button`, `IconButton`, `TextButton`, `BackButton`, `IconBadge`, `InfoBox`, `FieldLabel`,
+   `Field`, `Empty`, `FeatureGate`, …) and `PersonPicker` (`PaidBy.tsx`) instead of making new ones, and the
+   helpers in `format.ts` (`money`, `firstName`, `joinNames`, `plural`, `fileSize`, `percent`, …) instead of
+   formatting by hand.
 5. **Motion is short and explains.** At most 250ms, only to show where something came from or went (a window
    opening, a row expanding), with the timings in §2.1. No decorative animation. Respect `prefers-reduced-motion`.
 6. **Feedback on every press.** Clickable things get the `pressable`, `row` or `link` utility: a hover state with

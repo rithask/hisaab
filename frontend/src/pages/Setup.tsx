@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, type AccountType, type Settings } from '../api'
 import AccountForm from '../components/AccountForm'
-import { Button, Card, cx, ErrorText, Field, Input, List, PageHeader, Sheet, Page } from '../components/ui'
+import { Button, Card, cx, ErrorText, Field, Input, List, PageHeader, Sheet, Page, IconBadge } from '../components/ui'
 import { money } from '../format'
 import { useAccounts, useMoneyMutation } from '../hooks'
 
@@ -55,9 +55,7 @@ export default function Setup() {
               ] as const
             ).map(([t, Icon, l]) => (
               <button key={t} onClick={() => setAdding(t)} className="surface pressable flex flex-col items-center gap-2 rounded-box py-4 text-small font-semibold">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <Icon size={20} />
-                </span>
+                <IconBadge icon={Icon} tone="accent" />
                 {l}
               </button>
             ))}

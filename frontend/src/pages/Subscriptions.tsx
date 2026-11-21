@@ -3,7 +3,7 @@ import { ArrowUpRight, Copy, Repeat, Sparkle, TrendDown, TrendUp, Pause } from '
 import { useState } from 'react'
 import { api, type Subscription, type SubscriptionAlert, type Subscriptions as Data } from '../api'
 import { TxnSheetById } from '../components/TxnSheet'
-import { Badge, Button, Card, Empty, List, PageSkeleton, Section, Sheet } from '../components/ui'
+import { Badge, Button, Card, Empty, List, PageSkeleton, Section, Sheet, IconBadge, TextButton } from '../components/ui'
 import { money0, moneyAuto, shortDate } from '../format'
 import { useMoneyMutation } from '../hooks'
 
@@ -91,9 +91,9 @@ export function SubscriptionsPart() {
                   {d.hidden.map((h) => (
                     <div key={h.key} className="flex items-center gap-3 px-4 py-3">
                       <span className="min-w-0 flex-1 truncate text-body">{h.name}</span>
-                      <button className="link text-small font-medium text-accent" onClick={() => unhide.mutate(h.key)}>
+                      <TextButton className="text-small" onClick={() => unhide.mutate(h.key)}>
                         Show again
-                      </button>
+                      </TextButton>
                     </div>
                   ))}
                 </List>
@@ -120,16 +120,14 @@ export function AlertCard({ a, onOpen }: { a: SubscriptionAlert; onOpen: () => v
   return (
     <Card className="p-4">
       <div className="flex gap-3">
-        <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-full ' + (bad ? 'tint-attention' : 'ink-2 bg-surface-2')}>
-          <Icon size={18} />
-        </span>
+        <IconBadge icon={Icon} size="sm" tone={bad ? 'attention' : 'neutral'} />
         <div className="min-w-0 flex-1">
           <p className="text-body font-semibold">{t.title}</p>
           <p className="ink-2 mt-0.5 text-small leading-relaxed">{t.detail}</p>
           <div className="mt-2 flex gap-4 text-small font-medium">
-            <button className="link text-accent" onClick={onOpen}>
+            <TextButton onClick={onOpen}>
               Open payment
-            </button>
+            </TextButton>
             <button className="link ink-2" disabled={dismiss.isPending} onClick={() => dismiss.mutate(undefined)}>
               Got it
             </button>
@@ -145,9 +143,7 @@ function SubList({ items, onOpen }: { items: Subscription[]; onOpen: (s: Subscri
     <List>
       {items.map((s) => (
         <button key={s.key} className="row flex w-full items-center gap-3 px-4 py-3 text-left" onClick={() => onOpen(s)}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in oklab, ${s.categoryColor ?? 'var(--ink-3)'} 16%, transparent)`, color: s.categoryColor ?? 'var(--ink-2)' }}>
-            <Repeat size={18} />
-          </span>
+          <IconBadge icon={Repeat} color={s.categoryColor ?? undefined} />
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-2">
               <span className="truncate text-body font-medium">{s.name}</span>

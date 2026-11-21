@@ -10,7 +10,7 @@ import { EmailView } from '../pages/Inbox'
 import { alertText } from '../pages/Subscriptions'
 import { reasonText } from '../pages/Unusual'
 import { TxnSheetById } from './TxnSheet'
-import { Button, Card, cx, ErrorText, Sheet } from './ui'
+import { Button, Card, ErrorText, Sheet, IconBadge, TextButton } from './ui'
 
 /** One decision the app needs from me: a question, and the one-tap answers to it. */
 type Item = {
@@ -154,9 +154,9 @@ export default function ToCheck({ d }: { d: Dashboard }) {
       <div className="mb-2.5 flex items-baseline justify-between px-1">
         <h2 className="text-title font-semibold">To check</h2>
         {!loading && queue.length > 1 && (
-          <button className="link text-label font-medium text-accent" onClick={toggleAll}>
+          <TextButton className="text-label" onClick={toggleAll}>
             {all ? 'One at a time' : `See all ${queue.length}`}
-          </button>
+          </TextButton>
         )}
       </div>
       {loading ? (
@@ -187,9 +187,7 @@ function ItemCard({ item, onLater }: { item: Item; onLater?: () => void }) {
   return (
     <Card className="anim-pop p-4">
       <div className="flex gap-3">
-        <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', item.urgent ? 'bg-[color-mix(in_oklab,var(--negative)_12%,transparent)] text-negative' : 'bg-surface-2')}>
-          <item.icon size={20} />
-        </span>
+        <IconBadge icon={item.icon} tone={item.urgent ? 'negative' : 'neutral'} />
         <div className="min-w-0 flex-1">
           <p className="text-body font-semibold leading-snug">{item.title}</p>
           {item.detail && <p className="ink-2 mt-0.5 text-label leading-relaxed">{item.detail}</p>}

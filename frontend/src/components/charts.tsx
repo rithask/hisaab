@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
 import type { CategoryTotal } from '../api'
-import { categoryIcon, tint } from '../icons'
+import { categoryIcon } from '../icons'
 import { compact, formatDay, money, money0, ymd } from '../format'
-import { cx } from './ui'
+import { cx, IconBadge } from './ui'
 
 /**
  * SVG presentation attributes (fill/stroke) can't use CSS variables, so resolve the theme tokens to real
@@ -103,9 +103,7 @@ export function CategoryList({ items, kind, limit = 5, onSelect }: { items: Cate
             title={`${r.name}: ${money(r.total)} · ${r.count} transaction${r.count === 1 ? '' : 's'}`}
             onClick={() => ('key' in r && r.key === MORE ? setExpanded(true) : onSelect?.(r))}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: tint(r.color), color: r.color }}>
-              <Icon size={19} strokeWidth={2.2} />
-            </span>
+            <IconBadge icon={Icon} color={r.color} />
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-body font-medium">{r.name}</span>

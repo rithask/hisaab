@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { CalendarCheck, CreditCard, Repeat } from '@phosphor-icons/react'
 import { api, type Bill } from '../api'
-import { Badge, Card, cx, Empty, List, PageSkeleton, Section } from '../components/ui'
+import { Badge, Card, cx, Empty, List, PageSkeleton, Section, IconBadge } from '../components/ui'
 import { money, shortDate } from '../format'
 import { useMoneyMutation } from '../hooks'
 
@@ -55,9 +55,7 @@ export function BillList({ bills, onIgnore }: { bills: Bill[]; onIgnore?: (key: 
     <List>
       {bills.map((b) => (
         <div key={b.key} className="flex items-center gap-3 px-4 py-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            {b.card ? <CreditCard size={20} /> : <CalendarCheck size={20} />}
-          </span>
+          <IconBadge icon={b.card ? CreditCard : CalendarCheck} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body font-medium">{b.name}</span>
             <span className="ink-2 block truncate text-small">

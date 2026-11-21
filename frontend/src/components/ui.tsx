@@ -72,15 +72,7 @@ export function PageHeader({ title, subtitle, action, back, up }: { title: strin
   const nav = useNavigate()
   return (
     <header className="mb-5 pt-1">
-      {up ? (
-        <button onClick={() => nav(up.to)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent">
-          <CaretLeft size={16} weight="bold" /> {up.label}
-        </button>
-      ) : back && (
-        <button onClick={() => nav(-1)} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent lg:hidden">
-          <CaretLeft size={16} weight="bold" /> Back
-        </button>
-      )}
+      {up ? <BackButton label={up.label} onClick={() => nav(up.to)} /> : back && <BackButton onClick={() => nav(-1)} className="lg:hidden" />}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
@@ -121,12 +113,76 @@ export function Button({
   )
 }
 
-export function IconButton({ icon: Icon, label, className, spinning, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: PhIcon; label: string; spinning?: boolean }) {
+const iconSizes = { xs: ['h-7 w-7', 14], sm: ['h-9 w-9', 17], md: ['h-10 w-10', 19] } as const
+const iconButtonStyles = { neutral: 'bg-surface-2 text-ink', raised: 'bg-surface text-ink', primary: 'accent-fill', plain: 'text-ink-2' } as const
+
+/**
+ * A round button with only an icon: plain (just the icon, for "remove" crosses), neutral (grey circle) or primary
+ * (the confirm in a Yes / No pair) or raised (white, on a tinted box). The label is read out and shown on hover.
+ */
+export function IconButton({
+  icon: Icon,
+  label,
+  className,
+  spinning,
+  size = 'md',
+  variant = 'neutral',
+  ...p
+}: ButtonHTMLAttributes<HTMLButtonElement> & { icon: PhIcon; label: string; spinning?: boolean; size?: keyof typeof iconSizes; variant?: keyof typeof iconButtonStyles }) {
+  const [box, icon] = iconSizes[size]
   return (
-    <button {...p} aria-label={label} title={label} className={cx('pressable flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink', className)}>
-      <Icon size={19} className={cx(spinning && 'motion-safe:animate-spin')} />
+    <button type="button" {...p} aria-label={label} title={label} className={cx('pressable flex shrink-0 items-center justify-center rounded-full disabled:opacity-30', box, iconButtonStyles[variant], className)}>
+      <Icon size={icon} weight={size === 'xs' ? 'bold' : 'regular'} className={cx(spinning && 'motion-safe:animate-spin')} />
     </button>
   )
+}
+
+/**
+ * The round icon at the start of a row or card. Neutral by default; a `tone` when the icon means something
+ * (attention, positive …); a `color` for a category, shown as a soft wash of it. Pass children instead of an icon
+ * for a short label (a ticker).
+ */
+export function IconBadge({ icon: Icon, size = 'md', tone = 'neutral', color, children, className }: { icon?: PhIcon; size?: 'sm' | 'md' | 'lg'; tone?: Tone; color?: string; children?: ReactNode; className?: string }) {
+  const box = size === 'sm' ? 'h-9 w-9' : size === 'lg' ? 'h-11 w-11' : 'h-10 w-10'
+  const look = color ? undefined : tone === 'neutral' ? 'bg-surface-2 text-ink' : toneCls[tone]
+  return (
+    <span className={cx('flex shrink-0 items-center justify-center rounded-full', box, look, className)} style={color ? { background: `color-mix(in oklab, ${color} 14%, transparent)`, color } : undefined}>
+      {Icon ? <Icon size={size === 'sm' ? 18 : size === 'lg' ? 22 : 20} /> : children}
+    </span>
+  )
+}
+
+/** A soft box that explains what applies to something ("Money you lent", "Moved between my accounts"), with an optional action. */
+export function InfoBox({ icon: Icon, tone = 'neutral', title, children, action, className }: { icon?: PhIcon; tone?: Tone; title?: ReactNode; children?: ReactNode; action?: ReactNode; className?: string }) {
+  return (
+    <div className={cx('flex items-start gap-3 rounded-box p-4 text-label', tone === 'neutral' ? 'bg-surface-2' : toneCls[tone], className)}>
+      {Icon && <Icon size={18} className="mt-0.5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        {title && <p className="font-medium">{title}</p>}
+        {children && <div className={cx(tone === 'neutral' && 'text-ink-2', !!title && 'mt-0.5')}>{children}</div>}
+        {action && <div className="mt-2">{action}</div>}
+      </div>
+    </div>
+  )
+}
+
+/** A blue text action: "Change amounts", "See all", "It wasn't". */
+export function TextButton({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...p} className={cx('link font-semibold text-accent', className)} />
+}
+
+/** "‹ Back" at the top of a page or a full-screen window. */
+export function BackButton({ label = 'Back', onClick, className }: { label?: string; onClick: () => void; className?: string }) {
+  return (
+    <button type="button" onClick={onClick} className={cx('link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent', className)}>
+      <CaretLeft size={16} weight="bold" /> {label}
+    </button>
+  )
+}
+
+/** The small grey label over a group of fields or chips ("Paid", "Also", "Your share"). */
+export function FieldLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cx('mb-2 px-1 text-small font-medium text-ink-2', className)}>{children}</p>
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -284,9 +340,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
           >
             {/* the page header, kept in view while the window scrolls */}
             <header className="sticky top-0 z-20 -mx-5 mb-4 bg-surface px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
-              <button onClick={onClose} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-body text-accent">
-                <CaretLeft size={16} weight="bold" /> Back
-              </button>
+              <BackButton onClick={onClose} />
               <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
             </header>
             {/* fills the rest of the screen, so a form can keep its button at the bottom (mt-auto) */}

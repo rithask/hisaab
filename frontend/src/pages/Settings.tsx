@@ -7,8 +7,8 @@ import { TokenList } from '../components/ApiTokens'
 import { DatePicker } from '../components/DatePicker'
 import { CopyButton } from '../components/SmsPasteSheet'
 import { clearSavedData, isIos, useInstall } from '../pwa'
-import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Sheet, Toggle, Page } from '../components/ui'
-import { count, dateTime, shortDate, ymd } from '../format'
+import { Badge, Button, Card, Chip, Confirm, cx, ErrorText, Field, Input, List, Meter, Notice, PageHeader, Section, Segmented, Sheet, Toggle, Page, IconBadge, IconButton, FieldLabel } from '../components/ui'
+import { count, dateTime, shortDate, ymd, fileSize, plural, joinList } from '../format'
 import { useMoneyMutation, useSettings, useSignOut } from '../hooks'
 
 type SectionKey = 'general' | 'features' | 'mail' | 'teaching' | 'security' | 'data'
@@ -73,9 +73,7 @@ function SectionMenu({ active }: { active: SectionKey }) {
     <List>
       {SECTIONS.map(({ key, icon: Icon, label, hint }) => (
         <Link key={key} to={`/settings/${key}`} aria-current={key === active ? 'page' : undefined} className="row flex items-center gap-3.5 px-4 py-3.5 lg:aria-[current=page]:bg-surface-2">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
-            <Icon size={20} />
-          </span>
+          <IconBadge icon={Icon} />
           <span className="min-w-0 flex-1">
             <span className="block text-body font-medium">{label}</span>
             <span className="ink-2 block truncate text-caption">{hint}</span>
@@ -86,9 +84,7 @@ function SectionMenu({ active }: { active: SectionKey }) {
       ))}
       {PAGES.map(({ to, icon: Icon, label, hint }) => (
         <Link key={to} to={to} className="row flex items-center gap-3.5 px-4 py-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
-            <Icon size={20} />
-          </span>
+          <IconBadge icon={Icon} />
           <span className="min-w-0 flex-1">
             <span className="block text-body font-medium">{label}</span>
             <span className="ink-2 block truncate text-caption">{hint}</span>
@@ -139,9 +135,7 @@ function MailSection() {
       <Section title="Mailbox">
         <Card className="p-5">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
-              <Envelope size={20} />
-            </span>
+            <IconBadge icon={Envelope} />
             <div className="flex-1">
               <p className="font-semibold">Alerts mailbox</p>
               <p className="ink-2 text-caption">{mail?.lastSync ? `Last checked ${dateTime(mail.lastSync)}` : 'Never checked'}</p>
@@ -203,9 +197,7 @@ function SmsForwarding() {
     <Section title="SMS forwarding">
       <Card className="mb-3 p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
-            <ChatText size={20} />
-          </span>
+          <IconBadge icon={ChatText} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Bank SMS</p>
             <p className="ink-2 text-caption">For alerts that only come by text message. Each phone can have its own token.</p>
@@ -283,9 +275,7 @@ function LearnedCard() {
   return (
     <Card className="p-5">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-ink">
-          <GraduationCap size={20} />
-        </span>
+        <IconBadge icon={GraduationCap} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">What it has learned</p>
           <p className="ink-2 text-caption">
@@ -301,7 +291,7 @@ function LearnedCard() {
         <div className="mt-4 space-y-4">
           {l!.formats.length > 0 && (
             <div>
-              <p className="eyebrow ink-3 mb-2">How messages are worded</p>
+              <FieldLabel>How messages are worded</FieldLabel>
               <ul className="space-y-2">
                 {l!.formats.map((f) => (
                   <li key={f.id} className="flex items-start gap-2 rounded-box bg-surface-2 p-3">
@@ -325,9 +315,7 @@ function LearnedCard() {
                         </p>
                       )}
                     </div>
-                    <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this wording" onClick={ask}>
-                      <X size={14} weight="bold" />
-                    </button>
+                    <IconButton icon={X} label="Forget this wording" size="xs" variant="plain" onClick={ask} />
                     </>)}
                     </Confirm>
                   </li>
@@ -337,7 +325,7 @@ function LearnedCard() {
           )}
           {l!.payees.length > 0 && (
             <div>
-              <p className="eyebrow ink-3 mb-2">Payee names</p>
+              <FieldLabel>Payee names</FieldLabel>
               <ul className="space-y-2">
                 {l!.payees.map((p) => (
                   <li key={p.id} className="flex items-center gap-2 rounded-box bg-surface-2 px-3 py-2.5 text-small">
@@ -347,9 +335,7 @@ function LearnedCard() {
                           <span className="ink-2 min-w-0 flex-1 truncate font-mono text-micro uppercase">{p.rawKey}</span>
                           <span className="ink-3">→</span>
                           <span className="min-w-0 flex-1 truncate font-medium">{p.displayName}</span>
-                          <button className="pressable ink-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-label="Forget this name" onClick={ask}>
-                            <X size={14} weight="bold" />
-                          </button>
+                          <IconButton icon={X} label="Forget this name" size="xs" variant="plain" onClick={ask} />
                         </>
                       )}
                     </Confirm>
@@ -411,9 +397,7 @@ function BackupsCard() {
     <Section title="Backups">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2">
-            <CloudArrowUp size={20} />
-          </span>
+          <IconBadge icon={CloudArrowUp} />
           <div className="min-w-0 flex-1">
             <p className="font-medium">Every night at 3:30 am</p>
             <p className="ink-2 truncate text-small">{b?.lastOk ? `Last backup ${dateTime(b.lastOk)}` : 'No backup yet'} · keeps {b?.keep ?? 14}</p>
@@ -432,7 +416,7 @@ function BackupsCard() {
                 <a href={`/api/backups/${x.file}`} className="row -mx-2 flex items-center gap-2 rounded-lg px-2 py-2 text-small">
                   <DownloadSimple size={16} className="ink-2" />
                   <span className="min-w-0 flex-1 truncate">{dateTime(x.createdAt)}</span>
-                  <span className="ink-3 tabular">{(x.sizeBytes / 1024 / 1024).toFixed(1)} MB</span>
+                  <span className="ink-3 tabular">{fileSize(x.sizeBytes)}</span>
                 </a>
               </li>
             ))}
@@ -444,12 +428,6 @@ function BackupsCard() {
   )
 }
 
-const plural = (n: number, one: string, many = one + 's') => `${count(n)} ${n === 1 ? one : many}`
-/** "a, b and c", leaving out empty parts. */
-const listOf = (parts: (string | false)[]) => {
-  const p = parts.filter(Boolean) as string[]
-  return p.length <= 1 ? (p[0] ?? '') : `${p.slice(0, -1).join(', ')} and ${p[p.length - 1]}`
-}
 
 /** Each choice in the reset sheet: what it's called and what it would remove right now. */
 const RESET_PARTS: { key: ResetPart; label: string; detail: (p: ResetPreview) => string }[] = [
@@ -457,7 +435,7 @@ const RESET_PARTS: { key: ResetPart; label: string; detail: (p: ResetPreview) =>
     key: 'DATA',
     label: 'Money data',
     detail: (p) =>
-      listOf([
+      joinList([
         p.accounts > 0 && plural(p.accounts, 'account'),
         p.transactions > 0 && plural(p.transactions, 'transaction'),
         p.people > 0 && plural(p.people, 'person', 'people'),
@@ -472,7 +450,7 @@ const RESET_PARTS: { key: ResetPart; label: string; detail: (p: ResetPreview) =>
   {
     key: 'CONNECTIONS',
     label: 'Connected apps',
-    detail: (p) => listOf([p.tokens > 0 && plural(p.tokens, 'API token'), p.pocketIdLinked && 'the Pocket ID link']) || 'Nothing connected',
+    detail: (p) => joinList([p.tokens > 0 && plural(p.tokens, 'API token'), p.pocketIdLinked && 'the Pocket ID link']) || 'Nothing connected',
   },
 ]
 
@@ -494,9 +472,7 @@ function ResetCard() {
     <Section title="Reset">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            <ArrowCounterClockwise size={20} />
-          </span>
+          <IconBadge icon={ArrowCounterClockwise} />
           <div className="min-w-0 flex-1">
             <p className="font-medium">Start again</p>
             <p className="ink-2 text-small">Clear your data, what the app learned, or your settings. You choose which.</p>
@@ -656,9 +632,7 @@ function PocketIdCard() {
   return (
     <Section title={name}>
       <Card className="flex items-center gap-3 p-4">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2">
-          <IdentificationCard size={20} />
-        </span>
+        <IconBadge icon={IdentificationCard} />
         <div className="min-w-0 flex-1">
           <p className="font-medium">{link.data?.linked ? 'Linked' : 'Not linked yet'}</p>
           <p className="ink-2 truncate text-small">
@@ -697,9 +671,7 @@ function InstallCard() {
     <Section title="App">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            <DeviceMobile size={20} />
-          </span>
+          <IconBadge icon={DeviceMobile} />
           <div className="min-w-0 flex-1">
             <p className="font-medium">Install Hisaab</p>
             <p className="ink-2 text-small">Opens from your home screen, full screen, and shows your last data when offline.</p>

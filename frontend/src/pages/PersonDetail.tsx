@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type Person, type Settlement, type Txn } from '../api'
 import { Avatar, BigMoney, Button, Card, Confirm, Fold, Empty, ErrorText, IconButton, Input, List, Page, PageHeader, PageSkeleton, Section, Sheet } from '../components/ui'
-import { dateTime, fromLocalInput, money, toLocalInput } from '../format'
+import { dateTime, fromLocalInput, money, toLocalInput, firstName } from '../format'
 import { useMoneyMutation } from '../hooks'
 import { DateTimePicker } from '../components/DatePicker'
 import { PaidByForm, standing } from '../components/PaidBy'
@@ -43,7 +43,7 @@ export default function PersonDetail() {
 
   if (!d.data) return <PageSkeleton />
   const { person: p, shares, settlements, paidForMe } = d.data
-  const first = p.name.split(' ')[0]
+  const first = firstName(p.name)
 
   const lines: Line[] = [
     ...shares.map((s) => ({
@@ -123,12 +123,8 @@ export default function PersonDetail() {
                   {l.settlement && l.settlement.status === 'SUGGESTED' ? (
                     <span className="flex shrink-0 items-center gap-1.5">
                       <span className="tabular mr-1 text-body font-semibold">{money(l.settlement.amount)}?</span>
-                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-surface-2" onClick={() => rejectSettlement.mutate(l.settlement!.id)} aria-label="Not a repayment">
-                        <X size={16} />
-                      </button>
-                      <button className="pressable flex h-9 w-9 items-center justify-center rounded-full accent-fill" onClick={() => confirmSettlement.mutate(l.settlement!.id)} aria-label="Confirm repayment">
-                        <Check size={16} />
-                      </button>
+                      <IconButton icon={X} label="Not a repayment" size="sm" onClick={() => rejectSettlement.mutate(l.settlement!.id)} />
+                      <IconButton icon={Check} label="Confirm repayment" size="sm" variant="primary" onClick={() => confirmSettlement.mutate(l.settlement!.id)} />
                     </span>
                   ) : (
                     <span className="tabular shrink-0 text-body font-semibold">
@@ -193,7 +189,7 @@ function PickPayment({ first, onPick }: { first: string; onPick: (t: Txn) => voi
 /** "Settle up" with someone, from the Splits list or their page. */
 export function SettleSheet({ person, onClose }: { person: Person | null; onClose: () => void }) {
   return (
-    <Sheet open={!!person} onClose={onClose} title={person ? `Settle up with ${person.name.split(' ')[0]}` : ''}>
+    <Sheet open={!!person} onClose={onClose} title={person ? `Settle up with ${firstName(person.name)}` : ''}>
       {person && <SettleForm person={person} onClose={onClose} />}
     </Sheet>
   )
@@ -205,7 +201,7 @@ export function SettleSheet({ person, onClose }: { person: Person | null; onClos
  * cash are there to change, but folded away. Linking the payment stops it counting as income or spending.
  */
 function SettleForm({ onClose, person }: { onClose: () => void; person: Person }) {
-  const first = person.name.split(' ')[0]
+  const first = firstName(person.name)
   const [direction, setDirection] = useState<'IN' | 'OUT'>(person.outstanding < 0 ? 'OUT' : 'IN')
   const due = Math.abs(person.outstanding)
   const open = useQuery({ queryKey: ['open-payments', person.id, direction], queryFn: () => api<Txn[]>(`/people/${person.id}/open-payments?direction=${direction}`) })

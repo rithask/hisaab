@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, type SmsResult } from '../api'
 import { money } from '../format'
 import { useMoneyMutation } from '../hooks'
-import { Button, ErrorText, Field, Input, Sheet, Textarea } from './ui'
+import { Button, ErrorText, Field, Input, Sheet, Textarea, IconBadge, InfoBox } from './ui'
 
 /** Paste a bank SMS by hand (same parser and endpoint the phone automation uses). */
 /** `initialText`: an SMS shared into the app from another app (Android share sheet). */
@@ -56,25 +56,13 @@ export function SmsResultCard({ r }: { r: SmsResult }) {
   const Icon = ok ? CheckCircle : WarningCircle
   return (
     <div className="space-y-3">
-      <div className={ok ? 'flex items-start gap-3 rounded-card tint-positive p-4' : 'flex items-start gap-3 rounded-card tint-attention p-4'}>
-        <Icon size={20} className={ok ? 'mt-0.5 shrink-0 text-positive' : 'mt-0.5 shrink-0 text-attention'} />
-        <div className="min-w-0 text-label">
-          <p className="font-semibold">{ok ? 'Recorded' : r.status === 'DUPLICATE' ? 'Already recorded' : r.status === 'IGNORED' ? 'Not a transaction' : 'Needs attention'}</p>
-          <p className="ink-2 mt-0.5">{r.message}</p>
-        </div>
-      </div>
+      <InfoBox icon={Icon} tone={ok ? 'positive' : 'attention'} title={ok ? 'Recorded' : r.status === 'DUPLICATE' ? 'Already recorded' : r.status === 'IGNORED' ? 'Not a transaction' : 'Needs attention'}>
+        <span className="text-ink-2">{r.message}</span>
+      </InfoBox>
       {(t || p) && (
         <div className="surface rounded-card p-4">
           <div className="flex items-center gap-3">
-            <span
-              className={
-                (t?.direction ?? p?.direction) === 'CREDIT'
-                  ? 'flex h-10 w-10 items-center justify-center rounded-full tint-positive'
-                  : 'flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 ink-2'
-              }
-            >
-              {(t?.direction ?? p?.direction) === 'CREDIT' ? <ArrowDownLeft size={19} /> : <ArrowUpRight size={19} />}
-            </span>
+            {(t?.direction ?? p?.direction) === 'CREDIT' ? <IconBadge icon={ArrowDownLeft} tone="positive" /> : <IconBadge icon={ArrowUpRight} />}
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{t?.counterparty ?? p?.counterparty ?? 'Unknown payee'}</p>
               <p className="ink-2 truncate text-caption">{t ? [t.account, t.category].filter(Boolean).join(' · ') : `${p!.bank} ${p!.accountType === 'CREDIT_CARD' ? 'card' : 'account'}${p!.last4 ? ` ••${p!.last4}` : ''}`}</p>

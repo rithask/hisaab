@@ -192,12 +192,6 @@ html[data-keyboard] select:focus-visible {
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
 }
-/* Section label: small, grey, sentence case. */
-@utility eyebrow {
-  font-size: var(--text-small);
-  font-weight: 500;
-  color: var(--ink-2);
-}
 @utility surface {
   background: var(--surface);
   border: 1px solid var(--line);

@@ -1,7 +1,7 @@
 import { CreditCard } from '@phosphor-icons/react'
 import type { Account } from '../api'
 import { money0, shortDate } from '../format'
-import { cx, Meter } from './ui'
+import { cx, Meter, IconBadge } from './ui'
 
 /** A credit card at a glance: what I owe, how much of the limit is used, when it's due. */
 export default function BankCard({ a, onClick, className }: { a: Account; onClick?: () => void; className?: string }) {
@@ -11,9 +11,7 @@ export default function BankCard({ a, onClick, className }: { a: Account; onClic
   return (
     <button onClick={onClick} className={cx('pressable surface block w-full rounded-card p-4 text-left', className)}>
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-          <CreditCard size={20} />
-        </span>
+        <IconBadge icon={CreditCard} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body font-medium">{a.name}</p>
           <p className="ink-2 text-small">

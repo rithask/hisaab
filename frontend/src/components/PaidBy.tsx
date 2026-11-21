@@ -5,7 +5,7 @@ import { fromLocalInput, money, toLocalInput } from '../format'
 import { useCategories, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DateTimePicker } from './DatePicker'
-import { Avatar, Button, cx, ErrorText, Field, Input, Segmented } from './ui'
+import { Avatar, Button, cx, ErrorText, Field, Input, Segmented, FieldLabel } from './ui'
 
 /**
  * "Someone else paid": a friend paid for something, part of which was mine. Only my share is recorded, as
@@ -67,18 +67,27 @@ export function BalanceChange({ person, change }: { person?: Person; change: num
   )
 }
 
-/** Choose a person, as chips. */
-export function PersonChips({ people, value, onChange }: { people: Person[]; value: number | ''; onChange: (id: number) => void }) {
-  if (people.length === 0) return <p className="ink-2 px-1 text-label">Add people under Splits first.</p>
+type PickOne = { multiple?: false; value: number | ''; onChange: (id: number) => void }
+type PickMany = { multiple: true; value: number[]; onChange: (ids: number[]) => void }
+
+/** Choose one person, or several with `multiple`, as chips with their avatar. */
+export function PersonPicker(props: { people: Person[] } & (PickOne | PickMany)) {
+  const { people } = props
+  if (people.length === 0) return <p className="px-1 text-label text-ink-2">Add people under Splits first.</p>
+  const isOn = (id: number) => (props.multiple ? props.value.includes(id) : props.value === id)
+  const pick = (id: number) => {
+    if (props.multiple) props.onChange(isOn(id) ? props.value.filter((x) => x !== id) : [...props.value, id])
+    else props.onChange(id)
+  }
   return (
     <div className="flex flex-wrap gap-2">
       {people.map((p) => (
         <button
           key={p.id}
           type="button"
-          aria-pressed={p.id === value}
-          onClick={() => onChange(p.id)}
-          className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-label font-medium transition-colors duration-quick', p.id === value ? 'bg-ink text-bg' : 'bg-surface-2')}
+          aria-pressed={isOn(p.id)}
+          onClick={() => pick(p.id)}
+          className={cx('pressable flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-label font-medium transition-colors duration-quick', isOn(p.id) ? 'bg-ink text-bg' : 'bg-surface-2')}
         >
           <Avatar name={p.name} size={32} />
           {p.name}
@@ -123,7 +132,7 @@ export function PaidByForm({ person, txn, onDone }: { person?: Person; txn?: Txn
     >
       {!person && (
         <Group label="Who paid">
-          <PersonChips people={people.data ?? []} value={personId} onChange={setPersonId} />
+          <PersonPicker people={people.data ?? []} value={personId} onChange={setPersonId} />
         </Group>
       )}
       <Group label="What they paid">
@@ -167,7 +176,7 @@ export function PaidByForm({ person, txn, onDone }: { person?: Person; txn?: Txn
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="ink-2 mb-2 px-1 text-small font-medium">{label}</p>
+      <FieldLabel>{label}</FieldLabel>
       {children}
     </div>
   )

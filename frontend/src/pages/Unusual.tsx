@@ -3,7 +3,7 @@ import { ArrowCounterClockwise, Copy, CurrencyCircleDollar, Moon, ShieldCheck, S
 import { useState } from 'react'
 import { api, type RefundWatch, type Unusual as Data, type UnusualItem, type UnusualReason } from '../api'
 import { TxnSheetById } from '../components/TxnSheet'
-import { Badge, Card, Empty, List, Page, PageHeader, PageSkeleton, Section } from '../components/ui'
+import { Badge, Card, Empty, List, Page, PageHeader, PageSkeleton, Section, IconBadge, TextButton } from '../components/ui'
 import { count, dateTime, moneyAuto, shortDate, time } from '../format'
 import { useMoneyMutation } from '../hooks'
 
@@ -80,9 +80,7 @@ function ItemCard({ item, onOpen }: { item: UnusualItem; onOpen: () => void }) {
   return (
     <Card className="p-4">
       <div className="flex gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full tint-attention">
-          <Icon size={18} />
-        </span>
+        <IconBadge icon={Icon} size="sm" tone="attention" />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="truncate text-body font-semibold">{item.name ?? 'Payment'}</p>
@@ -99,9 +97,9 @@ function ItemCard({ item, onOpen }: { item: UnusualItem; onOpen: () => void }) {
             ))}
           </ul>
           <div className="mt-2 flex gap-4 text-small font-medium">
-            <button className="link text-accent" onClick={onOpen}>
+            <TextButton onClick={onOpen}>
               Open payment
-            </button>
+            </TextButton>
             <button className="link ink-2" disabled={fine.isPending} onClick={() => fine.mutate(undefined)}>
               Looks fine
             </button>
@@ -117,9 +115,7 @@ function RefundList({ refunds, onOpen }: { refunds: RefundWatch[]; onOpen: (id: 
     <List>
       {refunds.map((r) => (
         <button key={r.txnId} className="row flex w-full items-center gap-3 px-4 py-3 text-left" onClick={() => onOpen(r.txnId)}>
-          <span className="ink-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            <ArrowCounterClockwise size={18} />
-          </span>
+          <IconBadge icon={ArrowCounterClockwise} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body font-medium">{r.name ?? 'Payment'}</span>
             <span className="ink-2 block truncate text-small">

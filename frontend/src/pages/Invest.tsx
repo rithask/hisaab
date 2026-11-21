@@ -3,8 +3,8 @@ import { ArrowsClockwise, ChartLineUp, PiggyBank, Plus, Trash, UploadSimple } fr
 import { useRef, useState } from 'react'
 import { api, type Holding, type MfScheme, type Portfolio } from '../api'
 import { AllocationBar } from '../components/charts'
-import { Badge, Button, Card, Confirm, cx, Empty, ErrorText, Field, IconButton, Input, List, Notice, PageHeader, PageSkeleton, Section, Segmented, Sheet, Page, BigMoney } from '../components/ui'
-import { dateTime, money, money0 } from '../format'
+import { Badge, Button, Card, Confirm, cx, Empty, ErrorText, Field, IconButton, Input, List, Notice, PageHeader, PageSkeleton, Section, Segmented, Sheet, Page, BigMoney, IconBadge } from '../components/ui'
+import { dateTime, money, money0, percent } from '../format'
 import { useMoneyMutation } from '../hooks'
 
 export default function Invest() {
@@ -43,7 +43,7 @@ export default function Invest() {
         <BigMoney value={p.currentValue} paise={false} className="mt-1 block text-display-sm leading-tight" />
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <Badge tone={up ? 'positive' : 'negative'} className="text-caption">
-            {up ? '▲' : '▼'} {money0(Math.abs(p.pnl))} ({Math.abs(p.pnlPct).toFixed(2)}%)
+            {up ? '▲' : '▼'} {money0(Math.abs(p.pnl))} ({percent(p.pnlPct, 2)})
           </Badge>
           {p.dayChange !== 0 && (
             <Badge tone={p.dayChange >= 0 ? 'positive' : 'negative'} className="text-caption">
@@ -140,9 +140,9 @@ function HoldingList({ items, onPick, color }: { items: Holding[]; onPick: (h: H
         const label = h.assetType === 'STOCK' ? h.symbol.slice(0, 4) : h.name.replace(/[^A-Za-z ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('')
         return (
           <button key={h.id} onClick={() => onPick(h)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left row">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-micro font-semibold tracking-wide" style={{ background: `color-mix(in oklab, ${color} 18%, transparent)`, color: `color-mix(in oklab, ${color} 62%, var(--ink))` }}>
-              {h.assetType === 'MF' && !label ? <ChartLineUp size={18} /> : label}
-            </span>
+            <IconBadge icon={h.assetType === 'MF' && !label ? ChartLineUp : undefined} color={color} className="text-micro font-semibold tracking-wide">
+              {label}
+            </IconBadge>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-body font-semibold">{h.assetType === 'STOCK' ? h.symbol : h.name}</span>
               <span className="ink-2 block truncate text-caption">
@@ -154,7 +154,7 @@ function HoldingList({ items, onPick, color }: { items: Holding[]; onPick: (h: H
               {h.pnl != null ? (
                 <span className={cx('tabular block text-caption font-semibold', up ? 'text-positive' : 'text-negative')}>
                   {up ? '+' : '−'}
-                  {Math.abs(h.pnlPct ?? 0).toFixed(1)}%
+                  {percent(h.pnlPct ?? 0)}
                 </span>
               ) : (
                 <span className="ink-3 block text-micro">no price yet</span>

@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowUUpLeft, Check, HandCoins, X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { api, type Person, type Settlement, type Txn } from '../api'
-import { money } from '../format'
+import { money, firstName } from '../format'
 import { useMoneyMutation, usePeople } from '../hooks'
 import { standing } from './PaidBy'
-import { Avatar, Button, cx, ErrorText, Field, Input, MoreRow, Sheet } from './ui'
+import { Avatar, Button, cx, ErrorText, Field, Input, MoreRow, Sheet, IconButton } from './ui'
 
 export type Recorded = { settlement: Settlement; rememberedName?: string }
 
@@ -37,7 +37,6 @@ export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' 
   if (list.length === 0 && people.data.length === 0) return null
   if (part === 'linked' && list.length === 0) return null
   if (part === 'ask' && list.length > 0) return null
-  const first = (n: string) => n.split(' ')[0]
 
   return (
     <div className="space-y-2">
@@ -46,20 +45,16 @@ export function RepaymentRow({ txn, part }: { txn: Txn; part?: 'linked' | 'ask' 
           <div key={s.id} className="anim-pop flex items-center gap-3 rounded-box bg-accent-soft p-3">
             <Avatar name={s.personName} size={36} />
             <p className="min-w-0 flex-1 text-label">
-              {s.direction === 'OUT' ? `Paying ${first(s.personName)} back` : `${first(s.personName)} paying you back`} <b className="tabular">{money(s.amount)}</b>?
+              {s.direction === 'OUT' ? `Paying ${firstName(s.personName)} back` : `${firstName(s.personName)} paying you back`} <b className="tabular">{money(s.amount)}</b>?
             </p>
-            <button className="pressable flex h-9 w-9 items-center justify-center rounded-full bg-surface" onClick={() => reject.mutate(s)} aria-label="No">
-              <X size={17} />
-            </button>
-            <button className="pressable flex h-9 w-9 items-center justify-center rounded-full accent-fill" onClick={() => confirm.mutate(s)} aria-label="Yes">
-              <Check size={17} />
-            </button>
+            <IconButton icon={X} label="No" size="sm" variant="raised" onClick={() => reject.mutate(s)} />
+            <IconButton icon={Check} label="Yes" size="sm" variant="primary" onClick={() => confirm.mutate(s)} />
           </div>
         ) : (
           <div key={s.id} className="flex items-center gap-3 rounded-box bg-surface-2 p-3 text-label">
             <HandCoins size={18} className="shrink-0" />
             <p className="min-w-0 flex-1">
-              {s.direction === 'OUT' ? `You paid ${first(s.personName)} back` : `${first(s.personName)} paid you back`} <b className="tabular">{money(s.amount)}</b>
+              {s.direction === 'OUT' ? `You paid ${firstName(s.personName)} back` : `${firstName(s.personName)} paid you back`} <b className="tabular">{money(s.amount)}</b>
               <span className="ink-2 block text-caption">Not counted as {s.direction === 'OUT' ? 'spending' : 'income'}.</span>
             </p>
             <button className="link ink-2 shrink-0 text-small font-medium" onClick={() => undo.mutate(s)}>
@@ -121,7 +116,7 @@ function LinkForm({ txn, people, onDone }: { txn: Txn; people: Person[]; onDone:
       </div>
       {person && (
         <>
-          <Field label={incoming ? `How much of the ${money(txn.amount)} was ${person.name.split(' ')[0]} paying back?` : `How much of the ${money(txn.amount)} was paying ${person.name.split(' ')[0]} back?`}>
+          <Field label={incoming ? `How much of the ${money(txn.amount)} was ${firstName(person.name)} paying back?` : `How much of the ${money(txn.amount)} was paying ${person.name.split(' ')[0]} back?`}>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
           </Field>
           {value > 0 && (
@@ -133,7 +128,7 @@ function LinkForm({ txn, people, onDone }: { txn: Txn; people: Person[]; onDone:
       )}
       <ErrorText error={save.error} />
       <Button className="w-full" disabled={!person || !(value > 0) || value > txn.amount || save.isPending} onClick={() => save.mutate(undefined)}>
-        {person ? `Link to ${person.name.split(' ')[0]}` : 'Pick who it was'}
+        {person ? `Link to ${firstName(person.name)}` : 'Pick who it was'}
       </Button>
     </div>
   )

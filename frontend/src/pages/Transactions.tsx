@@ -6,7 +6,7 @@ import { api, qs, type Page as Paged, type Txn } from '../api'
 import TxnRow from '../components/TxnRow'
 import TxnSheet from '../components/TxnSheet'
 import { DatePicker } from '../components/DatePicker'
-import { Button, Chip, cx, Empty, Field, Input, List, Segmented, Sheet, Skeleton, Page, Rise, Toggle } from '../components/ui'
+import { Button, Chip, cx, Empty, Field, Input, List, Segmented, Sheet, Skeleton, Page, Rise, Toggle, FieldLabel } from '../components/ui'
 import { dateLabel, dayKey, money, money0, ymd, zonedInstant } from '../format'
 import { useAccounts, useCategories } from '../hooks'
 
@@ -351,7 +351,7 @@ function FilterForm({ params, onApply }: { params: URLSearchParams; onApply: (kv
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="ink-2 mb-2 px-1 text-small font-medium">{label}</p>
+      <FieldLabel>{label}</FieldLabel>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )

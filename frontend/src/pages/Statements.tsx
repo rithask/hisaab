@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileText, UploadSimple } from '@phosphor-icons/react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError, type Statement, type StatementImport } from '../api'
-import { Badge, Button, Empty, ErrorText, List, PageHeader, PageSkeleton, PillSelect, Page } from '../components/ui'
+import { Badge, Button, Empty, ErrorText, List, PageHeader, PageSkeleton, PillSelect, Page, IconBadge } from '../components/ui'
 import { dateTime } from '../format'
 import { useAccounts, useMoneyMutation } from '../hooks'
 
@@ -48,9 +48,7 @@ export default function Statements() {
           {list.data.map((s) => (
             // Actions go on their own line under the text, so the name and note get the full width.
             <div key={s.id} className="flex items-start gap-3 px-4 py-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink">
-                <FileText size={20} />
-              </span>
+              <IconBadge icon={FileText} />
               <div className="min-w-0 flex-1">
                 <a href={`/api/statements/${s.id}/file`} target="_blank" rel="noreferrer" className="block">
                   <p className="truncate text-body font-semibold">{s.fileName}</p>

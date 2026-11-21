@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { api, type Account } from '../api'
 import AccountForm from '../components/AccountForm'
 import BankCard from '../components/BankCard'
-import { Badge, Card, Empty, IconButton, List, PageHeader, PageSkeleton, Section, Sheet, Page } from '../components/ui'
+import { Badge, Card, Empty, IconButton, List, PageHeader, PageSkeleton, Section, Sheet, Page, IconBadge } from '../components/ui'
 import { money, shortDate } from '../format'
 
 
@@ -100,9 +100,7 @@ function Row({ a, onClick }: { a: Account; onClick: () => void }) {
   const Icon = a.type === 'CASH' ? Wallet : Bank
   return (
     <button onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3.5 text-left row">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-ink">
-        <Icon size={21} />
-      </span>
+      <IconBadge icon={Icon} size="lg" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-body font-semibold">{a.name}</span>
         <span className="ink-2 block text-small">
