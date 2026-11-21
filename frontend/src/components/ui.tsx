@@ -1,5 +1,5 @@
 import { CaretDown, CaretLeft, CaretRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
-import { AnimatePresence, motion, useDragControls } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   useEffect,
   useId,
@@ -223,11 +223,11 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 const openSheets: object[] = []
 
 /**
- * Bottom sheet on phones, centred dialog on wider screens. Springs up in 250ms; on a phone it can be
- * dragged down by its header to dismiss.
+ * A form or detail on top of the page. On phones it's a full-screen window that opens like a page (a short fade
+ * and rise) with the page header: Back, then the title. On wider screens it's a centred dialog over the page.
+ * Escape closes the top one either way.
  */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  const drag = useDragControls()
   const wide = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
 
   const closeRef = useRef(onClose)
@@ -250,42 +250,50 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 
   return createPortal(
     <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
-          <motion.div
-            className="absolute inset-0 bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className="relative max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-[24px] bg-[var(--surface)] px-5 pb-safe shadow-[var(--shadow-float)] sm:max-w-lg sm:rounded-[24px] sm:pb-6"
-            initial={wide ? { opacity: 0, y: 16, scale: 0.98 } : { y: '100%' }}
-            animate={wide ? { opacity: 1, y: 0, scale: 1 } : { y: 0 }}
-            exit={wide ? { opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.15 } } : { y: '100%', transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
-            transition={SPRING}
-            drag={wide ? false : 'y'}
-            dragControls={drag}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.7 }}
-            onDragEnd={(_, info) => (info.offset.y > 110 || info.velocity.y > 600) && onClose()}
-          >
-            <div onPointerDown={(e) => !wide && drag.start(e)} className="sticky top-0 z-20 -mx-5 mb-3 touch-none rounded-t-[24px] bg-[var(--surface)] px-5 pb-2 pt-3 sm:touch-auto">
-              <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-[var(--line-strong)] sm:hidden" />
-              <div className="flex items-center justify-between">
-                <h3 className="text-[19px] font-semibold">{title}</h3>
-                <button onClick={onClose} onPointerDown={(e) => e.stopPropagation()} className="pressable flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink-2)] hover:text-[var(--ink)]" aria-label="Close">
-                  <X size={15} weight="bold" />
-                </button>
+      {open &&
+        (wide ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={title}>
+            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={onClose} />
+            <motion.div
+              className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-y-auto overflow-x-hidden overscroll-contain rounded-[24px] bg-[var(--surface)] px-5 pb-6 shadow-[var(--shadow-float)]"
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.15 } }}
+              transition={SPRING}
+            >
+              <div className="sticky top-0 z-20 -mx-5 mb-3 rounded-t-[24px] bg-[var(--surface)] px-5 pb-2 pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[19px] font-semibold">{title}</h3>
+                  <button onClick={onClose} className="pressable flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--ink-2)] hover:text-[var(--ink)]" aria-label="Close">
+                    <X size={15} weight="bold" />
+                  </button>
+                </div>
               </div>
-            </div>
-            {children}
+              <div className="flex flex-1 flex-col">{children}</div>
+            </motion.div>
+          </div>
+        ) : (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-[var(--surface)] px-5 pb-safe"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6, transition: { duration: 0.15 } }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {/* the page header, kept in view while the window scrolls */}
+            <header className="sticky top-0 z-20 -mx-5 mb-4 bg-[var(--surface)] px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
+              <button onClick={onClose} className="link -ml-2 mb-1 flex items-center gap-1 rounded-full px-2 py-1 text-[15px] text-[var(--accent)]">
+                <CaretLeft size={16} weight="bold" /> Back
+              </button>
+              <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em]">{title}</h1>
+            </header>
+            {/* fills the rest of the screen, so a form can keep its button at the bottom (mt-auto) */}
+            <div className="flex flex-1 flex-col">{children}</div>
           </motion.div>
-        </div>
-      )}
+        ))}
     </AnimatePresence>,
     document.body,
   )

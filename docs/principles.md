@@ -40,7 +40,7 @@ The tokens and the short form of these rules are at the top of `frontend/src/ind
 
 1. **Minimal.** One question per screen, answered at the top in plain words and one big number. Remove
    anything that doesn't help answer it.
-2. **Mobile-first, good on desktop.** Design for a 390px-wide phone first: bottom tab bar, sheets that slide up,
+2. **Mobile-first, good on desktop.** Design for a 390px-wide phone first: bottom tab bar, sheets that slide up and fill the screen,
    thumb-sized targets (44px or more). On wide screens the same pages get a sidebar and two columns. Nothing is
    desktop-only.
 3. **Colour means something, or it isn't there.** Green = money in or good, red = money out or a problem,

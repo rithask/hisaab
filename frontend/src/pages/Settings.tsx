@@ -575,7 +575,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
       {!p ? (
         <div className="py-6">{q.error ? <ErrorText error={q.error} /> : <p className="ink-2 text-sm">Checking what's saved…</p>}</div>
       ) : step === 'choose' ? (
-        <div className="space-y-4 pb-2">
+        <div className="flex flex-1 flex-col gap-4 pb-2">
           <p className="ink-2 text-[14px]">Choose what to clear. Your sign-in, your backups and where mail reading got to are always kept.</p>
           <Card className="divide-y divide-[var(--line)] px-4">
             {RESET_PARTS.map((x) => {
@@ -596,12 +596,12 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
               )
             })}
           </Card>
-          <Button className="w-full" variant="danger" disabled={parts.size === 0} onClick={() => setStep('confirm')}>
+          <Button className="mt-auto w-full" variant="danger" disabled={parts.size === 0} onClick={() => setStep('confirm')}>
             Continue
           </Button>
         </div>
       ) : (
-        <div className="space-y-4 pb-2">
+        <div className="flex flex-1 flex-col gap-4 pb-2">
           <div className="anim-pop rounded-2xl bg-[color-mix(in_oklab,var(--negative)_13%,transparent)] px-4 py-3 text-[14px] text-[var(--negative)]">
             <p className="font-semibold">This can't be undone.</p>
             <ul className="mt-1.5 space-y-1">
@@ -632,7 +632,7 @@ function ResetSheet({ open, onClose, onDone }: { open: boolean; onClose: () => v
             <Input value={word} onChange={(e) => setWord(e.target.value)} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="done" />
           </Field>
           <ErrorText error={run.error} />
-          <div className="flex gap-2">
+          <div className="mt-auto flex gap-2">
             <Button variant="secondary" className="flex-1" disabled={run.isPending} onClick={() => setStep('choose')}>
               Back
             </Button>

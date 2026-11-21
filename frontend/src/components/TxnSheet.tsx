@@ -626,7 +626,9 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const sign = direction === 'DEBIT' ? '−' : '+'
   const symbol = currency === 'INR' ? '₹' : currency
   return (
+    // A column that fills the sheet, so Save sits at the bottom of the screen even when the form is short
     <form
+      className="flex flex-1 flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         if (valid) save.mutate(undefined)
@@ -636,7 +638,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <Segmented<'DEBIT' | 'CREDIT'>
         value={direction}
         onChange={switchDirection}
-        className="mx-auto max-w-[240px]"
+        className="mx-auto w-full max-w-[240px]"
         options={[
           { value: 'DEBIT', label: 'Spent' },
           { value: 'CREDIT', label: 'Received' },
@@ -775,7 +777,8 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
 
       {/* 4. The rare extras, as chips: each opens its own few fields. */}
       <Label>Also</Label>
-      <ChipRow>
+      {/* wraps instead of scrolling: only a few, and each should be seen */}
+      <ChipRow wrap>
         {direction === 'DEBIT' && (
           <Choice on={someone} onClick={() => (setSomeone(!someone), setSplitting(false), setLending(false), setTransfer(false), setCurrency('INR'), setOpen(null))}>
             <Users size={17} weight={someone ? 'fill' : 'regular'} /> Someone else paid
@@ -890,7 +893,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       </Fold>
 
       {/* Always-visible action that reads back what will be saved */}
-      <div className="sticky bottom-0 z-10 -mx-5 mt-4 bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
+      <div className="sticky bottom-0 z-10 -mx-5 mt-auto bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
           {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${lendNow && borrower ? `, lent to ${borrower.name}` : splitNow ? (splitMethod === 'EQUAL' ? `, split ${splitWith.length + 1} ways` : `, your share ${money(value - theirTotal)}`) : ''}` : lendNow && value > 0 && lendTo === '' ? 'Who did you lend it to?' : value > 0 && splitProblem ? 'Check the split' : 'Enter an amount'}
@@ -905,7 +908,8 @@ function Label({ children }: { children: ReactNode }) {
 }
 
 /** Horizontally scrolling chip strip that bleeds to the sheet edges. */
-function ChipRow({ children, className, rows = 1 }: { children: ReactNode; className?: string; rows?: 1 | 2 }) {
+function ChipRow({ children, className, rows = 1, wrap }: { children: ReactNode; className?: string; rows?: 1 | 2; wrap?: boolean }) {
+  if (wrap) return <div className={cx('flex flex-wrap gap-2', className)}>{children}</div>
   return (
     <div className={cx('no-scrollbar -mx-5 overflow-x-auto px-5', className)}>
       <div className={cx('w-max gap-2', rows === 2 ? 'grid grid-flow-col grid-rows-2 justify-items-start' : 'flex')}>{children}</div>
