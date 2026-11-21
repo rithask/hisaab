@@ -21,6 +21,8 @@ must do when upgrading (marked **Upgrade:**).
 ### Fixed
 - Picking people for a split no longer shrinks the row or selects the name on a long press; the circle just
   fills in with a tick.
+- Statements and the Reset card squeezed their text into a narrow column; their buttons now sit under the text.
+  The Reset button reads just "Reset".
 
 ## [0.12.0] - 2026-11-21
 

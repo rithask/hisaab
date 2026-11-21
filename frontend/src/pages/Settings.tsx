@@ -501,13 +501,19 @@ function ResetCard() {
             <p className="font-medium">Start again</p>
             <p className="ink-2 text-[13px]">Clear your data, what the app learned, or your settings. You choose which.</p>
           </div>
-          <Button variant="danger" size="sm" onClick={() => {
-              setDone(null)
-              setOpen(true)
-            }}>
-            Reset…
-          </Button>
         </div>
+        {/* under the text, like Back up now, so the text keeps the full width */}
+        <Button
+          variant="danger"
+          size="sm"
+          className="mt-3"
+          onClick={() => {
+            setDone(null)
+            setOpen(true)
+          }}
+        >
+          Reset
+        </Button>
         {done && (
           <div className="mt-3">
             <Notice>{done}</Notice>

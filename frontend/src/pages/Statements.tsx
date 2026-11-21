@@ -46,26 +46,31 @@ export default function Statements() {
       ) : (
         <List>
           {list.data.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 px-4 py-3">
+            // Actions go on their own line under the text, so the name and note get the full width.
+            <div key={s.id} className="flex items-start gap-3 px-4 py-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-500/12 text-rose-600 dark:text-rose-400">
                 <FileText size={20} />
               </span>
-              <a href={`/api/statements/${s.id}/file`} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold">{s.fileName}</p>
-                <p className="ink-2 text-xs">
-                  {s.periodLabel} · {s.fromEmail ? 'from email' : 'uploaded'} · {dateTime(s.receivedAt)}
-                </p>
-                {s.importNote && s.importStatus !== 'REVIEW' && <p className="ink-3 mt-0.5 text-xs">{s.importNote}</p>}
-              </a>
-              <StatusAction s={s} busy={importSaved.isPending} onImport={() => importSaved.mutate(s.id)} />
-              <PillSelect className="max-w-32" value={s.account?.id ?? ''} onChange={(e) => assign.mutate({ id: s.id, accountId: e.target.value ? Number(e.target.value) : null })} aria-label="Account">
-                <option value="">Unassigned</option>
-                {(accounts.data ?? []).map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </PillSelect>
+              <div className="min-w-0 flex-1">
+                <a href={`/api/statements/${s.id}/file`} target="_blank" rel="noreferrer" className="block">
+                  <p className="truncate text-[15px] font-semibold">{s.fileName}</p>
+                  <p className="ink-2 text-[13px]">
+                    {s.periodLabel} · {s.fromEmail ? 'from email' : 'uploaded'} · {dateTime(s.receivedAt)}
+                  </p>
+                  {s.importNote && s.importStatus !== 'REVIEW' && <p className="ink-3 mt-0.5 text-[13px]">{s.importNote}</p>}
+                </a>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <StatusAction s={s} busy={importSaved.isPending} onImport={() => importSaved.mutate(s.id)} />
+                  <PillSelect className="max-w-48" value={s.account?.id ?? ''} onChange={(e) => assign.mutate({ id: s.id, accountId: e.target.value ? Number(e.target.value) : null })} aria-label="Account">
+                    <option value="">Unassigned</option>
+                    {(accounts.data ?? []).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </PillSelect>
+                </div>
+              </div>
             </div>
           ))}
         </List>
