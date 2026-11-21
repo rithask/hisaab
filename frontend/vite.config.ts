@@ -29,6 +29,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    proxy: { '/api': 'http://localhost:8080', '/oauth2': 'http://localhost:8080', '/login/oauth2': 'http://localhost:8080' },
+    // changeOrigin off: the backend must see the Host the browser used (e.g. 192.168.x.x:5173 from a phone), or its
+    // same-origin check refuses sign-in from Safari, which doesn't send Sec-Fetch-Site over plain http.
+    proxy: {
+      '/api': { target: 'http://localhost:8080', changeOrigin: false },
+      '/oauth2': { target: 'http://localhost:8080', changeOrigin: false },
+      '/login/oauth2': { target: 'http://localhost:8080', changeOrigin: false },
+    },
   },
 })
