@@ -9,4 +9,6 @@ public interface StatementFileRepo extends JpaRepository<StatementFile, Long> {
     List<StatementFile> findAllByOrderByReceivedAtDesc();
 
     long countByImportStatus(String importStatus);
+
+    java.util.List<com.hisaab.domain.StatementFile> findByImportStatus(String importStatus);
 }

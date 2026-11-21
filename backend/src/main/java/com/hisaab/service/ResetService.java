@@ -103,15 +103,17 @@ public class ResetService {
     private final TransactionTemplate tx;
     private final BackupService backups;
     private final FeatureService features;
+    private final SettingsService settings;
     private final Path statementsDir;
 
     public ResetService(JdbcTemplate jdbc, DataSource dataSource, TransactionTemplate tx, BackupService backups,
-                        FeatureService features, AppProperties props) {
+                        FeatureService features, SettingsService settings, AppProperties props) {
         this.jdbc = jdbc;
         this.dataSource = dataSource;
         this.tx = tx;
         this.backups = backups;
         this.features = features;
+        this.settings = settings;
         this.statementsDir = Path.of(props.storage().dir()).toAbsolutePath().normalize().resolve("statements");
     }
 
@@ -168,6 +170,7 @@ public class ResetService {
                 ScriptUtils.executeSqlScript(DataSourceUtils.getConnection(dataSource), new ClassPathResource("db/defaults/categories.sql"));
             }
         });
+        settings.forget(); // the reset changed app_setting directly
         if (parts.contains(Part.DATA)) deleteStatementFiles();
         Audit.log("Reset {} backup={}", parts.stream().map(p -> p.name().toLowerCase()).toList(), backup == null ? "none" : backup);
         return new Result(backup);

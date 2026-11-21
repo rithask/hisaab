@@ -64,13 +64,11 @@ public class StatementImportService {
     private final StatementStorage storage;
     private final StatementFileRepo statementFiles;
     private final SettingsService settings;
-    private final com.hisaab.repo.AppSettingRepo settingRepo;
     private final org.springframework.context.ApplicationEventPublisher events;
 
     public StatementImportService(List<StatementParser> parsers, StatementImportRepo imports, StatementImportLineRepo lines,
                                   AccountRepo accounts, TxnRepo txns, TransactionService transactions, BalanceService balances,
                                   StatementStorage storage, StatementFileRepo statementFiles, SettingsService settings,
-                                  com.hisaab.repo.AppSettingRepo settingRepo,
                                   org.springframework.context.ApplicationEventPublisher events) {
         this.events = events;
         this.parsers = parsers;
@@ -83,7 +81,6 @@ public class StatementImportService {
         this.storage = storage;
         this.statementFiles = statementFiles;
         this.settings = settings;
-        this.settingRepo = settingRepo;
     }
 
     // ---- reading ------------------------------------------------------------------------------------------
@@ -105,8 +102,7 @@ public class StatementImportService {
             throws IOException {
         List<String> candidates = new ArrayList<>();
         if (password != null) candidates.add(password);
-        settingRepo.findAll().stream().filter(s -> s.getKey().startsWith(PASSWORD_PREFIX) && s.getValue() != null)
-                .forEach(s -> candidates.add(s.getValue()));
+        candidates.addAll(settings.withPrefix(PASSWORD_PREFIX).values());
         PdfText.Opened opened = PdfText.open(pdf, candidates);
 
         StatementParser parser = parsers.stream().filter(p -> p.supports(opened.text())).findFirst().orElse(null);
@@ -481,7 +477,7 @@ public class StatementImportService {
         if (imp.getRememberPassword() != null) {
             settings.set(PASSWORD_PREFIX + account.getId(), imp.getRememberPassword());
             // Other emailed statements that were waiting for a password may open with this one.
-            statementFiles.findAll().stream().filter(f -> "NEEDS_PASSWORD".equals(f.getImportStatus()))
+            statementFiles.findByImportStatus("NEEDS_PASSWORD")
                     .forEach(f -> events.publishEvent(new StatementSaved(f.getId())));
         }
         imp.setRememberPassword(null);

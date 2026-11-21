@@ -207,7 +207,7 @@ public class DataApiService {
             return new CategoryAsk(true, null);
         }
         Optional<Category> c = s.matches("\\d+") ? categories.findById(Long.parseLong(s))
-                : categories.findAll().stream().filter(x -> x.getName().equalsIgnoreCase(s)).findFirst();
+                : categories.findFirstByNameIgnoreCaseOrderByIdAsc(s);
         if (c.isEmpty() || !token.allowsCategory(c.get().getId())) throw new Forbidden("This token can't read the category \"" + clip(s) + "\".");
         return new CategoryAsk(false, c.get().getId());
     }
@@ -416,7 +416,7 @@ public class DataApiService {
         if (in.category() != null && !in.category().isBlank()) {
             String c = in.category().trim();
             Optional<Category> cat = c.matches("\\d+") ? categories.findById(Long.parseLong(c))
-                    : categories.findAll().stream().filter(x -> x.getName().equalsIgnoreCase(c)).findFirst();
+                    : categories.findFirstByNameIgnoreCaseOrderByIdAsc(c);
             if (cat.isEmpty() || !token.allowsCategory(cat.get().getId())) throw new Forbidden("This token can't use the category \"" + clip(c) + "\".");
             if (cat.get().getKind() != CategorizationService.kindFor(direction)) {
                 throw new IllegalArgumentException(cat.get().getName() + " is " + (direction == Direction.DEBIT ? "an income" : "a spending")

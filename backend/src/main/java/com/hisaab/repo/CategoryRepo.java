@@ -11,4 +11,7 @@ public interface CategoryRepo extends JpaRepository<Category, Long> {
     List<Category> findAllByOrderByKindAscNameAsc();
 
     Optional<Category> findByNameAndKind(String name, CategoryKind kind);
+
+    /** By name, ignoring case; the oldest if two kinds share it (as the Data API always picked). */
+    Optional<Category> findFirstByNameIgnoreCaseOrderByIdAsc(String name);
 }
