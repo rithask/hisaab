@@ -2,7 +2,7 @@ package com.hisaab.mail.reading;
 
 import com.hisaab.domain.Enums.EmailStatus;
 import com.hisaab.domain.Txn;
-import com.hisaab.mail.SmsLearningService;
+import com.hisaab.mail.SmsSenders;
 import com.hisaab.service.TransactionService;
 import org.springframework.stereotype.Component;
 
@@ -15,11 +15,11 @@ import java.util.Optional;
 @Component
 class Record implements ReadingStep {
     private final TransactionService txns;
-    private final SmsLearningService learning;
+    private final SmsSenders senders;
 
-    Record(TransactionService txns, SmsLearningService learning) {
+    Record(TransactionService txns, SmsSenders senders) {
         this.txns = txns;
-        this.learning = learning;
+        this.senders = senders;
     }
 
     @Override
@@ -29,7 +29,7 @@ class Record implements ReadingStep {
         r.raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
         if (!r.sms()) return;
         if (created.isEmpty()) r.notes.append("Already recorded (from the alert email or an earlier SMS).");
-        else learning.rememberSender(r.raw.getSender(), r.account.getInstitution());
+        else senders.rememberSender(r.raw.getSender(), r.account.getInstitution());
         r.raw.setNote(r.notes.isEmpty() ? null : r.notes.toString());
     }
 }

@@ -1,7 +1,7 @@
 package com.hisaab.mail.reading;
 
 import com.hisaab.domain.Enums.EmailStatus;
-import com.hisaab.mail.SmsLearningService;
+import com.hisaab.mail.SmsReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -15,10 +15,10 @@ import java.util.Optional;
 @Component
 class KnownFormat implements ReadingStep {
     private static final Logger log = LoggerFactory.getLogger(KnownFormat.class);
-    private final SmsLearningService learning;
+    private final SmsReader reader;
 
-    KnownFormat(SmsLearningService learning) {
-        this.learning = learning;
+    KnownFormat(SmsReader reader) {
+        this.reader = reader;
     }
 
     @Override
@@ -37,9 +37,9 @@ class KnownFormat implements ReadingStep {
 
     private void read(MessageReading r) {
         String parser = r.sms() ? "sms-learned" : "email-learned";
-        Optional<SmsLearningService.Match> learned = learning.match(r.raw.getChannel(), r.raw.getBodyText(), r.raw.getReceivedAt());
-        r.raw.setTemplate(learned.map(SmsLearningService.Match::template).orElse(null));
-        if (learned.isEmpty() && learning.pausedFor(r.raw.getChannel(), r.raw.getBodyText()).isPresent()) {
+        Optional<SmsReader.Match> learned = reader.match(r.raw.getChannel(), r.raw.getBodyText(), r.raw.getReceivedAt());
+        r.raw.setTemplate(learned.map(SmsReader.Match::template).orElse(null));
+        if (learned.isEmpty() && reader.pausedFor(r.raw.getChannel(), r.raw.getBodyText()).isPresent()) {
             r.raw.setParser(parser);
             r.stop(EmailStatus.NEEDS_REVIEW, MessageReader.PAUSED_NOTE);
         } else if (learned.isPresent() && learned.get().skip()) {

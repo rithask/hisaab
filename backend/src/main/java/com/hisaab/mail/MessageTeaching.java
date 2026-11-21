@@ -48,10 +48,14 @@ public class MessageTeaching {
     private final PayeeAliasService aliases;
     private final MessageAccounts messageAccounts;
     private final MessageReader reader;
+    private final SmsReader smsReader;
+    private final SmsSenders senders;
 
     public MessageTeaching(RawEmailRepo emails, AccountRepo accounts, CategoryRepo categories, TransactionService txns,
                            SmsParser smsParser, SmsLearningService learning, SenderTrust trust, PayeeAliasService aliases,
-                           MessageAccounts messageAccounts, MessageReader reader) {
+                           MessageAccounts messageAccounts, MessageReader reader, SmsReader smsReader, SmsSenders senders) {
+        this.senders = senders;
+        this.smsReader = smsReader;
         this.emails = emails;
         this.accounts = accounts;
         this.categories = categories;
@@ -67,7 +71,7 @@ public class MessageTeaching {
     /** What the parser makes of a stored SMS right now, to pre-fill the correction form. */
     @Transactional(readOnly = true)
     public Preview preview(RawEmail raw) {
-        ParsedTransaction p = learning.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(SmsLearningService.Match::txn)
+        ParsedTransaction p = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(SmsReader.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
         List<Txn> existing = txns.forMessage(raw);
@@ -85,7 +89,7 @@ public class MessageTeaching {
             name = t.getCounterparty();
         }
         // Where those are in the text, so the form can show them marked.
-        int[] amountAt = amount == null ? null : SmsLearningService.findAmount(flat, amount);
+        int[] amountAt = amount == null ? null : SmsReader.findAmount(flat, amount);
         int[] payeeAt = null;
         for (String v : Arrays.asList(p == null ? null : p.counterparty(), name)) {
             int at = v == null || v.isBlank() ? -1 : flat.toLowerCase(Locale.ROOT).indexOf(v.toLowerCase(Locale.ROOT));
@@ -170,7 +174,7 @@ public class MessageTeaching {
         String textLast4 = l4 == null ? null : flat.substring(l4[0], l4[1]);
         boolean learnedAccount = false;
         if (textLast4 == null || !textLast4.equals(account.getLast4())) {
-            learning.rememberAccount(account.getInstitution(), textLast4, account);
+            senders.rememberAccount(account.getInstitution(), textLast4, account);
             learnedAccount = true;
         }
 
@@ -189,7 +193,7 @@ public class MessageTeaching {
         raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
         raw.setNote(created.isPresent() ? null : "Already recorded (from the alert email or an earlier SMS).");
         raw.setHold(null);
-        if (sms) learning.rememberSender(raw.getSender(), account.getInstitution());
+        if (sms) senders.rememberSender(raw.getSender(), account.getInstitution());
 
         // The category I picked, set and learned before the waiting messages are read again, so they get it too.
         // When this one was already recorded from the other channel, it goes on that transaction.
@@ -205,7 +209,7 @@ public class MessageTeaching {
             for (RawEmail other : emails.findByStatus(st)) {
                 if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
                 // Messages I chose to ignore are only revisited when a learned format reads them exactly.
-                if (st == EmailStatus.IGNORED && learning.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(x -> !x.skip()).isEmpty()) continue;
+                if (st == EmailStatus.IGNORED && smsReader.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(x -> !x.skip()).isEmpty()) continue;
                 reader.read(other);
                 if (other.getStatus() == EmailStatus.PARSED) alsoFixed++;
             }
@@ -237,7 +241,7 @@ public class MessageTeaching {
             for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR)) {
                 for (RawEmail other : emails.findByStatus(st)) {
                     if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
-                    if (learning.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(SmsLearningService.Match::skip).isEmpty()) continue;
+                    if (smsReader.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(SmsReader.Match::skip).isEmpty()) continue;
                     other.setStatus(EmailStatus.IGNORED);
                     other.setHold(null);
                     other.setNote(MessageReader.NOT_A_TXN_NOTE);

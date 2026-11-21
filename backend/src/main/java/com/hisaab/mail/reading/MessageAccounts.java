@@ -4,7 +4,7 @@ import com.hisaab.domain.Account;
 import com.hisaab.domain.Enums.AccountType;
 import com.hisaab.domain.Enums.Institution;
 import com.hisaab.mail.AccountMatch;
-import com.hisaab.mail.SmsLearningService;
+import com.hisaab.mail.SmsSenders;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.repo.AccountRepo;
 import org.slf4j.Logger;
@@ -20,16 +20,16 @@ public class MessageAccounts {
     private static final Logger log = LoggerFactory.getLogger(MessageAccounts.class);
 
     private final AccountRepo accounts;
-    private final SmsLearningService learning;
+    private final SmsSenders senders;
 
-    public MessageAccounts(AccountRepo accounts, SmsLearningService learning) {
+    public MessageAccounts(AccountRepo accounts, SmsSenders senders) {
         this.accounts = accounts;
-        this.learning = learning;
+        this.senders = senders;
     }
 
     /** Learned account links first, then the number in the text, then the bank's only account of that kind. */
     public Optional<Account> learnedOrMatched(ParsedTransaction p) {
-        Optional<Account> hinted = learning.hintedAccount(p.institution(), p.last4());
+        Optional<Account> hinted = senders.hintedAccount(p.institution(), p.last4());
         if (hinted.isPresent()) return hinted;
         // The sender id identifies the bank reliably, so a last-4 match at a different bank is not accepted.
         return byLast4(p)

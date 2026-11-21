@@ -9,9 +9,7 @@ import com.hisaab.domain.LearnedExample;
 import com.hisaab.domain.SmsTemplate;
 import com.hisaab.mail.parser.ParsedTransaction;
 import com.hisaab.mail.parser.SmsParser;
-import com.hisaab.repo.AccountHintRepo;
 import com.hisaab.repo.LearnedExampleRepo;
-import com.hisaab.repo.SmsSenderRepo;
 import com.hisaab.repo.SmsTemplateRepo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +33,7 @@ class SmsLearningServiceTest {
     private final List<SmsTemplate> store = new ArrayList<>();
     private final List<LearnedExample> lessons = new ArrayList<>();
     private SmsLearningService learning;
+    private SmsReader reader;
     private Account axis;
 
     @BeforeEach
@@ -58,7 +57,8 @@ class SmsLearningServiceTest {
         });
         when(examples.findByChannel(any())).thenAnswer(i -> lessons.stream().filter(e -> e.getChannel() == i.getArgument(0)).toList());
         doAnswer(i -> lessons.remove(i.<LearnedExample>getArgument(0))).when(examples).delete(any());
-        learning = new SmsLearningService(repo, mock(AccountHintRepo.class), mock(SmsSenderRepo.class), examples);
+        learning = new SmsLearningService(repo, examples);
+        reader = new SmsReader(repo);
         axis = new Account();
         axis.setInstitution(Institution.AXIS);
         axis.setType(AccountType.BANK);
@@ -66,7 +66,7 @@ class SmsLearningServiceTest {
     }
 
     private ParsedTransaction read(String text) {
-        Optional<SmsLearningService.Match> m = learning.match(text, DEC);
+        Optional<SmsReader.Match> m = reader.match(text, DEC);
         assertTrue(m.isPresent(), "expected a learned format to match: " + text);
         return m.get().txn();
     }
@@ -119,8 +119,8 @@ class SmsLearningServiceTest {
     @Test
     void differentWordingDoesNotMatch() {
         learning.learn("Txn alert: 300.00 INR moved out of acct 2286 for RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
-        assertTrue(learning.match("Txn alert: 300.00 INR moved into acct 2286 from RAHUL K", DEC).isEmpty());
-        assertTrue(learning.match("Your OTP is 300000 for acct 2286", DEC).isEmpty());
+        assertTrue(reader.match("Txn alert: 300.00 INR moved into acct 2286 from RAHUL K", DEC).isEmpty());
+        assertTrue(reader.match("Your OTP is 300000 for acct 2286", DEC).isEmpty());
     }
 
     @Test
@@ -188,17 +188,17 @@ class SmsLearningServiceTest {
         String mail = "Hello, your Axis account XX2286 was charged INR 315.00 at CITY BOOKSHOP today.";
         learning.teach(Channel.EMAIL, mail, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
         String next = "Hello, your Axis account XX2286 was charged INR 99.00 at RAIL TICKETS today.";
-        assertTrue(learning.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
-        assertEquals("RAIL TICKETS", learning.match(Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
+        assertTrue(reader.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
+        assertEquals("RAIL TICKETS", reader.match(Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
     }
 
     @Test
     void notATransactionSkipsMessagesWordedTheSame() {
         String promo = "Get a pre-approved loan of Rs 5,00,000 at 10.5% on your A/c XX2286. Reply YES by 30-11-26";
         assertTrue(learning.skip(Channel.SMS, promo, null).template().isPresent());
-        var m = learning.match("Get a pre-approved loan of Rs 2,00,000 at 11.0% on your A/c XX2286. Reply YES by 15-12-26", DEC);
+        var m = reader.match("Get a pre-approved loan of Rs 2,00,000 at 11.0% on your A/c XX2286. Reply YES by 15-12-26", DEC);
         assertTrue(m.isPresent() && m.get().skip());
-        assertTrue(learning.match("Get a car loan of Rs 2,00,000 today", DEC).isEmpty(), "different wording isn't skipped");
+        assertTrue(reader.match("Get a car loan of Rs 2,00,000 today", DEC).isEmpty(), "different wording isn't skipped");
     }
 
     @Test
@@ -216,10 +216,10 @@ class SmsLearningServiceTest {
     void teachingATransactionOverrulesASkipForItsWording() {
         String sms = "Refund of INR 120.00 initiated to acct 2286 for order 5512";
         learning.skip(Channel.SMS, sms, null);
-        assertTrue(learning.match(sms, DEC).orElseThrow().skip());
+        assertTrue(reader.match(sms, DEC).orElseThrow().skip());
         learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
         // the earlier skip lesson conflicts, so nothing changes until I remove that skip
-        assertTrue(learning.match(sms, DEC).orElseThrow().skip());
+        assertTrue(reader.match(sms, DEC).orElseThrow().skip());
         lessons.removeIf(e -> LearnedExample.SKIP.equals(e.getKind()));
         learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
         assertEquals(Direction.CREDIT, read(sms).direction());
@@ -240,8 +240,8 @@ class SmsLearningServiceTest {
         assertEquals(1, broad.getCorrections());
         assertTrue(learning.corrected(broad, b, null), "second time wrong (it isn't a transaction at all): paused");
         assertTrue(broad.isPaused());
-        assertTrue(learning.match(b, DEC).isEmpty(), "a paused format isn't used");
-        assertTrue(learning.pausedFor(Channel.SMS, b).isPresent());
+        assertTrue(reader.match(b, DEC).isEmpty(), "a paused format isn't used");
+        assertTrue(reader.pausedFor(Channel.SMS, b).isPresent());
         // the safety net still protects the paused format's own lesson
         var r = learning.teach("Paid INR 80.00 from acct 2286 to CAFE ONE", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
         assertEquals(1, r.conflicts());
@@ -334,9 +334,9 @@ class SmsLearningServiceTest {
 
     @Test
     void senderIdsAreNormalised() {
-        assertEquals("HDFCBK", SmsLearningService.senderKey("VM-HDFCBK-S"));
-        assertEquals("AXISBK", SmsLearningService.senderKey("ax-axisbk"));
-        assertNull(SmsLearningService.senderKey("+919876543210"));
-        assertNull(SmsLearningService.senderKey(null));
+        assertEquals("HDFCBK", SmsSenders.senderKey("VM-HDFCBK-S"));
+        assertEquals("AXISBK", SmsSenders.senderKey("ax-axisbk"));
+        assertNull(SmsSenders.senderKey("+919876543210"));
+        assertNull(SmsSenders.senderKey(null));
     }
 }

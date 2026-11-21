@@ -11,6 +11,7 @@ import com.hisaab.mail.MailSyncService;
 import com.hisaab.mail.MessageTeaching;
 import com.hisaab.mail.SenderTrust;
 import com.hisaab.mail.SmsLearningService;
+import com.hisaab.mail.SmsSenders;
 import com.hisaab.mail.StatementStorage;
 import com.hisaab.repo.AccountRepo;
 import com.hisaab.repo.AlertRepo;
@@ -60,13 +61,15 @@ public class InboxController {
     private final SmsLearningService learning;
     private final PayeeAliasService aliases;
     private final FeatureService features;
+    private final SmsSenders smsSenders;
 
     public InboxController(RawEmailRepo emails, EmailProcessor processor, MailSyncService mail, AlertRepo alerts,
                            BalanceService balances, StatementFileRepo statements, StatementStorage storage,
                            AccountRepo accounts, SettingsService settings,
                            SmsLearningService learning,
                            PayeeAliasService aliases,
-                           FeatureService features, MessageTeaching teaching) {
+                           FeatureService features, MessageTeaching teaching, SmsSenders smsSenders) {
+        this.smsSenders = smsSenders;
         this.features = features;
         this.learning = learning;
         this.aliases = aliases;
@@ -167,7 +170,7 @@ public class InboxController {
                         t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
                         t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused(), t.isAuto())).toList(),
                 aliases.all().stream().map(a -> new AliasDto(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
-                learning.senderCount());
+                smsSenders.senderCount());
     }
 
     /** Use a paused format again (its correction count starts over). */
