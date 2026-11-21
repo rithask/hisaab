@@ -8,6 +8,7 @@ import com.hisaab.domain.StatementFile;
 import com.hisaab.features.FeatureService;
 import com.hisaab.mail.EmailProcessor;
 import com.hisaab.mail.MailSyncService;
+import com.hisaab.mail.MessageTeaching;
 import com.hisaab.mail.SenderTrust;
 import com.hisaab.mail.SmsLearningService;
 import com.hisaab.mail.StatementStorage;
@@ -32,7 +33,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -49,6 +49,7 @@ public class InboxController {
 
     private final RawEmailRepo emails;
     private final EmailProcessor processor;
+    private final MessageTeaching teaching;
     private final MailSyncService mail;
     private final AlertRepo alerts;
     private final BalanceService balances;
@@ -65,12 +66,13 @@ public class InboxController {
                            AccountRepo accounts, SettingsService settings,
                            SmsLearningService learning,
                            PayeeAliasService aliases,
-                           FeatureService features) {
+                           FeatureService features, MessageTeaching teaching) {
         this.features = features;
         this.learning = learning;
         this.aliases = aliases;
         this.emails = emails;
         this.processor = processor;
+        this.teaching = teaching;
         this.mail = mail;
         this.alerts = alerts;
         this.balances = balances;
@@ -117,7 +119,7 @@ public class InboxController {
     @PostMapping("/emails/{id}/not-a-transaction")
     public SkipResponse notATransaction(@PathVariable Long id) {
         RawEmail e = emails.findById(id).orElseThrow(notFound("Message"));
-        EmailProcessor.SkipResult r = processor.notATransaction(e);
+        MessageTeaching.SkipResult r = teaching.notATransaction(e);
         return new SkipResponse(EmailDto.of(r.message(), false), r.learned(), r.conflicts(), r.alsoSkipped());
     }
 
@@ -133,8 +135,8 @@ public class InboxController {
 
     /** What the parser currently reads from a stored SMS, to pre-fill the correction form. */
     @GetMapping("/emails/{id}/preview")
-    public EmailProcessor.Preview preview(@PathVariable Long id) {
-        return processor.preview(emails.findById(id).orElseThrow(notFound("Message")));
+    public MessageTeaching.Preview preview(@PathVariable Long id) {
+        return teaching.preview(emails.findById(id).orElseThrow(notFound("Message")));
     }
 
     public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
@@ -142,9 +144,9 @@ public class InboxController {
 
     /** Correct an SMS; the parser learns its format and account from the correction. */
     @PostMapping("/emails/{id}/teach")
-    public TeachResponse teach(@PathVariable Long id, @RequestBody EmailProcessor.Teaching in) {
+    public TeachResponse teach(@PathVariable Long id, @RequestBody MessageTeaching.Teaching in) {
         RawEmail e = emails.findById(id).orElseThrow(notFound("Message"));
-        EmailProcessor.TeachResult r = processor.teach(e, in);
+        MessageTeaching.TeachResult r = teaching.teach(e, in);
         return new TeachResponse(EmailDto.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
                 r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat(), r.mergedFormat(), r.category(), r.categoryByWording());
     }

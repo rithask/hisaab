@@ -12,7 +12,7 @@ import java.util.Optional;
  * when no account has those digits, the bank's only account of that kind with no digits yet is the one, and it
  * learns them from this alert.
  */
-final class AccountMatch {
+public final class AccountMatch {
     private AccountMatch() {}
 
     /**
@@ -20,7 +20,7 @@ final class AccountMatch {
      * @param all         every active account
      * @return the account, and whether its last 4 should be learned from the alert
      */
-    static Optional<Result> pick(Institution institution, AccountType type, String last4, List<Account> withDigits, List<Account> all) {
+    public static Optional<Result> pick(Institution institution, AccountType type, String last4, List<Account> withDigits, List<Account> all) {
         if (last4 == null) return Optional.empty();
         if (withDigits.size() == 1) return Optional.of(new Result(withDigits.get(0), false));
         if (withDigits.size() > 1)
@@ -37,5 +37,5 @@ final class AccountMatch {
         return blank.size() == 1 ? Optional.of(new Result(blank.get(0), true)) : Optional.empty();
     }
 
-    record Result(Account account, boolean learnDigits) {}
+    public record Result(Account account, boolean learnDigits) {}
 }
