@@ -39,7 +39,10 @@ public class PeopleController {
     }
 
     PersonDto dto(Person p) {
-        SplitService.Balance b = splits.balance(p);
+        return dto(p, splits.balance(p));
+    }
+
+    private static PersonDto dto(Person p, SplitService.Balance b) {
         return new PersonDto(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), b.owed(), b.paid(),
                 b.paidForMe(), b.paidBack(), b.outstanding());
     }
@@ -50,7 +53,9 @@ public class PeopleController {
 
     @GetMapping("/people")
     public List<PersonDto> list() {
-        return people.findAllByOrderByNameAsc().stream().map(this::dto).toList();
+        List<Person> all = people.findAllByOrderByNameAsc();
+        var balances = splits.balances(all);
+        return all.stream().map(p -> dto(p, balances.get(p.getId()))).toList();
     }
 
     public record PersonInput(String name, String upiName, String phone, String notes) {}

@@ -23,6 +23,10 @@ public interface SplitShareRepo extends JpaRepository<SplitShare, Long> {
     @Query("select coalesce(sum(s.amount), 0) from SplitShare s where s.person = :person")
     BigDecimal totalOwed(@Param("person") Person person);
 
+    /** {@link #totalOwed} for everyone, in one query: rows of (person id, total). */
+    @Query("select s.person.id, coalesce(sum(s.amount), 0) from SplitShare s group by s.person.id")
+    List<Object[]> totalOwedByPerson();
+
     @Query("select coalesce(sum(s.amount), 0) from SplitShare s where s.txn = :txn")
     BigDecimal totalForTxn(@Param("txn") Txn txn);
 }

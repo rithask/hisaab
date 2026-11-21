@@ -31,6 +31,13 @@ public interface SettlementRepo extends JpaRepository<Settlement, Long> {
     BigDecimal total(@Param("person") Person person, @Param("status") SettlementStatus status,
                      @Param("direction") SettlementDirection direction);
 
+    /** {@link #total} for everyone with this status, in one query: rows of (person id, direction, total). */
+    @Query("""
+            select s.person.id, s.direction, coalesce(sum(s.amount), 0) from Settlement s
+            where s.status = :status group by s.person.id, s.direction
+            """)
+    List<Object[]> totalsByPerson(@Param("status") SettlementStatus status);
+
     /** What they've paid me back (confirmed). */
     default BigDecimal totalPaid(Person person) {
         return total(person, SettlementStatus.CONFIRMED, SettlementDirection.IN);

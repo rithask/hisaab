@@ -34,6 +34,18 @@ public class BalanceService {
         return a.isCard() ? a.getOpeningBalance().subtract(net) : a.getOpeningBalance().add(net);
     }
 
+    /** {@link #current} for many accounts with one query, keyed by account id. */
+    public java.util.Map<Long, BigDecimal> current(java.util.List<Account> accounts) {
+        java.util.Map<Long, BigDecimal> net = new java.util.HashMap<>();
+        for (Object[] row : txns.netSinceOpeningByAccount(Direction.CREDIT)) net.put((Long) row[0], (BigDecimal) row[1]);
+        java.util.Map<Long, BigDecimal> out = new java.util.HashMap<>();
+        for (Account a : accounts) {
+            BigDecimal n = net.getOrDefault(a.getId(), BigDecimal.ZERO);
+            out.put(a.getId(), a.isCard() ? a.getOpeningBalance().subtract(n) : a.getOpeningBalance().add(n));
+        }
+        return out;
+    }
+
     /** Balance the app expects right after the given transaction. */
     public BigDecimal expectedAfter(Txn t) {
         Account a = t.getAccount();

@@ -49,11 +49,15 @@ public class AccountService {
     public List<AccountView> list(boolean includeArchived) {
         List<Account> list = includeArchived ? accounts.findAllByOrderByArchivedAscTypeAscNameAsc()
                 : accounts.findByArchivedFalseOrderByTypeAscNameAsc();
-        return list.stream().map(this::view).toList();
+        var current = balances.current(list);
+        return list.stream().map(a -> view(a, current.get(a.getId()))).toList();
     }
 
     public AccountView view(Account a) {
-        BigDecimal balance = balances.current(a);
+        return view(a, balances.current(a));
+    }
+
+    private AccountView view(Account a, BigDecimal balance) {
         CardInfo card = null;
         if (a.isCard()) {
             BigDecimal limit = a.getCreditLimit();

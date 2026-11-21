@@ -112,19 +112,24 @@ public class ReportService {
 
     /** Income and spending for each of the {@code months} months ending with {@code until}. */
     public List<MonthTotal> monthly(YearMonth until, int months) {
-        YearMonth now = until;
+        YearMonth first = until.minusMonths(months - 1);
+        Instant from = first.atDay(1).atStartOfDay(Money.ZONE).toInstant();
+        Instant to = until.plusMonths(1).atDay(1).atStartOfDay(Money.ZONE).toInstant();
+        var p = new MapSqlParameterSource().addValue("from", Timestamp.from(from)).addValue("to", Timestamp.from(to));
+        // one query for all the months, grouped by calendar month in the app's zone (the session's TimeZone)
+        java.util.Map<String, BigDecimal[]> byMonth = new java.util.HashMap<>();
+        for (var row : jdbc.queryForList(EFFECTIVE + """
+                select to_char(occurred_at at time zone current_setting('TimeZone'), 'YYYY-MM') ym, direction, coalesce(sum(amt), 0) total
+                from eff group by 1, 2
+                """, p)) {
+            BigDecimal[] v = byMonth.computeIfAbsent((String) row.get("ym"), k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            if ("DEBIT".equals(row.get("direction"))) v[0] = (BigDecimal) row.get("total");
+            else v[1] = (BigDecimal) row.get("total");
+        }
         List<MonthTotal> out = new ArrayList<>();
-        for (int i = months - 1; i >= 0; i--) {
-            YearMonth ym = now.minusMonths(i);
-            Instant from = ym.atDay(1).atStartOfDay(Money.ZONE).toInstant();
-            Instant to = ym.plusMonths(1).atDay(1).atStartOfDay(Money.ZONE).toInstant();
-            var p = new MapSqlParameterSource().addValue("from", Timestamp.from(from)).addValue("to", Timestamp.from(to));
-            BigDecimal inc = BigDecimal.ZERO, exp = BigDecimal.ZERO;
-            for (var row : jdbc.queryForList(EFFECTIVE + "select direction, coalesce(sum(amt),0) total from eff group by direction", p)) {
-                if ("DEBIT".equals(row.get("direction"))) exp = (BigDecimal) row.get("total");
-                else inc = (BigDecimal) row.get("total");
-            }
-            out.add(new MonthTotal(ym.toString(), exp, inc));
+        for (YearMonth ym = first; !ym.isAfter(until); ym = ym.plusMonths(1)) {
+            BigDecimal[] v = byMonth.getOrDefault(ym.toString(), new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            out.add(new MonthTotal(ym.toString(), v[0], v[1]));
         }
         return out;
     }

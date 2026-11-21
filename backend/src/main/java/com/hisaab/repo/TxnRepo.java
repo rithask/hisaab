@@ -65,6 +65,15 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
     BigDecimal netSince(@Param("account") Account account, @Param("since") Instant since,
                         @Param("credit") Direction credit);
 
+    /** {@link #netSince} for every account from its opening date, in one query: rows of (account id, net). */
+    @Query("""
+            select t.account.id, coalesce(sum(case when t.direction = :credit then t.amount else -t.amount end), 0)
+            from Txn t
+            where t.account is not null and t.occurredAt >= t.account.openingDate
+            group by t.account.id
+            """)
+    List<Object[]> netSinceOpeningByAccount(@Param("credit") Direction credit);
+
     default BigDecimal netSince(Account account, Instant since) {
         return netSince(account, since, Direction.CREDIT);
     }
@@ -105,6 +114,10 @@ public interface TxnRepo extends JpaRepository<Txn, Long>, JpaSpecificationExecu
     /** My share of everything this person paid for. */
     @Query("select coalesce(sum(t.amount), 0) from Txn t where t.paidBy = :person")
     BigDecimal totalPaidBy(@Param("person") com.hisaab.domain.Person person);
+
+    /** {@link #totalPaidBy} for everyone, in one query: rows of (person id, total). */
+    @Query("select t.paidBy.id, coalesce(sum(t.amount), 0) from Txn t where t.paidBy is not null group by t.paidBy.id")
+    List<Object[]> totalPaidByPerson();
 
     List<Txn> findByPaidByOrderByOccurredAtDesc(com.hisaab.domain.Person person);
 

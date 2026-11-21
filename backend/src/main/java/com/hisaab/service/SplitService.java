@@ -117,6 +117,30 @@ public class SplitService {
         return new Balance(owed, paid, forMe, back, owed.subtract(forMe).subtract(paid).add(back));
     }
 
+    /** {@link #balance} for everyone, with four grouped queries instead of four per person; keyed by person id. */
+    public java.util.Map<Long, Balance> balances(java.util.List<Person> people) {
+        var owed = byPerson(shares.totalOwedByPerson());
+        var forMe = byPerson(txns.totalPaidByPerson());
+        var paid = new java.util.HashMap<Long, BigDecimal>();
+        var back = new java.util.HashMap<Long, BigDecimal>();
+        for (Object[] row : settlements.totalsByPerson(SettlementStatus.CONFIRMED)) {
+            (row[1] == SettlementDirection.IN ? paid : back).put((Long) row[0], (BigDecimal) row[2]);
+        }
+        java.util.Map<Long, Balance> out = new java.util.HashMap<>();
+        for (Person p : people) {
+            BigDecimal o = owed.getOrDefault(p.getId(), BigDecimal.ZERO), pd = paid.getOrDefault(p.getId(), BigDecimal.ZERO);
+            BigDecimal f = forMe.getOrDefault(p.getId(), BigDecimal.ZERO), b = back.getOrDefault(p.getId(), BigDecimal.ZERO);
+            out.put(p.getId(), new Balance(o, pd, f, b, o.subtract(f).subtract(pd).add(b)));
+        }
+        return out;
+    }
+
+    private static java.util.Map<Long, BigDecimal> byPerson(java.util.List<Object[]> rows) {
+        java.util.Map<Long, BigDecimal> m = new java.util.HashMap<>();
+        for (Object[] row : rows) m.put((Long) row[0], (BigDecimal) row[1]);
+        return m;
+    }
+
     /** What they owe me: positive, they owe me; negative, I owe them. */
     public BigDecimal outstanding(Person p) {
         return balance(p).outstanding();
