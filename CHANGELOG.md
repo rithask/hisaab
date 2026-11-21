@@ -9,6 +9,11 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Changed
+- A tidier, more consistent look: text, corners and colours now come from one small set of sizes and colours, so
+  the same kind of thing looks the same on every screen. Buttons dip when pressed while rows just highlight, lists
+  ease in when a page opens, and windows open and close the same way on phones and computers.
+
 ## [0.13.0] - 2026-11-21
 
 ### Added
