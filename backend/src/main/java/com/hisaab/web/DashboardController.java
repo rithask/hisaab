@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.hisaab.features.NetWorthService;
+import com.hisaab.features.ReviewService;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -33,11 +36,16 @@ public class DashboardController {
     private final StatementImportRepo statementImports;
     private final StatementFileRepo statementFiles;
     private final TotalsService totals;
+    private final NetWorthService networth;
+    private final ReviewService review;
 
     public DashboardController(AccountService accounts, ReportService reports, HoldingRepo holdings, PersonRepo people,
                                SplitService splits, AlertRepo alerts, RawEmailRepo emails, SettlementRepo settlements,
                                StatementImportRepo statementImports,
-                               StatementFileRepo statementFiles, TotalsService totals) {
+                               StatementFileRepo statementFiles, TotalsService totals,
+                               NetWorthService networth, ReviewService review) {
+        this.networth = networth;
+        this.review = review;
         this.totals = totals;
         this.statementImports = statementImports;
         this.statementFiles = statementFiles;
@@ -94,5 +102,25 @@ public class DashboardController {
         YearMonth ym = month == null || month.isBlank() ? YearMonth.now(Money.ZONE) : YearMonth.parse(month);
         return reports.report(ym.atDay(1).atStartOfDay(Money.ZONE).toInstant(),
                 ym.plusMonths(1).atDay(1).atStartOfDay(Money.ZONE).toInstant());
+    }
+
+    // ---- net worth
+    @GetMapping("/networth")
+    public List<NetWorthService.Point> networth(@RequestParam(defaultValue = "6m") String range) {
+        LocalDate today = LocalDate.now(Money.ZONE);
+        LocalDate from = switch (range) {
+            case "1m" -> today.minusMonths(1);
+            case "3m" -> today.minusMonths(3);
+            case "1y" -> today.minusYears(1);
+            case "all" -> LocalDate.of(2000, 1, 1);
+            default -> today.minusMonths(6);
+        };
+        return networth.series(from);
+    }
+
+    // ---- year in review
+    @GetMapping("/review")
+    public ReviewService.Review review(@RequestParam(required = false) Integer year) {
+        return review.year(year == null ? LocalDate.now(Money.ZONE).getYear() : year);
     }
 }

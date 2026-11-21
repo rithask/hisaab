@@ -1,7 +1,8 @@
 package com.hisaab.web;
 
-import com.hisaab.features.RequiresFeature;
+import com.hisaab.features.BillService;
 import com.hisaab.features.FeatureService.Feature;
+import com.hisaab.features.RequiresFeature;
 import com.hisaab.features.RewardService;
 import com.hisaab.features.SubscriptionService;
 import com.hisaab.features.UnusualService;
@@ -18,13 +19,15 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class WatchController {
+    private final BillService bills;
     private final SubscriptionService subscriptions;
     private final UnusualService unusual;
     private final RewardService rewards;
     private final WatchDismissals dismissals;
 
-    public WatchController(SubscriptionService subscriptions, UnusualService unusual,
+    public WatchController(BillService bills, SubscriptionService subscriptions, UnusualService unusual,
                            RewardService rewards, WatchDismissals dismissals) {
+        this.bills = bills;
         this.subscriptions = subscriptions;
         this.unusual = unusual;
         this.rewards = rewards;
@@ -113,5 +116,23 @@ public class WatchController {
     private static String key(KeyInput in) {
         if (in == null || in.key() == null || in.key().isBlank()) throw new IllegalArgumentException("Missing key");
         return in.key();
+    }
+
+    // ---- bills
+    @GetMapping("/bills")
+    public List<BillService.Bill> bills(@RequestParam(required = false) Integer within) {
+        return within == null ? bills.all() : bills.upcoming(within);
+    }
+
+    public record BillKey(String key) {}
+
+    @PostMapping("/bills/ignore")
+    public void notABill(@RequestBody BillKey in) {
+        bills.ignore(in.key());
+    }
+
+    @PostMapping("/bills/unignore")
+    public void isABill(@RequestBody BillKey in) {
+        bills.unignore(in.key());
     }
 }
