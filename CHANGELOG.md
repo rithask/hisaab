@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-21
+
 ### Changed
 - Faster, especially as your history grows. Activity loads a page of transactions with 10 database queries instead
   of 175, Home with 28 instead of 46, and Splits with 4 instead of 13; the database has indexes for looking up a
