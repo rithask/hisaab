@@ -50,7 +50,7 @@ function NativeDatePicker({ value, onChange, min, max, disabled, placeholder = '
       <CalendarBlank size={18} className="ink-2 pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" />
       <Input
         type="date"
-        className="h-full pl-11"
+        className={cx('h-full pl-11', !value && 'text-transparent')}
         value={value}
         min={min}
         max={max}
