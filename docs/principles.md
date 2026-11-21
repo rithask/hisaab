@@ -192,7 +192,9 @@ First ask whether it needs a switch at all (principle 5). If it only reads your 
 - **The URL is state.** Filters, the selected period and the year or financial year go in search params, so Back
   and sharing a link work (`/transactions?categoryId=3&min=500`).
 - `api.ts` holds every response type, and they match the backend DTOs field for field. Change both together.
-- Pages live in `pages/`, shared pieces in `components/`. Formatting goes through `format.ts`, never ad-hoc
+- Pages live in `pages/`, shared pieces in `components/`. Keep a file to one screen or one piece: a page with
+  several sections gets a folder (`pages/settings/`), and a big sheet is split by what it shows (`TxnDetail`,
+  `SplitEditor`, `AddTxnForm`). Formatting goes through `format.ts`, never ad-hoc
   `toFixed`.
 - Charts use Recharts with the colours from `useChartColors`, so light and dark both work.
 - **Installable (PWA).** `sw.template.js` becomes `dist/sw.js` at build time (plugin in `vite.config.ts`). It keeps
