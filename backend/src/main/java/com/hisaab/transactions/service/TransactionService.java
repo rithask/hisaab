@@ -6,7 +6,7 @@ import com.hisaab.transactions.dto.TransactionUpdateRequest;
 import com.hisaab.common.model.Direction;
 import com.hisaab.messages.model.Channel;
 import com.hisaab.people.model.SettlementStatus;
-import com.hisaab.transactions.model.TxnSource;
+import com.hisaab.transactions.model.TransactionSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.service.BalanceService;
 import com.hisaab.categories.model.Category;
@@ -17,18 +17,18 @@ import com.hisaab.common.util.Audit;
 import com.hisaab.common.util.Money;
 import com.hisaab.common.util.Names;
 import com.hisaab.investments.service.PriceService;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.messages.model.InboxMessage;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
 import com.hisaab.people.model.SplitShare;
 import com.hisaab.people.repository.PersonRepository;
-import com.hisaab.people.service.BalancesChanged;
+import com.hisaab.people.service.BalancesChangedEvent;
 import com.hisaab.people.service.SplitService;
 import com.hisaab.transactions.model.Tag;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import com.hisaab.transactions.repository.TagRepository;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.repository.TransactionRepository;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.context.ApplicationEventPublisher;
@@ -51,7 +51,7 @@ import static com.hisaab.common.exception.NotFound.notFound;
 @Service
 public class TransactionService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransactionService.class);
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final CategoryRepository categories;
     private final TagRepository tags;
     private final CategorizationService categorizer;
@@ -64,7 +64,7 @@ public class TransactionService {
 
     private final ApplicationEventPublisher events;
 
-    public TransactionService(TxnRepository txns, CategoryRepository categories, TagRepository tags, CategorizationService categorizer,
+    public TransactionService(TransactionRepository txns, CategoryRepository categories, TagRepository tags, CategorizationService categorizer,
                               TransferService transfers, BalanceService balances, SplitService splits,
                               PriceService prices, PayeeAliasService aliases, PersonRepository people,
                               ApplicationEventPublisher events) {
@@ -86,7 +86,7 @@ public class TransactionService {
         return tags.findAllByOrderByNameAsc().stream().map(Tag::getName).toList();
     }
 
-    public Txn get(Long id) {
+    public Transaction get(Long id) {
         return txns.findById(id).orElseThrow(notFound("Transaction " + id));
     }
 
@@ -105,17 +105,17 @@ public class TransactionService {
      * payment already reported through the other channel (in which case missing details are filled in).
      */
     @Transactional
-    public Optional<Txn> createFromEmail(ParsedTransaction p, Account account, RawEmail email) {
+    public Optional<Transaction> createFromEmail(ParsedTransaction p, Account account, InboxMessage email) {
         Instant at = occurredAt(p.date(), p.time(), email.getReceivedAt());
         boolean timeGuessed = p.time() == null;
-        TxnSource source = email.getChannel() == Channel.SMS ? TxnSource.SMS : TxnSource.EMAIL;
-        Txn t = new Txn();
+        TransactionSource source = email.getChannel() == Channel.SMS ? TransactionSource.SMS : TransactionSource.EMAIL;
+        Transaction t = new Transaction();
         t.setAccount(account);
         t.setDirection(p.direction());
         t.setOccurredAt(at);
         applyAmount(t, p.amount(), p.currency());
         if (p.reference() != null) {
-            Optional<Txn> same = txns.findFirstByAccountAndReferenceNoAndAmountAndDirection(account, p.reference(), t.getAmount(), p.direction());
+            Optional<Transaction> same = txns.findFirstByAccountAndReferenceNoAndAmountAndDirection(account, p.reference(), t.getAmount(), p.direction());
             if (same.isPresent()) {
                 // the same payment's alert from the other channel: it's now paired and can't absorb another one
                 if (same.get().getSource() != source && same.get().getTwinRawEmail() == null) same.get().setTwinRawEmail(email);
@@ -123,9 +123,9 @@ public class TransactionService {
                 return Optional.empty();
             }
         }
-        Optional<Txn> twin = crossChannelTwin(t, source, p.time() != null, p.reference(), email);
+        Optional<Transaction> twin = crossChannelTwin(t, source, p.time() != null, p.reference(), email);
         if (twin.isPresent()) {
-            Txn existing = twin.get();
+            Transaction existing = twin.get();
             existing.setTwinRawEmail(email);
             if (existing.getCounterparty() == null && p.counterparty() != null) {
                 existing.setCounterparty(aliases.apply(p.counterparty()));
@@ -157,16 +157,16 @@ public class TransactionService {
      * Different reference numbers mean different payments; one with the same reference is preferred, then the
      * closest in time.
      */
-    private Optional<Txn> crossChannelTwin(Txn t, TxnSource source, boolean timed, String reference, RawEmail email) {
-        TxnSource other = source == TxnSource.SMS ? TxnSource.EMAIL : TxnSource.SMS;
+    private Optional<Transaction> crossChannelTwin(Transaction t, TransactionSource source, boolean timed, String reference, InboxMessage email) {
+        TransactionSource other = source == TransactionSource.SMS ? TransactionSource.EMAIL : TransactionSource.SMS;
         Duration window = timed ? Duration.ofMinutes(20) : Duration.ofHours(24);
-        List<Txn> candidates = txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
+        List<Transaction> candidates = txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
                 t.getOccurredAt().minus(window), t.getOccurredAt().plus(window)).stream()
                 .filter(x -> x.getTwinRawEmail() == null || x.getTwinRawEmail().getId().equals(email.getId()))
                 .filter(x -> reference == null || x.getReferenceNo() == null || sameRef(reference, x.getReferenceNo()))
                 .toList();
-        Comparator<Txn> byGap = Comparator.comparing(x -> Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
-        Comparator<Txn> sameRefFirst = Comparator.comparing(x -> !(reference != null && x.getReferenceNo() != null));
+        Comparator<Transaction> byGap = Comparator.comparing(x -> Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
+        Comparator<Transaction> sameRefFirst = Comparator.comparing(x -> !(reference != null && x.getReferenceNo() != null));
         return candidates.stream().min(sameRefFirst.thenComparing(byGap));
     }
 
@@ -176,7 +176,7 @@ public class TransactionService {
      * longer fits, and transfer matching runs again when the direction or account changed.
      */
     @Transactional
-    public Txn correct(Txn t, ParsedTransaction p, Account account) {
+    public Transaction correct(Transaction t, ParsedTransaction p, Account account) {
         boolean moved = t.getDirection() != p.direction() || !t.getAccount().getId().equals(account.getId());
         if (moved && t.getLinkedTxn() != null) transfers.unlink(t);
         t.setAccount(account);
@@ -197,14 +197,14 @@ public class TransactionService {
     }
 
     /** Transactions this alert was matched to as the other channel's copy (normally one). */
-    public List<Txn> pairedWith(RawEmail email) {
+    public List<Transaction> pairedWith(InboxMessage email) {
         return txns.findByTwinRawEmail(email);
     }
 
     /** Forget which transaction this alert was matched to (before it's read again, e.g. after a correction). */
     @Transactional
-    public void unpair(RawEmail email) {
-        for (Txn t : txns.findByTwinRawEmail(email)) t.setTwinRawEmail(null);
+    public void unpair(InboxMessage email) {
+        for (Transaction t : txns.findByTwinRawEmail(email)) t.setTwinRawEmail(null);
     }
 
     /** Banks print the same reference with or without leading zeros or a prefix; compare the digits' tail. */
@@ -216,9 +216,9 @@ public class TransactionService {
 
     /** A line from a statement I chose to add. Time of day is guessed (noon) when the statement only has a date. */
     @Transactional
-    public Txn createFromStatement(Account account, Direction direction, BigDecimal amount, LocalDate date, LocalTime time,
-                                   String counterparty, String reference, String description, boolean cardPayment) {
-        Txn t = new Txn();
+    public Transaction createFromStatement(Account account, Direction direction, BigDecimal amount, LocalDate date, LocalTime time,
+                                           String counterparty, String reference, String description, boolean cardPayment) {
+        Transaction t = new Transaction();
         t.setAccount(account);
         t.setDirection(direction);
         t.setAmount(Money.r2(amount));
@@ -229,7 +229,7 @@ public class TransactionService {
         t.setMerchantKey(Names.merchantKey(payee));
         t.setReferenceNo(reference);
         t.setDescription(description == null || description.length() <= 500 ? description : description.substring(0, 500));
-        t.setSource(TxnSource.STATEMENT);
+        t.setSource(TransactionSource.STATEMENT);
         txns.save(t);
         transfers.detect(t, cardPayment);
         if (!t.isTransfer()) categorizer.categorize(t);
@@ -239,11 +239,11 @@ public class TransactionService {
     }
 
     /** Transactions recorded from one stored alert. */
-    public List<Txn> forMessage(RawEmail message) {
+    public List<Transaction> forMessage(InboxMessage message) {
         return txns.findByRawEmail(message);
     }
 
-    private void applyAmount(Txn t, BigDecimal amount, String currency) {
+    private void applyAmount(Transaction t, BigDecimal amount, String currency) {
         if (currency == null || currency.equals("INR")) {
             t.setAmount(Money.r2(amount));
             return;
@@ -261,7 +261,7 @@ public class TransactionService {
      * transfer is never a repayment, so transfers are found first) and each source does a different subset (a
      * statement line has no reported balance; a manual entry has no card-payment hint).
      */
-    private void afterCreate(Txn t, boolean cardPaymentHint) {
+    private void afterCreate(Transaction t, boolean cardPaymentHint) {
         transfers.detect(t, cardPaymentHint);
         categorizer.categorize(t);
         txns.flush();
@@ -270,9 +270,9 @@ public class TransactionService {
     }
 
     @Transactional
-    public Txn createManual(NewTransactionRequest req, Account account) {
+    public Transaction createManual(NewTransactionRequest req, Account account) {
         if (req.amount() == null || req.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
-        Txn t = new Txn();
+        Transaction t = new Transaction();
         t.setAccount(account);
         t.setDirection(req.direction());
         t.setOccurredAt(req.occurredAt() == null ? Instant.now() : req.occurredAt());
@@ -281,7 +281,7 @@ public class TransactionService {
         t.setMerchantKey(Names.merchantKey(req.counterparty()));
         t.setDescription(blankToNull(req.description()));
         t.setNotes(blankToNull(req.notes()));
-        t.setSource(TxnSource.MANUAL);
+        t.setSource(TransactionSource.MANUAL);
         t.setTransfer(Boolean.TRUE.equals(req.transfer()));
         if (req.categoryId() != null) t.setCategory(categories.getReferenceById(req.categoryId()));
         t.setTags(resolveTags(req.tags()));
@@ -296,28 +296,28 @@ public class TransactionService {
      * is learned from it (category, payee) and nothing is matched to it (duplicates, transfers, repayments).
      */
     @Transactional
-    public Txn createPaidBy(PaidByRequest in) {
-        Txn t = new Txn();
+    public Transaction createPaidBy(PaidByRequest in) {
+        Transaction t = new Transaction();
         t.setDirection(Direction.DEBIT);
-        t.setSource(TxnSource.PERSON);
+        t.setSource(TransactionSource.PERSON);
         applyPaidBy(t, in);
         if (in.tags() != null) t.setTags(resolveTags(in.tags()));
         txns.save(t);
-        events.publishEvent(new BalancesChanged("they paid for me")); // they may already have sent the difference
+        events.publishEvent(new BalancesChangedEvent("they paid for me")); // they may already have sent the difference
         return t;
     }
 
     @Transactional
-    public Txn updatePaidBy(Long id, PaidByRequest in) {
-        Txn t = get(id);
+    public Transaction updatePaidBy(Long id, PaidByRequest in) {
+        Transaction t = get(id);
         if (!t.isPaidByPerson()) throw new BadRequestException("This wasn't paid by someone else");
         applyPaidBy(t, in);
         if (in.tags() != null) t.setTags(resolveTags(in.tags()));
-        events.publishEvent(new BalancesChanged("they paid for me"));
+        events.publishEvent(new BalancesChangedEvent("they paid for me"));
         return t;
     }
 
-    private void applyPaidBy(Txn t, PaidByRequest in) {
+    private void applyPaidBy(Transaction t, PaidByRequest in) {
         Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
         if (who == null) throw new BadRequestException("Choose who paid");
         if (in.total() == null || in.total().signum() <= 0) throw new BadRequestException("Enter what they paid");
@@ -341,11 +341,11 @@ public class TransactionService {
      * @param renamedCount   other transactions renamed because a payee rename was learned
      * @param learnedWording the category was remembered for messages worded like this one (it has no payee)
      */
-    public record UpdateResult(Txn txn, int similarCount, int renamedCount, boolean learnedWording) {}
+    public record UpdateResult(Transaction txn, int similarCount, int renamedCount, boolean learnedWording) {}
 
     @Transactional
     public UpdateResult update(Long id, TransactionUpdateRequest u) {
-        Txn t = get(id);
+        Transaction t = get(id);
         if (t.isPaidByPerson()) return new UpdateResult(updateOwn(t, u), 0, 0, false);
         int similar = 0;
         int renamed = 0;
@@ -391,7 +391,7 @@ public class TransactionService {
     }
 
     /** Edits to my share of something a friend paid for: plain changes, nothing learned or matched. */
-    private Txn updateOwn(Txn t, TransactionUpdateRequest u) {
+    private Transaction updateOwn(Transaction t, TransactionUpdateRequest u) {
         if (Boolean.TRUE.equals(u.transfer())) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         if (u.counterparty() != null) t.setCounterparty(blankToNull(u.counterparty()));
         if (u.amount() != null) {
@@ -412,7 +412,7 @@ public class TransactionService {
 
     @Transactional
     public void delete(Long id) {
-        Txn t = get(id);
+        Transaction t = get(id);
         Audit.log("Transaction deleted id={} source={}", id, t.getSource());
         if (t.getLinkedTxn() != null) transfers.unlink(t);
         txns.delete(t);
@@ -446,8 +446,8 @@ public class TransactionService {
         }
     }
 
-    public Page<Txn> search(Filter f, Pageable pageable) {
-        Specification<Txn> spec = (root, query, cb) -> {
+    public Page<Transaction> search(Filter f, Pageable pageable) {
+        Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             if (f.accountId() != null) ps.add(cb.equal(root.get("account").get("id"), f.accountId()));
             if (Boolean.TRUE.equals(f.uncategorized())) {

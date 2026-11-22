@@ -25,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * the app gets {@code {"error": "…"}} with a message a person can act on. A mistake in the request (not found,
  * invalid, not allowed now) is a warning line; anything unexpected is logged with its stack trace and a short
  * reference that's also in the message, so the log entry can be found. Internals never reach the screen.
- * (The Data API has its own handler, {@code DataApiErrors}, which answers in problem-detail form.)
+ * (The Data API has its own handler, {@code DataApiExceptionHandler}, which answers in problem-detail form.)
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {

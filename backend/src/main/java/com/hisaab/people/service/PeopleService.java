@@ -21,8 +21,8 @@ import com.hisaab.people.repository.PersonRepository;
 import com.hisaab.people.repository.SettlementRepository;
 import com.hisaab.people.repository.SplitShareRepository;
 import com.hisaab.transactions.dto.TransactionResponse;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,10 +43,10 @@ public class PeopleService {
     private final SplitShareRepository shares;
     private final SettlementRepository settlements;
     private final SplitService splits;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
 
     public PeopleService(PersonRepository people, SplitShareRepository shares, SettlementRepository settlements, SplitService splits,
-                         TxnRepository txns) {
+                         TransactionRepository txns) {
         this.people = people;
         this.shares = shares;
         this.settlements = settlements;
@@ -96,9 +96,9 @@ public class PeopleService {
         BigDecimal due = splits.outstanding(p).abs();
         // their name first, then the amounts nearest to what's open, then the newest
         return txns.findOpenSince(Instant.now().minus(Duration.ofDays(60)), dir).stream()
-                .sorted(Comparator.comparing((Txn t) -> !SplitService.named(p, t.getCounterparty()))
+                .sorted(Comparator.comparing((Transaction t) -> !SplitService.named(p, t.getCounterparty()))
                         .thenComparing(t -> t.getAmount().subtract(due).abs())
-                        .thenComparing(Txn::getOccurredAt, Comparator.reverseOrder()))
+                        .thenComparing(Transaction::getOccurredAt, Comparator.reverseOrder()))
                 .limit(30).map(t -> TransactionResponse.of(t, null)).toList();
     }
 

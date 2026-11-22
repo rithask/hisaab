@@ -5,8 +5,8 @@ import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.common.util.Names;
 import com.hisaab.settings.service.SettingsService;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,20 +24,20 @@ public class TransferService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransferService.class);
     private static final Duration WINDOW = Duration.ofDays(3);
 
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final SettingsService settings;
 
-    public TransferService(TxnRepository txns, SettingsService settings) {
+    public TransferService(TransactionRepository txns, SettingsService settings) {
         this.txns = txns;
         this.settings = settings;
     }
 
     /** Call before the transaction is categorised. {@code hintedCardPayment} comes from the parser. */
     @Transactional
-    public void detect(Txn t, boolean hintedCardPayment) {
+    public void detect(Transaction t, boolean hintedCardPayment) {
         if (t.getLinkedTxn() != null) return;
         Direction other = t.getDirection() == Direction.DEBIT ? Direction.CREDIT : Direction.DEBIT;
-        List<Txn> candidates = txns.findTransferCandidates(t.getAccount(), other, t.getAmount(),
+        List<Transaction> candidates = txns.findTransferCandidates(t.getAccount(), other, t.getAmount(),
                 t.getOccurredAt().minus(WINDOW), t.getOccurredAt().plus(WINDOW));
         candidates.stream()
                 .filter(c -> !c.getId().equals(t.getId()))
@@ -56,18 +56,18 @@ public class TransferService {
     }
 
     /** e.g. Canara debit "to Axis Bank" paired with a credit on my Axis account. */
-    static boolean mentions(Txn t, Account other) {
+    static boolean mentions(Transaction t, Account other) {
         return other.getInstitution() != Institution.OTHER
                 && Names.containsWord(t.getCounterparty(), other.getInstitution().name());
     }
 
-    boolean looksLikeSelf(Txn t) {
+    boolean looksLikeSelf(Transaction t) {
         String owner = settings.ownerName();
         return owner != null && Names.samePerson(owner, t.getCounterparty());
     }
 
     @Transactional
-    public void link(Txn a, Txn b) {
+    public void link(Transaction a, Transaction b) {
         if (a.getAccount().getId().equals(b.getAccount().getId())) {
             throw new BadRequestException("Both sides of a transfer must be in different accounts");
         }
@@ -76,7 +76,7 @@ public class TransferService {
         }
         a.setLinkedTxn(b);
         b.setLinkedTxn(a);
-        for (Txn t : List.of(a, b)) {
+        for (Transaction t : List.of(a, b)) {
             t.setTransfer(true);
             t.setCategory(null);
         }
@@ -84,8 +84,8 @@ public class TransferService {
     }
 
     @Transactional
-    public void unlink(Txn a) {
-        Txn b = a.getLinkedTxn();
+    public void unlink(Transaction a) {
+        Transaction b = a.getLinkedTxn();
         log.info("Transfer unlinked: transaction {}{}", a.getId(), b == null ? "" : " and " + b.getId());
         a.setLinkedTxn(null);
         a.setTransfer(false);

@@ -14,8 +14,8 @@ import com.hisaab.people.model.SplitShare;
 import com.hisaab.people.repository.PersonRepository;
 import com.hisaab.people.repository.SettlementRepository;
 import com.hisaab.people.repository.SplitShareRepository;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -38,10 +38,10 @@ public class SplitService {
     private final SplitShareRepository shares;
     private final SettlementRepository settlements;
     private final PersonRepository people;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final ApplicationEventPublisher events;
 
-    public SplitService(SplitShareRepository shares, SettlementRepository settlements, PersonRepository people, TxnRepository txns,
+    public SplitService(SplitShareRepository shares, SettlementRepository settlements, PersonRepository people, TransactionRepository txns,
                         ApplicationEventPublisher events) {
         this.shares = shares;
         this.settlements = settlements;
@@ -56,13 +56,13 @@ public class SplitService {
      * EXACT: value = amount that person owes. PERCENT: value = percent of the bill.
      */
     @Transactional
-    public List<SplitShare> setSplit(Txn txn, SplitMethod method, boolean includeMe, List<SplitParticipantRequest> participants) {
+    public List<SplitShare> setSplit(Transaction txn, SplitMethod method, boolean includeMe, List<SplitParticipantRequest> participants) {
         // a bill I split isn't me paying someone back: drop a guess that it was
         settlements.findByTxn(txn).stream().filter(s -> s.getStatus() == SettlementStatus.SUGGESTED).forEach(settlements::delete);
         shares.deleteByTxn(txn);
         shares.flush();
         if (participants == null || participants.isEmpty()) {
-            events.publishEvent(new BalancesChanged("split removed"));
+            events.publishEvent(new BalancesChangedEvent("split removed"));
             return List.of();
         }
         BigDecimal total = txn.getAmount();
@@ -102,11 +102,11 @@ public class SplitService {
             if (s.getAmount().signum() <= 0) throw new BadRequestException("Each share must be more than zero");
         }
         List<SplitShare> saved = shares.saveAll(out);
-        events.publishEvent(new BalancesChanged("split changed")); // a repayment may have arrived before I split it
+        events.publishEvent(new BalancesChangedEvent("split changed")); // a repayment may have arrived before I split it
         return saved;
     }
 
-    private SplitShare share(Txn txn, Long personId, SplitMethod method, BigDecimal input, BigDecimal amount) {
+    private SplitShare share(Transaction txn, Long personId, SplitMethod method, BigDecimal input, BigDecimal amount) {
         Person p = people.findById(personId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown person " + personId));
         SplitShare s = new SplitShare();
@@ -176,7 +176,7 @@ public class SplitService {
      * with one person. Money already linked, or turned down before, is left alone.
      */
     @Transactional
-    public void suggestSettlement(Txn t) {
+    public void suggestSettlement(Transaction t) {
         if (t.isTransfer() || t.isPaidByPerson() || t.getAccount() == null) return;
         if (!settlements.findByTxn(t).isEmpty()) return;
         if (t.getId() != null && shares.totalForTxn(t).signum() > 0) return; // a bill I split isn't me paying someone back
@@ -215,11 +215,11 @@ public class SplitService {
      */
     @Transactional
     public void rescan() {
-        for (Txn t : txns.findUnsettledSince(Instant.now().minus(LOOK_BACK))) suggestSettlement(t);
+        for (Transaction t : txns.findUnsettledSince(Instant.now().minus(LOOK_BACK))) suggestSettlement(t);
     }
 
     @EventListener
-    void onBalancesChanged(BalancesChanged e) {
+    void onBalancesChanged(BalancesChangedEvent e) {
         rescan();
     }
 
@@ -227,7 +227,7 @@ public class SplitService {
     @Transactional
     public Person savePerson(Person p) {
         Person saved = people.save(p);
-        events.publishEvent(new BalancesChanged("person saved"));
+        events.publishEvent(new BalancesChangedEvent("person saved"));
         return saved;
     }
 
@@ -237,7 +237,7 @@ public class SplitService {
         settlements.deleteById(id);
         Audit.log("Repayment removed id={}", id);
         settlements.flush();
-        events.publishEvent(new BalancesChanged("repayment removed"));
+        events.publishEvent(new BalancesChangedEvent("repayment removed"));
     }
 
     /**
@@ -250,7 +250,7 @@ public class SplitService {
     public record Recorded(Settlement settlement, String rememberedName) {}
 
     @Transactional
-    public Recorded record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Txn txn, String note) {
+    public Recorded record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Transaction txn, String note) {
         direction = direction == null ? SettlementDirection.IN : direction;
         if (amount == null || amount.signum() <= 0) throw new BadRequestException("Amount must be positive");
         if (txn != null) {
@@ -293,7 +293,7 @@ public class SplitService {
         return s.getTxn() == null ? null : remember(s.getPerson(), s.getTxn());
     }
 
-    private static String remember(Person p, Txn t) {
+    private static String remember(Person p, Transaction t) {
         String name = t.getCounterparty();
         if (p.getUpiName() != null || name == null || name.isBlank() || named(p, name)) return null;
         p.setUpiName(name.length() > 200 ? name.substring(0, 200) : name.trim());

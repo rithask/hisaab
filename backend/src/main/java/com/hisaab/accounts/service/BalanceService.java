@@ -2,13 +2,13 @@ package com.hisaab.accounts.service;
 
 import com.hisaab.accounts.model.AlertType;
 import com.hisaab.common.model.Direction;
-import com.hisaab.transactions.model.TxnSource;
+import com.hisaab.transactions.model.TransactionSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.model.Alert;
 import com.hisaab.accounts.repository.AlertRepository;
 import com.hisaab.common.util.Audit;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,10 +25,10 @@ public class BalanceService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BalanceService.class);
     private static final BigDecimal TOLERANCE = new BigDecimal("0.01");
 
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final AlertRepository alerts;
 
-    public BalanceService(TxnRepository txns, AlertRepository alerts) {
+    public BalanceService(TransactionRepository txns, AlertRepository alerts) {
         this.txns = txns;
         this.alerts = alerts;
     }
@@ -52,14 +52,14 @@ public class BalanceService {
     }
 
     /** Balance the app expects right after the given transaction. */
-    public BigDecimal expectedAfter(Txn t) {
+    public BigDecimal expectedAfter(Transaction t) {
         Account a = t.getAccount();
         return a.getOpeningBalance().add(txns.netUpTo(a, a.getOpeningDate(), t.getOccurredAt(), t.getId()));
     }
 
     /** Compare the balance reported in a bank email with what the app calculated; raise an alert on mismatch. */
     @Transactional
-    public void verifyReportedBalance(Txn t) {
+    public void verifyReportedBalance(Transaction t) {
         if (t.getReportedBalance() == null || t.getAccount().isCard()) return;
         if (t.getOccurredAt().isBefore(t.getAccount().getOpeningDate())) return;
         BigDecimal expected = expectedAfter(t);
@@ -82,10 +82,10 @@ public class BalanceService {
 
     /** Resolve a mismatch by adding an adjustment entry so the app matches the bank. */
     @Transactional
-    public Txn adjust(Alert alert) {
-        Txn ref = alert.getTxn();
+    public Transaction adjust(Alert alert) {
+        Transaction ref = alert.getTxn();
         BigDecimal diff = alert.getActual().subtract(alert.getExpected());
-        Txn adj = new Txn();
+        Transaction adj = new Transaction();
         adj.setAccount(alert.getAccount());
         adj.setDirection(diff.signum() > 0 ? Direction.CREDIT : Direction.DEBIT);
         adj.setAmount(diff.abs());
@@ -93,7 +93,7 @@ public class BalanceService {
         adj.setOccurredAt(ref != null ? ref.getOccurredAt().minusMillis(1) : Instant.now());
         adj.setCounterparty("Balance adjustment");
         adj.setDescription("Auto adjustment to match bank-reported balance");
-        adj.setSource(TxnSource.ADJUSTMENT);
+        adj.setSource(TransactionSource.ADJUSTMENT);
         adj.setTransfer(true);
         txns.save(adj);
         alert.setDismissed(true);

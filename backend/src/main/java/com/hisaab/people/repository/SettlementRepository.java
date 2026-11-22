@@ -4,7 +4,7 @@ import com.hisaab.people.model.SettlementDirection;
 import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,10 +18,10 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
 
     List<Settlement> findByStatusOrderBySettledAtDesc(SettlementStatus status);
 
-    List<Settlement> findByTxn(Txn txn);
+    List<Settlement> findByTxn(Transaction txn);
 
     /** Every repayment linked to these transactions in one query (for a page of rows). */
-    List<Settlement> findByTxnInOrderById(Collection<Txn> txns);
+    List<Settlement> findByTxnInOrderById(Collection<Transaction> txns);
 
     long countByStatus(SettlementStatus status);
 

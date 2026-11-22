@@ -8,10 +8,10 @@ import java.util.Optional;
 
 /** Step 3, SMS: a text that doesn't name its bank uses what earlier messages from this sender taught. */
 @Component
-class BankFromSender implements ReadingStep {
+class FindBankFromSender implements ReadingStep {
     private final SmsSenders senders;
 
-    BankFromSender(SmsSenders senders) {
+    FindBankFromSender(SmsSenders senders) {
         this.senders = senders;
     }
 

@@ -8,7 +8,7 @@ import com.hisaab.common.model.Direction;
 import com.hisaab.statements.model.ImportStatus;
 import com.hisaab.statements.model.LineDecision;
 import com.hisaab.statements.model.LineKind;
-import com.hisaab.transactions.model.TxnSource;
+import com.hisaab.transactions.model.TransactionSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.accounts.service.BalanceService;
@@ -25,8 +25,8 @@ import com.hisaab.statements.parser.StatementRow;
 import com.hisaab.statements.repository.StatementFileRepository;
 import com.hisaab.statements.repository.StatementImportLineRepository;
 import com.hisaab.statements.repository.StatementImportRepository;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,7 +69,7 @@ public class StatementImportService {
     private final StatementImportRepository imports;
     private final StatementImportLineRepository lines;
     private final AccountRepository accounts;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final TransactionService transactions;
     private final BalanceService balances;
     private final StatementStorage storage;
@@ -78,7 +78,7 @@ public class StatementImportService {
     private final org.springframework.context.ApplicationEventPublisher events;
 
     public StatementImportService(List<StatementParser> parsers, StatementImportRepository imports, StatementImportLineRepository lines,
-                                  AccountRepository accounts, TxnRepository txns, TransactionService transactions, BalanceService balances,
+                                  AccountRepository accounts, TransactionRepository txns, TransactionService transactions, BalanceService balances,
                                   StatementStorage storage, StatementFileRepository statementFiles, SettingsService settings,
                                   org.springframework.context.ApplicationEventPublisher events) {
         this.events = events;
@@ -195,7 +195,7 @@ public class StatementImportService {
 
     // ---- matching -----------------------------------------------------------------------------------------
 
-    private record Pair(StatementImportLine line, Txn txn, double score, boolean exact, String reason) {}
+    private record Pair(StatementImportLine line, Transaction txn, double score, boolean exact, String reason) {}
 
     /** Lines every statement row up with at most one recorded transaction, best evidence first. */
     void reconcile(StatementImport imp) {
@@ -203,7 +203,7 @@ public class StatementImportService {
         List<StatementImportLine> ls = lines.findByStatementImportOrderByLineNo(imp);
         LocalDate from = ls.stream().map(StatementImportLine::getTxnDate).min(Comparator.naturalOrder()).orElseThrow();
         LocalDate to = ls.stream().map(StatementImportLine::getTxnDate).max(Comparator.naturalOrder()).orElseThrow();
-        List<Txn> existing = txns.findForReconcile(account, startOf(from).minus(WINDOW), startOf(to.plusDays(1)).plus(WINDOW), TxnSource.ADJUSTMENT);
+        List<Transaction> existing = txns.findForReconcile(account, startOf(from).minus(WINDOW), startOf(to.plusDays(1)).plus(WINDOW), TransactionSource.ADJUSTMENT);
 
         // Answers I gave on an earlier import of the same statement are remembered: a transaction already
         // linked to an identical line matches it outright.
@@ -216,7 +216,7 @@ public class StatementImportService {
 
         List<Pair> pairs = new ArrayList<>();
         for (StatementImportLine l : ls) {
-            for (Txn t : existing) {
+            for (Transaction t : existing) {
                 boolean seenBefore = earlier.getOrDefault(t.getId(), List.of()).stream().anyMatch(e -> sameLine(e, l));
                 if (seenBefore) pairs.add(new Pair(l, t, 2000, true, "Matched when this statement was imported before"));
                 else score(l, t).ifPresent(pairs::add);
@@ -253,7 +253,7 @@ public class StatementImportService {
     }
 
     /** How strongly a statement line and a recorded transaction look like the same thing, if at all. */
-    private Optional<Pair> score(StatementImportLine l, Txn t) {
+    private Optional<Pair> score(StatementImportLine l, Transaction t) {
         if (t.getDirection() != l.getDirection()) return Optional.empty();
         boolean sameAmount = t.getAmount().compareTo(l.getAmount()) == 0;
         // A foreign-currency spend is recorded at an estimated rate; the statement has the real rupee amount.
@@ -308,7 +308,7 @@ public class StatementImportService {
     // ---- what a match would fill in -----------------------------------------------------------------------
 
     /** Details the statement has that the recorded transaction is missing. */
-    public List<FieldFillResponse> fills(StatementImportLine l, Txn t) {
+    public List<FieldFillResponse> fills(StatementImportLine l, Transaction t) {
         List<FieldFillResponse> out = new ArrayList<>();
         if (isBlank(t.getCounterparty()) && !isBlank(l.getCounterparty())) out.add(new FieldFillResponse("counterparty", "Payee", null, l.getCounterparty()));
         if (isBlank(t.getReferenceNo()) && !isBlank(l.getReferenceNo())) out.add(new FieldFillResponse("reference", "Reference", null, l.getReferenceNo()));
@@ -326,7 +326,7 @@ public class StatementImportService {
         return out;
     }
 
-    private void applyFills(StatementImportLine l, Txn t) {
+    private void applyFills(StatementImportLine l, Transaction t) {
         for (FieldFillResponse f : fills(l, t)) {
             switch (f.field()) {
                 case "counterparty" -> {
@@ -380,7 +380,7 @@ public class StatementImportService {
     }
 
     /** Recorded transactions inside the statement's dates that no statement line matched. */
-    public List<Txn> notInStatement(StatementImport imp) {
+    public List<Transaction> notInStatement(StatementImport imp) {
         Account a = imp.getAccount();
         if (a == null) return List.of();
         List<StatementImportLine> ls = lines.findByStatementImportOrderByLineNo(imp);
@@ -390,7 +390,7 @@ public class StatementImportService {
         ls.forEach(l -> {
             if (l.getMatchTxn() != null) matched.add(l.getMatchTxn().getId());
         });
-        return txns.findForReconcile(a, startOf(from), startOf(to.plusDays(1)).minusMillis(1), TxnSource.ADJUSTMENT).stream()
+        return txns.findForReconcile(a, startOf(from), startOf(to.plusDays(1)).minusMillis(1), TransactionSource.ADJUSTMENT).stream()
                 .filter(t -> !matched.contains(t.getId())).toList();
     }
 
@@ -428,7 +428,7 @@ public class StatementImportService {
                     updated++;
                 }
                 case ADD -> {
-                    Txn t = transactions.createFromStatement(account, l.getDirection(), l.getAmount(), l.getTxnDate(), l.getTxnTime(),
+                    Transaction t = transactions.createFromStatement(account, l.getDirection(), l.getAmount(), l.getTxnDate(), l.getTxnTime(),
                             l.getCounterparty(), l.getReferenceNo(), l.getDescription(), l.isCardPayment());
                     l.setCreatedTxn(t);
                     added++;
@@ -472,7 +472,7 @@ public class StatementImportService {
             settings.set(PASSWORD_PREFIX + account.getId(), imp.getRememberPassword());
             // Other emailed statements that were waiting for a password may open with this one.
             statementFiles.findByImportStatus("NEEDS_PASSWORD")
-                    .forEach(f -> events.publishEvent(new StatementSaved(f.getId())));
+                    .forEach(f -> events.publishEvent(new StatementSavedEvent(f.getId())));
         }
         imp.setRememberPassword(null);
         if (imp.getStatementFile() != null) imp.getStatementFile().setImportStatus("IMPORTED");

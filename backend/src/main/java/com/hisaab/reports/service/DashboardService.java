@@ -5,7 +5,7 @@ import com.hisaab.accounts.repository.AlertRepository;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.common.util.Money;
 import com.hisaab.messages.model.EmailStatus;
-import com.hisaab.messages.repository.RawEmailRepository;
+import com.hisaab.messages.repository.InboxMessageRepository;
 import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.people.repository.SettlementRepository;
 import com.hisaab.reports.dto.DashboardCountsResponse;
@@ -31,7 +31,7 @@ public class DashboardService {
     private final AccountService accounts;
     private final ReportService reports;
     private final AlertRepository alerts;
-    private final RawEmailRepository emails;
+    private final InboxMessageRepository emails;
     private final SettlementRepository settlements;
     private final StatementImportRepository statementImports;
     private final StatementFileRepository statementFiles;
@@ -39,7 +39,7 @@ public class DashboardService {
     private final NetWorthService networth;
     private final ReviewService review;
 
-    public DashboardService(AccountService accounts, ReportService reports, AlertRepository alerts, RawEmailRepository emails,
+    public DashboardService(AccountService accounts, ReportService reports, AlertRepository alerts, InboxMessageRepository emails,
                             SettlementRepository settlements, StatementImportRepository statementImports,
                             StatementFileRepository statementFiles, TotalsService totals, NetWorthService networth,
                             ReviewService review) {

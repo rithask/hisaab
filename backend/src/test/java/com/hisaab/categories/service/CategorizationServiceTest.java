@@ -7,10 +7,10 @@ import com.hisaab.categories.model.CategoryVote;
 import com.hisaab.categories.repository.CategoryRuleRepository;
 import com.hisaab.categories.repository.CategoryVoteRepository;
 import com.hisaab.common.util.Names;
-import com.hisaab.messages.model.RawEmail;
-import com.hisaab.messages.model.SmsTemplate;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.messages.model.InboxMessage;
+import com.hisaab.messages.model.LearnedFormat;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +42,7 @@ class CategorizationServiceTest {
         CategoryRuleRepository rules = mock(CategoryRuleRepository.class);
         when(rules.findByMatchTypeAndPattern(any(), any())).thenReturn(Optional.empty());
         when(rules.findByMatchTypeOrderByPriorityDesc(any())).thenReturn(List.of());
-        TxnRepository txns = mock(TxnRepository.class);
+        TransactionRepository txns = mock(TransactionRepository.class);
         when(txns.findSimilar(any(), any(), any())).thenReturn(List.of());
         cats = new CategorizationService(rules, txns, votes);
         groceries = cat(1, "Groceries", CategoryKind.EXPENSE);
@@ -59,8 +59,8 @@ class CategorizationServiceTest {
         return c;
     }
 
-    private static Txn txn(String payee, String amount, String description) {
-        Txn t = new Txn();
+    private static Transaction txn(String payee, String amount, String description) {
+        Transaction t = new Transaction();
         t.setDirection(Direction.DEBIT);
         t.setCounterparty(payee);
         t.setMerchantKey(Names.merchantKey(payee));
@@ -69,7 +69,7 @@ class CategorizationServiceTest {
         return t;
     }
 
-    private Category suggested(Txn t) {
+    private Category suggested(Transaction t) {
         cats.categorize(t);
         return t.getCategory();
     }
@@ -80,7 +80,7 @@ class CategorizationServiceTest {
         cats.learn(txn("AMAZON", "1500", null), shopping);
         cats.learn(txn("AMAZON", "2000", null), shopping);
         cats.learn(txn("AMAZON", "300", null), groceries);
-        Txn next = txn("AMAZON", "1200", null);
+        Transaction next = txn("AMAZON", "1200", null);
         assertThat(suggested(next)).isEqualTo(shopping);
         assertThat(next.isCategorySuggested()).isTrue();
     }
@@ -121,7 +121,7 @@ class CategorizationServiceTest {
     @Test
     void categoriesOnlyApplyToTheirDirection() {
         cats.learn(txn("ACME LTD", "50000", null), shopping);
-        Txn in = txn("ACME LTD", "50000", null);
+        Transaction in = txn("ACME LTD", "50000", null);
         in.setDirection(Direction.CREDIT);
         assertThat(suggested(in)).isNull();
     }
@@ -136,12 +136,12 @@ class CategorizationServiceTest {
 
     // ---- payments without a payee: remembered by the wording of their message -----------------------------
 
-    private static Txn fromMessage(String text, Long formatId, String amount) {
-        Txn t = txn(null, amount, null);
-        RawEmail m = new RawEmail();
+    private static Transaction fromMessage(String text, Long formatId, String amount) {
+        Transaction t = txn(null, amount, null);
+        InboxMessage m = new InboxMessage();
         m.setBodyText(text);
         if (formatId != null) {
-            SmsTemplate f = new SmsTemplate();
+            LearnedFormat f = new LearnedFormat();
             f.setId(formatId);
             m.setTemplate(f);
         }
@@ -152,14 +152,14 @@ class CategorizationServiceTest {
     @Test
     void aPaymentWithNoPayeeIsRememberedByItsWording() {
         Category cash = cat(5, "Cash", CategoryKind.EXPENSE);
-        Txn atm = fromMessage("Rs.2000.00 withdrawn at ATM from A/c XX1234 on 03-Nov-26 10:15 am. Avl bal Rs 5,000", null, "2000");
+        Transaction atm = fromMessage("Rs.2000.00 withdrawn at ATM from A/c XX1234 on 03-Nov-26 10:15 am. Avl bal Rs 5,000", null, "2000");
         assertThat(cats.learnsByWording(atm)).isTrue();
         cats.learn(atm, cash);
 
-        Txn next = fromMessage("Rs.500.00 withdrawn at ATM from A/c XX1234 on 11-Dec-26 7:02 pm. Avl bal Rs 4,500", null, "500");
+        Transaction next = fromMessage("Rs.500.00 withdrawn at ATM from A/c XX1234 on 11-Dec-26 7:02 pm. Avl bal Rs 4,500", null, "500");
         assertThat(suggested(next)).isEqualTo(cash);
         assertThat(next.isCategorySuggested()).isTrue();
-        Txn other = fromMessage("Rs.500.00 debited for annual card fee on A/c XX1234 on 11-Dec-26", null, "500");
+        Transaction other = fromMessage("Rs.500.00 debited for annual card fee on A/c XX1234 on 11-Dec-26", null, "500");
         assertThat(suggested(other)).isNull();
     }
 
@@ -175,7 +175,7 @@ class CategorizationServiceTest {
     void wordingOnlyCountsWhenThereIsNoPayee() {
         Category cash = cat(5, "Cash", CategoryKind.EXPENSE);
         cats.learn(fromMessage("Rs 100 paid via UPI on 03-Nov-26", 9L, "100"), cash);
-        Txn named = fromMessage("Rs 100 paid via UPI on 04-Nov-26", 9L, "100");
+        Transaction named = fromMessage("Rs 100 paid via UPI on 04-Nov-26", 9L, "100");
         named.setCounterparty("ZOMATO");
         named.setMerchantKey(Names.merchantKey("ZOMATO"));
         assertThat(cats.learnsByWording(named)).isFalse();

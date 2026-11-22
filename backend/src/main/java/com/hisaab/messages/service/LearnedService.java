@@ -6,7 +6,7 @@ import com.hisaab.common.util.Audit;
 import com.hisaab.messages.dto.BankDomainsResponse;
 import com.hisaab.messages.dto.LearnedResponse;
 import com.hisaab.messages.dto.PayeeAliasResponse;
-import com.hisaab.messages.dto.SmsTemplateResponse;
+import com.hisaab.messages.dto.LearnedFormatResponse;
 import com.hisaab.messages.dto.TrustedDomainResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +20,12 @@ import java.util.List;
  */
 @Service
 public class LearnedService {
-    private final SmsLearningService learning;
+    private final FormatLearningService learning;
     private final PayeeAliasService aliases;
     private final SmsSenders smsSenders;
     private final SenderTrust trust;
 
-    public LearnedService(SmsLearningService learning, PayeeAliasService aliases, SmsSenders smsSenders, SenderTrust trust) {
+    public LearnedService(FormatLearningService learning, PayeeAliasService aliases, SmsSenders smsSenders, SenderTrust trust) {
         this.learning = learning;
         this.aliases = aliases;
         this.smsSenders = smsSenders;
@@ -35,7 +35,7 @@ public class LearnedService {
     @Transactional(readOnly = true)
     public LearnedResponse learned() {
         return new LearnedResponse(
-                learning.templates().stream().map(t -> new SmsTemplateResponse(t.getId(), t.getSkeleton(), t.getSample(),
+                learning.templates().stream().map(t -> new LearnedFormatResponse(t.getId(), t.getSkeleton(), t.getSample(),
                         t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
                         t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused(), t.isAuto())).toList(),
                 aliases.all().stream().map(a -> new PayeeAliasResponse(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),

@@ -42,7 +42,7 @@ public class MailSyncService {
 
     private final AppProperties.Mail cfg;
     private final SettingsService settings;
-    private final EmailProcessor processor;
+    private final MessageProcessor processor;
     private final ReentrantLock lock = new ReentrantLock();
 
     /** Older-mail imports run one at a time on their own thread; their progress is kept here for the app to show. */
@@ -54,7 +54,7 @@ public class MailSyncService {
     private final AtomicBoolean cancelImport = new AtomicBoolean();
     private volatile MailImportStatusResponse importStatus = MailImportStatusResponse.IDLE;
 
-    public MailSyncService(AppProperties props, SettingsService settings, EmailProcessor processor) {
+    public MailSyncService(AppProperties props, SettingsService settings, MessageProcessor processor) {
         this.cfg = props.mail();
         this.settings = settings;
         this.processor = processor;

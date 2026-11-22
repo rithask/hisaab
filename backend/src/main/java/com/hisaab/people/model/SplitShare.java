@@ -1,6 +1,6 @@
 package com.hisaab.people.model;
 
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,7 +16,7 @@ public class SplitShare {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    private Txn txn;
+    private Transaction txn;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Person person;

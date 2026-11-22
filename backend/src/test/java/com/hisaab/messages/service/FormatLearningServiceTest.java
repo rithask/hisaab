@@ -6,11 +6,11 @@ import com.hisaab.common.model.Institution;
 import com.hisaab.messages.model.Channel;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.messages.model.LearnedExample;
-import com.hisaab.messages.model.SmsTemplate;
+import com.hisaab.messages.model.LearnedFormat;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;
 import com.hisaab.messages.repository.LearnedExampleRepository;
-import com.hisaab.messages.repository.SmsTemplateRepository;
+import com.hisaab.messages.repository.LearnedFormatRepository;
 import com.hisaab.messages.util.FormatShape;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,26 +29,26 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class SmsLearningServiceTest {
+class FormatLearningServiceTest {
     private static final Instant DEC = Instant.parse("2026-12-12T10:00:00Z");
-    private final List<SmsTemplate> store = new ArrayList<>();
+    private final List<LearnedFormat> store = new ArrayList<>();
     private final List<LearnedExample> lessons = new ArrayList<>();
-    private SmsLearningService learning;
-    private SmsReader reader;
+    private FormatLearningService learning;
+    private LearnedFormatReader reader;
     private Account axis;
 
     @BeforeEach
     void setUp() {
-        SmsTemplateRepository repo = mock(SmsTemplateRepository.class);
+        LearnedFormatRepository repo = mock(LearnedFormatRepository.class);
         when(repo.save(any())).thenAnswer(i -> {
-            SmsTemplate t = i.getArgument(0);
+            LearnedFormat t = i.getArgument(0);
             if (t.getId() == null) t.setId((long) store.size() + 1 + store.stream().mapToLong(x -> x.getId() == null ? 0 : x.getId()).max().orElse(0));
             if (!store.contains(t)) store.add(t);
             return t;
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
         when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(Collectors.toCollection(ArrayList::new)));
-        doAnswer(i -> store.remove(i.<SmsTemplate>getArgument(0))).when(repo).delete(any());
+        doAnswer(i -> store.remove(i.<LearnedFormat>getArgument(0))).when(repo).delete(any());
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
         LearnedExampleRepository examples = mock(LearnedExampleRepository.class);
         when(examples.save(any())).thenAnswer(i -> {
@@ -58,8 +58,8 @@ class SmsLearningServiceTest {
         });
         when(examples.findByChannel(any())).thenAnswer(i -> lessons.stream().filter(e -> e.getChannel() == i.getArgument(0)).toList());
         doAnswer(i -> lessons.remove(i.<LearnedExample>getArgument(0))).when(examples).delete(any());
-        learning = new SmsLearningService(repo, examples);
-        reader = new SmsReader(repo);
+        learning = new FormatLearningService(repo, examples);
+        reader = new LearnedFormatReader(repo);
         axis = new Account();
         axis.setInstitution(Institution.AXIS);
         axis.setType(AccountType.BANK);
@@ -67,7 +67,7 @@ class SmsLearningServiceTest {
     }
 
     private ParsedTransaction read(String text) {
-        Optional<SmsReader.Match> m = reader.match(text, DEC);
+        Optional<LearnedFormatReader.Match> m = reader.match(text, DEC);
         assertTrue(m.isPresent(), "expected a learned format to match: " + text);
         return m.get().txn();
     }
@@ -77,7 +77,7 @@ class SmsLearningServiceTest {
         String odd = "Txn alert: 300.00 INR moved out of acct 2286 for RAHUL K. Ticket 88123456";
         assertNull(new SmsParser().parse("AX-AXISBK", odd, DEC).txn(), "precondition: heuristics don't understand this wording");
 
-        assertTrue(learning.learn(odd, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K")).isPresent());
+        assertTrue(learning.learn(odd, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K")).isPresent());
 
         var p = read("Txn alert: 1,075.50 INR moved out of acct 2286 for PRIYA SHARMA. Ticket 99001122");
         assertEquals(Direction.DEBIT, p.direction());
@@ -90,7 +90,7 @@ class SmsLearningServiceTest {
     @Test
     void learnedFormatCarriesEveryFieldAndSurvivesNewDatesAndMonths() {
         learning.learn("Dear Customer, INR 500.00 debited from A/c XX2286 on 05-Nov-26 to SHOP ONE. UPI Ref 531234567890. Avl Bal INR 9,022.00 -Axis Bank",
-                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("500.00"), axis, "SHOP ONE"));
+                new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("500.00"), axis, "SHOP ONE"));
 
         var p = read("Dear Customer, INR 1,250.75 debited from A/c XX2286 on 12-Dec-26 to CAFE BLUE TOKAI. UPI Ref 600000000001. Avl Bal INR 7,771.25 -Axis Bank");
         assertEquals(new BigDecimal("1250.75"), p.amount());
@@ -104,7 +104,7 @@ class SmsLearningServiceTest {
     @Test
     void payeeGluedToAReferenceIsNotSwallowedByIt() {
         learning.learn("INR 20.00 debited A/c no. XX2286 10-11-26, 09:00:00 UPI/P2M/531400000001/PARKING Axis Bank",
-                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("20"), axis, "PARKING"));
+                new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("20"), axis, "PARKING"));
         var p = read("INR 35.00 debited A/c no. XX2286 03-12-26, 11:30:00 UPI/P2M/600000000002/METRO CARD Axis Bank");
         assertEquals("METRO CARD", p.counterparty());
         assertEquals(new BigDecimal("35.00"), p.amount());
@@ -113,28 +113,28 @@ class SmsLearningServiceTest {
     @Test
     void theCorrectedDirectionWinsOverTheWording() {
         // "credited" appears, but I said this was money going out (a reversal notice worded confusingly).
-        learning.learn("Rs 40.00 credited to merchant ZEPTO from your A/c XX2286", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("40"), axis, "ZEPTO"));
+        learning.learn("Rs 40.00 credited to merchant ZEPTO from your A/c XX2286", new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("40"), axis, "ZEPTO"));
         assertEquals(Direction.DEBIT, read("Rs 95.00 credited to merchant BLINKIT from your A/c XX2286").direction());
     }
 
     @Test
     void differentWordingDoesNotMatch() {
-        learning.learn("Txn alert: 300.00 INR moved out of acct 2286 for RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn("Txn alert: 300.00 INR moved out of acct 2286 for RAHUL K", new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertTrue(reader.match("Txn alert: 300.00 INR moved into acct 2286 from RAHUL K", DEC).isEmpty());
         assertTrue(reader.match("Your OTP is 300000 for acct 2286", DEC).isEmpty());
     }
 
     @Test
     void nothingIsLearnedWhenTheAmountIsNotInTheText() {
-        assertTrue(learning.learn("Txn alert: 300.00 INR moved out of acct 2286", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("999"), axis, null)).isEmpty());
+        assertTrue(learning.learn("Txn alert: 300.00 INR moved out of acct 2286", new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("999"), axis, null)).isEmpty());
         assertTrue(store.isEmpty());
     }
 
     @Test
     void teachingTheSameFormatTwiceUpdatesIt() {
         String sms = "Txn alert: 300.00 INR moved out of acct 2286 for RAHUL K";
-        learning.learn(sms, new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("300"), axis, "RAHUL K"));
-        learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertEquals(1, store.size());
         assertEquals(Direction.DEBIT, store.get(0).getDirection());
     }
@@ -142,12 +142,12 @@ class SmsLearningServiceTest {
     @Test
     void aChangeThatWouldBreakAnEarlierLessonIsRefused() {
         String out = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
-        learning.learn(out, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(out, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertEquals(1, lessons.size(), "the corrected message is kept as a lesson");
 
         // Same wording, but I say this one was money coming in: one format can't be both, so the change is refused
         var r = learning.teach("Txn alert: 75.00 INR moved for acct 2286 to PRIYA S",
-                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("75"), axis, "PRIYA S"), null);
+                new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("75"), axis, "PRIYA S"), null);
         assertTrue(r.template().isEmpty());
         assertEquals(1, r.conflicts());
         assertEquals(Direction.DEBIT, read(out).direction(), "the earlier lesson still reads as taught");
@@ -157,8 +157,8 @@ class SmsLearningServiceTest {
     @Test
     void reteachingTheSameMessageReplacesItsLesson() {
         String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
-        learning.learn(sms, new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("300"), axis, "RAHUL K"));
-        learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertEquals(1, lessons.size());
         assertEquals(Direction.DEBIT, lessons.get(0).getDirection());
     }
@@ -168,7 +168,7 @@ class SmsLearningServiceTest {
         String sms = "INR 250.00 paid from acct XX2286 at SWIGGY*INSTAMART BLR on 05-11-26. Not you? Call 1860";
         int at = sms.indexOf("SWIGGY"), end = sms.indexOf(" on 05");
         // I mark "SWIGGY*INSTAMART BLR" but want it shown as "Swiggy Instamart": typing alone would never find it
-        var r = learning.teach(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("250"), axis, "SWIGGY*INSTAMART BLR",
+        var r = learning.teach(sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("250"), axis, "SWIGGY*INSTAMART BLR",
                 new int[]{sms.indexOf("250.00") - 4, sms.indexOf("250.00") + 6}, new int[]{at, end}), null);
         assertTrue(r.template().isPresent());
         var p = read("INR 99.00 paid from acct XX2286 at ZEPTO MARKETPLACE on 12-12-26. Not you? Call 1860");
@@ -179,15 +179,15 @@ class SmsLearningServiceTest {
 
     @Test
     void marksOutsideTheTextAreIgnored() {
-        assertNull(SmsLearningService.span(new int[]{5, 500}, "short text"));
-        assertNull(SmsLearningService.span(new int[]{3, 3}, "short text"));
-        assertArrayEquals(new int[]{0, 5}, SmsLearningService.span(new int[]{0, 7}, "short. text"));
+        assertNull(FormatLearningService.span(new int[]{5, 500}, "short text"));
+        assertNull(FormatLearningService.span(new int[]{3, 3}, "short text"));
+        assertArrayEquals(new int[]{0, 5}, FormatLearningService.span(new int[]{0, 7}, "short. text"));
     }
 
     @Test
     void emailFormatsAreKeptApartFromSmsFormats() {
         String mail = "Hello, your Axis account XX2286 was charged INR 315.00 at CITY BOOKSHOP today.";
-        learning.teach(Channel.EMAIL, mail, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
+        learning.teach(Channel.EMAIL, mail, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("315"), axis, "CITY BOOKSHOP"), null);
         String next = "Hello, your Axis account XX2286 was charged INR 99.00 at RAIL TICKETS today.";
         assertTrue(reader.match(next, DEC).isEmpty(), "an SMS isn't read with an email format");
         assertEquals("RAIL TICKETS", reader.match(Channel.EMAIL, next, DEC).orElseThrow().txn().counterparty());
@@ -205,7 +205,7 @@ class SmsLearningServiceTest {
     @Test
     void aSkipThatWouldHideATaughtTransactionIsRefused() {
         String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
-        learning.learn(sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         // another message worded the same can't be marked "not a transaction": that would hide the one I taught
         var r = learning.skip(Channel.SMS, "Txn alert: 45.00 INR moved for acct 2286 to RAHUL K", null);
         assertTrue(r.template().isEmpty(), "the same wording can't be skipped");
@@ -218,11 +218,11 @@ class SmsLearningServiceTest {
         String sms = "Refund of INR 120.00 initiated to acct 2286 for order 5512";
         learning.skip(Channel.SMS, sms, null);
         assertTrue(reader.match(sms, DEC).orElseThrow().skip());
-        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
+        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
         // the earlier skip lesson conflicts, so nothing changes until I remove that skip
         assertTrue(reader.match(sms, DEC).orElseThrow().skip());
         lessons.removeIf(e -> LearnedExample.SKIP.equals(e.getKind()));
-        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
+        learning.learn("Refund of INR 80.00 initiated to acct 2286 for order 7781", new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null));
         assertEquals(Direction.CREDIT, read(sms).direction());
     }
 
@@ -230,25 +230,25 @@ class SmsLearningServiceTest {
     void aFormatThatKeepsBeingCorrectedIsPaused() {
         // a broad format: "<payee>" swallows everything after "to"
         String a = "Paid INR 300.00 from acct 2286 to RAHUL K";
-        learning.learn(a, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
-        SmsTemplate broad = store.get(0);
+        learning.learn(a, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        LearnedFormat broad = store.get(0);
         String b = "Paid INR 80.00 from acct 2286 to CAFE ONE";
         // I correct a message it read: the amount was right but I say it was money in (a reversal) -> wrong once
-        assertFalse(learning.corrected(broad, b, new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null)));
+        assertFalse(learning.corrected(broad, b, new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, null)));
         assertEquals(1, broad.getCorrections());
         // a correction that agrees with it doesn't count
-        assertFalse(learning.corrected(broad, b, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("80"), axis, null)));
+        assertFalse(learning.corrected(broad, b, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("80"), axis, null)));
         assertEquals(1, broad.getCorrections());
         assertTrue(learning.corrected(broad, b, null), "second time wrong (it isn't a transaction at all): paused");
         assertTrue(broad.isPaused());
         assertTrue(reader.match(b, DEC).isEmpty(), "a paused format isn't used");
         assertTrue(reader.pausedFor(Channel.SMS, b).isPresent());
         // the safety net still protects the paused format's own lesson
-        var r = learning.teach("Paid INR 80.00 from acct 2286 to CAFE ONE", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+        var r = learning.teach("Paid INR 80.00 from acct 2286 to CAFE ONE", new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
         assertEquals(1, r.conflicts());
         assertTrue(broad.isPaused());
         // teaching that exact wording again starts it afresh
-        learning.learn(a, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn(a, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         assertFalse(broad.isPaused());
         assertEquals(0, broad.getCorrections());
     }
@@ -256,9 +256,9 @@ class SmsLearningServiceTest {
     @Test
     void theSameKindOfMessageInSlightlyDifferentWordingBecomesOneFormat() {
         learning.learn("INR 500.00 debited from A/c XX2286 on 05-11-26 to SHOP ONE. UPI Ref 531234567890. Not you? Call 18001035577 -Axis Bank",
-                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
+                new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
         var r = learning.teach("INR 120.00 debited from A/c XX2286 on 06-11-26 to CAFE BLUE. UPI Ref 600000000001. Not you? SMS BLOCK 2286 to 919951860002 -Axis Bank",
-                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("120"), axis, "CAFE BLUE"), null);
+                new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("120"), axis, "CAFE BLUE"), null);
         assertTrue(r.merged(), "merged into the first format");
         assertEquals(1, store.size());
         assertEquals(2, lessons.size());
@@ -273,9 +273,9 @@ class SmsLearningServiceTest {
     @Test
     void differentKindsOfMessageAreNotMerged() {
         learning.learn("INR 500.00 debited from A/c XX2286 on 05-11-26 to SHOP ONE. UPI Ref 531234567890 -Axis Bank",
-                new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
+                new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("500"), axis, "SHOP ONE"));
         var r = learning.teach("INR 500.00 credited to A/c XX2286 on 05-11-26 from SHOP ONE. UPI Ref 531234567890 -Axis Bank",
-                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("500"), axis, "SHOP ONE"), null);
+                new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("500"), axis, "SHOP ONE"), null);
         assertFalse(r.merged(), "money in and money out stay separate formats");
         assertEquals(2, store.size());
     }
@@ -293,43 +293,43 @@ class SmsLearningServiceTest {
     @Test
     void aConfirmedReadingIsLearnedAutomaticallyAndMyLessonsOutrankIt() {
         String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
-        var r = learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
+        var r = learning.autoLearn(Channel.SMS, sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
         assertTrue(r.template().isPresent());
         assertTrue(store.get(0).isAuto());
-        assertEquals(SmsTemplate.AUTO, lessons.get(0).getOrigin());
+        assertEquals(LearnedFormat.AUTO, lessons.get(0).getOrigin());
         assertEquals("PRIYA S", read("Txn alert: 75.00 INR moved for acct 2286 to PRIYA S").counterparty());
         // nothing more to learn once a format reads it
-        assertTrue(learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null).template().isEmpty());
+        assertTrue(learning.autoLearn(Channel.SMS, sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null).template().isEmpty());
 
         // I say messages worded like this are money in: the automatic lesson doesn't block me, it's dropped
-        var mine = learning.teach("Txn alert: 50.00 INR moved for acct 2286 to ASHA M", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("50"), axis, "ASHA M"), null);
+        var mine = learning.teach("Txn alert: 50.00 INR moved for acct 2286 to ASHA M", new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("50"), axis, "ASHA M"), null);
         assertTrue(mine.template().isPresent());
         assertEquals(0, mine.conflicts());
         assertFalse(store.get(0).isAuto(), "the format is mine now");
-        assertTrue(lessons.stream().noneMatch(e -> SmsTemplate.AUTO.equals(e.getOrigin())));
+        assertTrue(lessons.stream().noneMatch(e -> LearnedFormat.AUTO.equals(e.getOrigin())));
         assertEquals(Direction.CREDIT, read(sms).direction());
     }
 
     @Test
     void anAutomaticFormatIsRemovedTheFirstTimeItIsCorrected() {
         String sms = "Txn alert: 300.00 INR moved for acct 2286 to RAHUL K";
-        learning.autoLearn(Channel.SMS, sms, new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
-        SmsTemplate auto = store.get(0);
-        learning.corrected(auto, "Txn alert: 40.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("40"), axis, null));
+        learning.autoLearn(Channel.SMS, sms, new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"), null);
+        LearnedFormat auto = store.get(0);
+        learning.corrected(auto, "Txn alert: 40.00 INR moved for acct 2286 to RAHUL K", new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("40"), axis, null));
         assertTrue(store.isEmpty());
     }
 
     @Test
     void automaticLearningNeverBreaksALessonITaught() {
-        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         store.clear(); // the format is gone (say I deleted it) but the lesson remains
         var r = learning.autoLearn(Channel.SMS, "Txn alert: 80.00 INR moved for acct 2286 to CAFE ONE",
-                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+                new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
         assertTrue(r.template().isEmpty(), "it would read my lesson as money in");
         store.clear();
-        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new SmsLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
+        learning.learn("Txn alert: 300.00 INR moved for acct 2286 to RAHUL K", new FormatLearningService.Truth(Direction.DEBIT, new BigDecimal("300"), axis, "RAHUL K"));
         var again = learning.autoLearn(Channel.SMS, "Txn alert: 80.00 INR moved for acct 2286 to CAFE ONE",
-                new SmsLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
+                new FormatLearningService.Truth(Direction.CREDIT, new BigDecimal("80"), axis, "CAFE ONE"), null);
         assertTrue(again.template().isEmpty(), "already read by my format");
     }
 

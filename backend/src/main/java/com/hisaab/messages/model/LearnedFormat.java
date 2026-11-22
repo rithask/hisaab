@@ -11,9 +11,10 @@ import java.time.Instant;
 
 /** A message format (SMS or bank email) learned from a correction. */
 @Entity
+@Table(name = "sms_template")
 @Getter
 @Setter
-public class SmsTemplate {
+public class LearnedFormat {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

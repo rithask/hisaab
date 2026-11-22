@@ -29,12 +29,12 @@ import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.common.util.Money;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.dataapi.repository.ApiTokenRepository;
-import com.hisaab.messages.service.EmailProcessor;
-import com.hisaab.messages.service.EmailProcessor.SmsOutcome;
+import com.hisaab.messages.service.MessageProcessor;
+import com.hisaab.messages.service.MessageProcessor.SmsOutcome;
 import com.hisaab.reports.service.ReportService;
 import com.hisaab.transactions.model.Tag;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import com.hisaab.transactions.service.TransactionService;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.JoinType;
@@ -74,21 +74,21 @@ public class DataApiService {
     static final int DEFAULT_DAYS = 30;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
 
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final CategoryRepository categories;
     private final AccountRepository accounts;
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionService transactions;
     private final AccountService accountViews;
     private final ApiTokenRepository tokens;
-    private final EmailProcessor processor;
+    private final MessageProcessor processor;
     /** To read back what the database set (created_at, updated_at) on a transaction just recorded. */
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager em;
 
-    public DataApiService(TxnRepository txns, CategoryRepository categories, AccountRepository accounts, NamedParameterJdbcTemplate jdbc,
+    public DataApiService(TransactionRepository txns, CategoryRepository categories, AccountRepository accounts, NamedParameterJdbcTemplate jdbc,
                           TransactionService transactions, AccountService accountViews, ApiTokenRepository tokens,
-                          EmailProcessor processor) {
+                          MessageProcessor processor) {
         this.processor = processor;
         this.txns = txns;
         this.categories = categories;
@@ -144,7 +144,7 @@ public class DataApiService {
         String key = byChange ? "updatedAt" : "occurredAt";
 
         Instant start = from, end = to, changedFrom = changed;
-        Specification<Txn> spec = (root, query, cb) -> {
+        Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>(limits(token, root, cb));
             if (start != null) ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), start));
             if (end != null) ps.add(cb.lessThan(root.get("occurredAt"), end));
@@ -157,17 +157,17 @@ public class DataApiService {
             }
             return cb.and(ps.toArray(Predicate[]::new));
         };
-        List<Txn> rows = txns.findAll(spec, PageRequest.of(0, n + 1, Sort.by(key, "id"))).getContent();
+        List<Transaction> rows = txns.findAll(spec, PageRequest.of(0, n + 1, Sort.by(key, "id"))).getContent();
         boolean more = rows.size() > n;
-        List<Txn> page = more ? rows.subList(0, n) : rows;
-        Txn last = more ? page.getLast() : null;
+        List<Transaction> page = more ? rows.subList(0, n) : rows;
+        Transaction last = more ? page.getLast() : null;
         String next = last == null ? null : new Cursor(byChange, byChange ? last.getUpdatedAt() : last.getOccurredAt(), last.getId()).encode();
         return new ApiPageResponse<>(page.stream().map(t -> transaction(token, t)).toList(), more, next);
     }
 
     @Transactional(readOnly = true)
     public ApiTransactionResponse transaction(ApiToken token, String id) {
-        Txn t;
+        Transaction t;
         try {
             t = txns.findById(Long.parseLong(id)).orElse(null);
         } catch (NumberFormatException e) {
@@ -194,7 +194,7 @@ public class DataApiService {
     }
 
     /** What the token's limits allow, as query conditions. Transfers never; money in only when allowed. */
-    private static List<Predicate> limits(ApiToken token, Root<Txn> root, CriteriaBuilder cb) {
+    private static List<Predicate> limits(ApiToken token, Root<Transaction> root, CriteriaBuilder cb) {
         List<Predicate> ps = new ArrayList<>();
         ps.add(cb.isFalse(root.get("transfer")));
         ps.add(cb.isNull(root.get("paidBy"))); // what a friend paid for me isn't in the API
@@ -212,7 +212,7 @@ public class DataApiService {
         return ps;
     }
 
-    static boolean visible(ApiToken token, Txn t) {
+    static boolean visible(ApiToken token, Transaction t) {
         return !t.isTransfer() && !t.isPaidByPerson() && (token.isMoneyIn() || t.getDirection() == Direction.DEBIT)
                 && token.allowsCategory(t.getCategory() == null ? null : t.getCategory().getId())
                 && token.allowsAccount(t.getAccount().getId());
@@ -236,7 +236,7 @@ public class DataApiService {
         return id;
     }
 
-    private static ApiTransactionResponse transaction(ApiToken token, Txn t) {
+    private static ApiTransactionResponse transaction(ApiToken token, Transaction t) {
         boolean notes = token.isIncludeNotes();
         return new ApiTransactionResponse(t.getId().toString(), t.getDirection().name().toLowerCase(Locale.ROOT),
                 time(t.getOccurredAt()), amount(t.getAmount()),
@@ -469,7 +469,7 @@ public class DataApiService {
                 in.occurredAt() == null ? "now" : at.toString(), String.valueOf(notes)));
         ApiToken me = tokens.getReferenceById(token.getId());
         if (key != null) {
-            Optional<Txn> before = txns.findByApiTokenAndRequestKey(me, key);
+            Optional<Transaction> before = txns.findByApiTokenAndRequestKey(me, key);
             if (before.isPresent()) {
                 if (!fingerprint.equals(before.get().getRequestHash())) {
                     throw new IdempotencyKeyReusedException("This Idempotency-Key was already used for a different request.");
@@ -477,7 +477,7 @@ public class DataApiService {
                 return new Added(transaction(token, before.get()), true);
             }
         }
-        Txn t = transactions.createManual(new NewTransactionRequest(account.getId(), direction, amount, "INR", at,
+        Transaction t = transactions.createManual(new NewTransactionRequest(account.getId(), direction, amount, "INR", at,
                 payee, null, categoryId, null, notes, false), account);
         t.setApiToken(me);
         t.setRequestKey(key);
@@ -527,13 +527,13 @@ public class DataApiService {
         }
         SmsOutcome o = processor.processSms(sender, in.text(), at);
         if (o.alreadySeen()) return new ApiSmsReceivedResponse("duplicate", "Already received this SMS", null);
-        Txn t = o.txn();
+        Transaction t = o.txn();
         if (t != null) {
             txns.flush();
             em.refresh(t);
         }
         return new ApiSmsReceivedResponse(o.message().getStatus().name().toLowerCase(Locale.ROOT),
-                t != null ? EmailProcessor.summary(t) : o.message().getNote(),
+                t != null ? MessageProcessor.summary(t) : o.message().getNote(),
                 t == null ? null : transaction(token, t));
     }
 }

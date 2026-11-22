@@ -1,6 +1,6 @@
 package com.hisaab.people.model;
 
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,7 +21,7 @@ public class Settlement {
 
     /** The incoming credit that paid this back, if any. */
     @ManyToOne(fetch = FetchType.LAZY)
-    private Txn txn;
+    private Transaction txn;
 
     private BigDecimal amount;
 

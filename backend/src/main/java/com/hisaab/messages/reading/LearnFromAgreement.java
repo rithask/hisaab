@@ -2,11 +2,11 @@ package com.hisaab.messages.reading;
 
 import com.hisaab.messages.model.Channel;
 import com.hisaab.messages.model.EmailStatus;
-import com.hisaab.transactions.model.TxnSource;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.transactions.model.TransactionSource;
+import com.hisaab.messages.model.InboxMessage;
 import com.hisaab.messages.parser.SmsParser;
-import com.hisaab.messages.service.SmsLearningService;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.messages.service.FormatLearningService;
+import com.hisaab.transactions.model.Transaction;
 import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +17,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 class LearnFromAgreement implements ReadingStep {
-    private final SmsLearningService learning;
+    private final FormatLearningService learning;
     private final TransactionService txns;
     private final SmsParser smsParser;
 
-    LearnFromAgreement(SmsLearningService learning, TransactionService txns, SmsParser smsParser) {
+    LearnFromAgreement(FormatLearningService learning, TransactionService txns, SmsParser smsParser) {
         this.learning = learning;
         this.txns = txns;
         this.smsParser = smsParser;
@@ -31,9 +31,9 @@ class LearnFromAgreement implements ReadingStep {
     public void apply(MessageReading r) {
         if (r.sms()) {
             if (!"sms".equals(r.raw.getParser())) return;
-            boolean emailAgrees = r.txn == null && txns.pairedWith(r.raw).stream().anyMatch(t -> t.getSource() == TxnSource.EMAIL);
+            boolean emailAgrees = r.txn == null && txns.pairedWith(r.raw).stream().anyMatch(t -> t.getSource() == TransactionSource.EMAIL);
             if (r.balanceAddsUp || emailAgrees) {
-                learning.autoLearn(Channel.SMS, r.raw.getBodyText(), new SmsLearningService.Truth(r.parsed.direction(), r.parsed.amount(), r.account, r.parsed.counterparty()), r.raw)
+                learning.autoLearn(Channel.SMS, r.raw.getBodyText(), new FormatLearningService.Truth(r.parsed.direction(), r.parsed.amount(), r.account, r.parsed.counterparty()), r.raw)
                         .template().ifPresent(r.raw::setTemplate);
             }
         } else if (r.raw.getStatus() == EmailStatus.DUPLICATE) {
@@ -42,13 +42,13 @@ class LearnFromAgreement implements ReadingStep {
     }
 
     /** This email matched a transaction recorded from an SMS read by the general reader: learn that SMS's wording. */
-    private void confirmSmsTwins(RawEmail email) {
-        for (Txn t : txns.pairedWith(email)) {
-            RawEmail sms = t.getRawEmail();
-            if (t.getSource() != TxnSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
+    private void confirmSmsTwins(InboxMessage email) {
+        for (Transaction t : txns.pairedWith(email)) {
+            InboxMessage sms = t.getRawEmail();
+            if (t.getSource() != TransactionSource.SMS || sms == null || !"sms".equals(sms.getParser())) continue;
             SmsParser.Result r = smsParser.parse(sms.getSender(), sms.getBodyText(), sms.getReceivedAt());
             String payee = r.txn() == null ? null : r.txn().counterparty();
-            learning.autoLearn(Channel.SMS, sms.getBodyText(), new SmsLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms)
+            learning.autoLearn(Channel.SMS, sms.getBodyText(), new FormatLearningService.Truth(t.getDirection(), t.getAmount(), t.getAccount(), payee), sms)
                     .template().ifPresent(sms::setTemplate);
         }
     }

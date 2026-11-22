@@ -2,7 +2,7 @@ package com.hisaab.statements.repository;
 
 import com.hisaab.statements.model.StatementImport;
 import com.hisaab.statements.model.StatementImportLine;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
@@ -16,5 +16,5 @@ public interface StatementImportLineRepository extends JpaRepository<StatementIm
             select l from StatementImportLine l
             where l.createdTxn in :txns and l.statementImport.status = ImportStatus.IMPORTED
             """)
-    List<StatementImportLine> findImportedFor(@org.springframework.data.repository.query.Param("txns") Collection<Txn> txns);
+    List<StatementImportLine> findImportedFor(@org.springframework.data.repository.query.Param("txns") Collection<Transaction> txns);
 }

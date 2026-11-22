@@ -12,7 +12,7 @@ import com.hisaab.auth.util.AuthLog;
 import com.hisaab.common.util.Audit;
 import com.hisaab.accounts.util.CardCycle;
 import com.hisaab.common.util.Money;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +29,10 @@ import static com.hisaab.common.exception.NotFound.notFound;
 @Service
 public class AccountService {
     private final AccountRepository accounts;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final BalanceService balances;
 
-    public AccountService(AccountRepository accounts, TxnRepository txns, BalanceService balances) {
+    public AccountService(AccountRepository accounts, TransactionRepository txns, BalanceService balances) {
         this.accounts = accounts;
         this.txns = txns;
         this.balances = balances;

@@ -9,8 +9,8 @@ import com.hisaab.people.model.Settlement;
 import com.hisaab.people.repository.PersonRepository;
 import com.hisaab.people.repository.SettlementRepository;
 import com.hisaab.people.repository.SplitShareRepository;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -28,12 +28,12 @@ import static org.mockito.Mockito.when;
 class SplitServiceTest {
     private final SplitShareRepository shares = mock(SplitShareRepository.class);
     private final SettlementRepository settlements = mock(SettlementRepository.class);
-    private final TxnRepository txns = mock(TxnRepository.class);
+    private final TransactionRepository txns = mock(TransactionRepository.class);
     private final PersonRepository people = mock(PersonRepository.class);
     // events go straight to the service, as Spring does within a transaction
     private final SplitService[] self = new SplitService[1];
     private final SplitService splits = self[0] = new SplitService(shares, settlements, people, txns,
-            e -> self[0].onBalancesChanged((BalancesChanged) e));
+            e -> self[0].onBalancesChanged((BalancesChangedEvent) e));
     private final Person rahul = new Person();
 
     {
@@ -43,8 +43,8 @@ class SplitServiceTest {
         when(settlements.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
-    private static Txn money(Direction d, String amount, String from) {
-        Txn t = new Txn();
+    private static Transaction money(Direction d, String amount, String from) {
+        Transaction t = new Transaction();
         t.setDirection(d);
         t.setAmount(new BigDecimal(amount));
         t.setCounterparty(from);
@@ -87,11 +87,11 @@ class SplitServiceTest {
     @Test
     void theDifferenceFromSomeoneWithAnotherUpiNameIsOnlyMatchedOnceTheNameIsKnown() {
         given("500", "200", "0", "0"); // he owes ₹300
-        Txn upi = money(Direction.CREDIT, "250", "MUHAMMED FAZ");
+        Transaction upi = money(Direction.CREDIT, "250", "MUHAMMED FAZ");
         splits.suggestSettlement(upi);
         verify(settlements, never()).save(any()); // neither the name nor the amount says it's him
         // linking one payment by hand remembers the sender's name...
-        Txn first = money(Direction.CREDIT, "50", "MUHAMMED FAZ");
+        Transaction first = money(Direction.CREDIT, "50", "MUHAMMED FAZ");
         var r = splits.record(rahul, SettlementDirection.IN, new BigDecimal("50"), null, first, null);
         assertThat(r.rememberedName()).isEqualTo("MUHAMMED FAZ");
         assertThat(rahul.getUpiName()).isEqualTo("MUHAMMED FAZ");

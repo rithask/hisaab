@@ -9,16 +9,16 @@ import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.common.util.Money;
 import com.hisaab.messages.model.EmailContent;
 import com.hisaab.messages.model.IncomingEmail;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.messages.model.InboxMessage;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.reading.MessageReader;
 import com.hisaab.messages.reading.MessageReading;
-import com.hisaab.messages.repository.RawEmailRepository;
+import com.hisaab.messages.repository.InboxMessageRepository;
 import com.hisaab.statements.model.StatementFile;
 import com.hisaab.statements.repository.StatementFileRepository;
-import com.hisaab.statements.service.StatementSaved;
+import com.hisaab.statements.service.StatementSavedEvent;
 import com.hisaab.statements.service.StatementStorage;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,10 +37,10 @@ import java.util.Optional;
  * again later, and hands the reading to {@link MessageReader}. Teaching lives in {@link MessageTeaching}.
  */
 @Service
-public class EmailProcessor {
-    private static final Logger log = LoggerFactory.getLogger(EmailProcessor.class);
+public class MessageProcessor {
+    private static final Logger log = LoggerFactory.getLogger(MessageProcessor.class);
 
-    private final RawEmailRepository emails;
+    private final InboxMessageRepository emails;
     private final AccountRepository accounts;
     private final StatementFileRepository statements;
     private final StatementStorage storage;
@@ -48,8 +48,8 @@ public class EmailProcessor {
     private final ApplicationEventPublisher events;
     private final SenderTrust trust;
 
-    public EmailProcessor(RawEmailRepository emails, AccountRepository accounts, StatementFileRepository statements, StatementStorage storage,
-                          MessageReader reader, ApplicationEventPublisher events, SenderTrust trust) {
+    public MessageProcessor(InboxMessageRepository emails, AccountRepository accounts, StatementFileRepository statements, StatementStorage storage,
+                            MessageReader reader, ApplicationEventPublisher events, SenderTrust trust) {
         this.emails = emails;
         this.accounts = accounts;
         this.statements = statements;
@@ -63,7 +63,7 @@ public class EmailProcessor {
     @Transactional
     public boolean process(IncomingEmail in) {
         if (emails.existsByMessageId(in.messageId())) return false;
-        RawEmail raw = newEmail(in, EmailStatus.NEEDS_REVIEW); // provisional, decided below
+        InboxMessage raw = newEmail(in, EmailStatus.NEEDS_REVIEW); // provisional, decided below
         raw.setSenderCheck(in.senderCheck());
         emails.save(raw);
 
@@ -90,13 +90,13 @@ public class EmailProcessor {
     @Transactional
     public void recordFailure(IncomingEmail in, Exception error) {
         if (emails.existsByMessageId(in.messageId())) return;
-        RawEmail raw = newEmail(in, EmailStatus.ERROR);
+        InboxMessage raw = newEmail(in, EmailStatus.ERROR);
         raw.setNote("Couldn't process it: " + error.getMessage());
         emails.save(raw);
     }
 
-    private static RawEmail newEmail(IncomingEmail in, EmailStatus status) {
-        RawEmail raw = new RawEmail();
+    private static InboxMessage newEmail(IncomingEmail in, EmailStatus status) {
+        InboxMessage raw = new InboxMessage();
         raw.setMessageId(in.messageId());
         raw.setFromAddress(trim(in.from(), 300));
         raw.setSubject(trim(in.subject(), 1000));
@@ -107,7 +107,7 @@ public class EmailProcessor {
     }
 
     /** One line saying what was recorded, e.g. "₹500.00 spent · Zomato · HDFC card · Food & Dining". */
-    public static String summary(Txn t) {
+    public static String summary(Transaction t) {
         java.text.NumberFormat inr = java.text.NumberFormat.getCurrencyInstance(Locale.of("en", "IN"));
         String verb = t.getDirection() == Direction.DEBIT ? (t.isTransfer() ? "moved" : "spent") : "received";
         StringBuilder s = new StringBuilder(inr.format(t.getAmount())).append(' ').append(verb);
@@ -119,7 +119,7 @@ public class EmailProcessor {
     }
 
     /** Outcome of an SMS submission, returned to the caller (e.g. an iPhone Shortcut showing a notification). */
-    public record SmsOutcome(RawEmail message, Txn txn, ParsedTransaction parsed, boolean alreadySeen) {}
+    public record SmsOutcome(InboxMessage message, Transaction txn, ParsedTransaction parsed, boolean alreadySeen) {}
 
     /**
      * Records a bank SMS and turns it into a transaction when it is one. The same text submitted twice is
@@ -129,13 +129,13 @@ public class EmailProcessor {
     public SmsOutcome processSms(String sender, String text, Instant receivedAt) {
         String body = text.strip();
         String id = "sms:" + sha256((sender == null ? "" : sender.strip().toUpperCase(Locale.ROOT)) + "\n" + body.replaceAll("\\s+", " "));
-        Optional<RawEmail> seen = emails.findByMessageId(id);
+        Optional<InboxMessage> seen = emails.findByMessageId(id);
         if (seen.isPresent()) {
             log.info("SMS from {}: duplicate of message {}", sender == null ? "-" : sender.strip(), seen.get().getId());
             return new SmsOutcome(seen.get(), null, null, true);
         }
 
-        RawEmail raw = new RawEmail();
+        InboxMessage raw = new InboxMessage();
         raw.setMessageId(id);
         raw.setChannel(Channel.SMS);
         raw.setSender(trim(sender == null ? null : sender.strip(), 100));
@@ -162,7 +162,7 @@ public class EmailProcessor {
 
     /** Re-run parsing on a stored email (e.g. after adding the missing account). */
     @Transactional
-    public RawEmail reprocess(RawEmail raw) {
+    public InboxMessage reprocess(InboxMessage raw) {
         if (raw.getStatus() == EmailStatus.PARSED || raw.getStatus() == EmailStatus.STATEMENT) return raw;
         reader.read(raw);
         return raw;
@@ -177,7 +177,7 @@ public class EmailProcessor {
     public int trustSender(String domain) {
         trust.trust(domain);
         int n = 0;
-        for (RawEmail e : emails.findByStatus(EmailStatus.NEEDS_REVIEW)) {
+        for (InboxMessage e : emails.findByStatus(EmailStatus.NEEDS_REVIEW)) {
             if (!SenderTrust.UNKNOWN_SENDER.equals(e.getHold())) continue;
             String d = SenderTrust.domainOf(e.getFromAddress());
             if (d == null || !(d.equals(domain) || d.endsWith("." + domain))) continue;
@@ -187,7 +187,7 @@ public class EmailProcessor {
         return n;
     }
 
-    private void saveStatements(RawEmail raw, EmailContent content, List<IncomingEmail.Attachment> pdfs) {
+    private void saveStatements(InboxMessage raw, EmailContent content, List<IncomingEmail.Attachment> pdfs) {
         Account account = guessStatementAccount(content);
         StringBuilder note = new StringBuilder();
         for (IncomingEmail.Attachment a : pdfs) {
@@ -202,7 +202,7 @@ public class EmailProcessor {
                 f.setReceivedAt(raw.getReceivedAt());
                 f.setPeriodLabel(StatementStorage.PERIOD.withZone(Money.ZONE).format(raw.getReceivedAt()));
                 statements.save(f);
-                events.publishEvent(new StatementSaved(f.getId()));
+                events.publishEvent(new StatementSavedEvent(f.getId()));
             } catch (Exception e) {
                 log.warn("Couldn't save statement {} from email {}: {}", a.fileName(), raw.getId(), e.toString());
                 note.append("Failed to save ").append(a.fileName()).append(": ").append(e.getMessage()).append('\n');

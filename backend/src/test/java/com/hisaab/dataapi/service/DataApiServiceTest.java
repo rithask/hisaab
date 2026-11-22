@@ -5,7 +5,7 @@ import com.hisaab.accounts.model.Account;
 import com.hisaab.categories.model.Category;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.people.model.Person;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -15,8 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DataApiServiceTest {
-    private static Txn txn(Direction d, Long categoryId, long accountId, boolean transfer) {
-        Txn t = new Txn();
+    private static Transaction txn(Direction d, Long categoryId, long accountId, boolean transfer) {
+        Transaction t = new Transaction();
         t.setDirection(d);
         t.setTransfer(transfer);
         Account a = new Account();
@@ -49,7 +49,7 @@ class DataApiServiceTest {
 
     @Test
     void whatAFriendPaidForMeIsNotInTheApi() {
-        Txn t = txn(Direction.DEBIT, 5L, 1, false);
+        Transaction t = txn(Direction.DEBIT, 5L, 1, false);
         t.setAccount(null);
         t.setPaidBy(new Person());
         assertThat(DataApiService.visible(new ApiToken(), t)).isFalse();

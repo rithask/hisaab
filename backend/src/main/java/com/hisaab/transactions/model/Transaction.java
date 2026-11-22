@@ -4,7 +4,7 @@ import com.hisaab.common.model.Direction;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.categories.model.Category;
 import com.hisaab.dataapi.model.ApiToken;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.messages.model.InboxMessage;
 import com.hisaab.people.model.Person;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -19,7 +19,7 @@ import java.util.Set;
 @Table(name = "txn")
 @Getter
 @Setter
-public class Txn {
+public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -68,14 +68,14 @@ public class Txn {
     private String notes;
 
     @Enumerated(EnumType.STRING)
-    private TxnSource source;
+    private TransactionSource source;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private RawEmail rawEmail;
+    private InboxMessage rawEmail;
 
     /** The alert from the other channel that was matched to this one (its email for an SMS, or the reverse). */
     @ManyToOne(fetch = FetchType.LAZY)
-    private RawEmail twinRawEmail;
+    private InboxMessage twinRawEmail;
 
     /** The category was chosen by the app (from what it learned), not set by me. */
     private boolean categorySuggested;
@@ -84,7 +84,7 @@ public class Txn {
     private boolean transfer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Txn linkedTxn;
+    private Transaction linkedTxn;
 
     /** The API token that added it, when an app did (shown as "Added by …"). */
     @ManyToOne(fetch = FetchType.LAZY)

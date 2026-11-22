@@ -8,4 +8,4 @@ package com.hisaab.people.service;
  *
  * @param why what changed, for the log
  */
-public record BalancesChanged(String why) {}
+public record BalancesChangedEvent(String why) {}

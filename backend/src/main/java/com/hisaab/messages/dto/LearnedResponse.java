@@ -7,5 +7,5 @@ import java.util.List;
  * @param trustedDomains email domains I trusted myself
  * @param bankDomains    the banks' own email domains, built in
  */
-public record LearnedResponse(List<SmsTemplateResponse> formats, List<PayeeAliasResponse> payees, long senders, List<TrustedDomainResponse> trustedDomains,
-                              List<BankDomainsResponse> bankDomains) {}
+public record LearnedResponse(List<LearnedFormatResponse> formats, List<PayeeAliasResponse> payees, long senders,
+                              List<TrustedDomainResponse> trustedDomains, List<BankDomainsResponse> bankDomains) {}

@@ -22,7 +22,7 @@ public class LearnedExample {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private RawEmail rawEmail;
+    private InboxMessage rawEmail;
 
     @Enumerated(EnumType.STRING)
     private Channel channel = Channel.SMS;
@@ -47,7 +47,7 @@ public class LearnedExample {
     private String payee;
 
     /** TAUGHT by me, or AUTO (confirmed automatically). My lessons always outrank automatic ones. */
-    private String origin = SmsTemplate.TAUGHT;
+    private String origin = LearnedFormat.TAUGHT;
 
     @Column(insertable = false, updatable = false)
     private Instant createdAt;

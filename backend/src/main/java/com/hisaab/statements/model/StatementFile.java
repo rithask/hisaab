@@ -1,7 +1,7 @@
 package com.hisaab.statements.model;
 
 import com.hisaab.accounts.model.Account;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.messages.model.InboxMessage;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,7 +20,7 @@ public class StatementFile {
     private Account account;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private RawEmail rawEmail;
+    private InboxMessage rawEmail;
 
     private String fileName;
 

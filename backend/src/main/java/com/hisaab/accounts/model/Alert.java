@@ -1,6 +1,6 @@
 package com.hisaab.accounts.model;
 
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,7 +23,7 @@ public class Alert {
     private Account account;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Txn txn;
+    private Transaction txn;
 
     @Column(columnDefinition = "text")
     private String message;

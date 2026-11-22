@@ -1,7 +1,7 @@
 package com.hisaab.statements.model;
 
 import com.hisaab.common.model.Direction;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -46,7 +46,7 @@ public class StatementImportLine {
     private LineKind kind;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Txn matchTxn;
+    private Transaction matchTxn;
 
     @Column(columnDefinition = "text")
     private String matchReason;
@@ -55,5 +55,5 @@ public class StatementImportLine {
     private LineDecision decision;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private Txn createdTxn;
+    private Transaction createdTxn;
 }

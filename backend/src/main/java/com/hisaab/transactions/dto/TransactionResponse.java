@@ -5,8 +5,8 @@ import com.hisaab.common.dto.AccountRefResponse;
 import com.hisaab.common.dto.PersonRefResponse;
 import com.hisaab.common.model.Direction;
 import com.hisaab.transactions.model.Tag;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.model.TxnSource;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.model.TransactionSource;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -15,7 +15,7 @@ public record TransactionResponse(Long id, AccountRefResponse account, Direction
                                   BigDecimal originalAmount, String originalCurrency, boolean amountEstimated,
                                   Instant occurredAt, String counterparty, String description, String referenceNo,
                                   BigDecimal reportedBalance, CategoryResponse category, List<String> tags, String notes,
-                                  TxnSource source, Long rawEmailId, boolean transfer, Long linkedTxnId,
+                                  TransactionSource source, Long rawEmailId, boolean transfer, Long linkedTxnId,
                                   AccountRefResponse linkedAccount, BigDecimal sharedAmount, boolean categorySuggested,
                                   /* name of the API token that added it, when an app did */ String addedBy,
                                   /* someone else paid (account is null): who, and what they paid altogether */
@@ -26,11 +26,11 @@ public record TransactionResponse(Long id, AccountRefResponse account, Direction
                                   List<PersonRefResponse> lentTo,
                                   /* confirmed repayments on it: who paid me back (money in), whom I paid back (money out) */
                                   List<PersonRefResponse> paidBackBy, List<PersonRefResponse> paidBackTo) {
-    public static TransactionResponse of(Txn t, BigDecimal shared) {
+    public static TransactionResponse of(Transaction t, BigDecimal shared) {
         return of(t, shared, null, List.of(), List.of(), List.of());
     }
 
-    public static TransactionResponse of(Txn t, BigDecimal shared, BigDecimal myAmount, List<PersonRefResponse> lentTo,
+    public static TransactionResponse of(Transaction t, BigDecimal shared, BigDecimal myAmount, List<PersonRefResponse> lentTo,
                      List<PersonRefResponse> paidBackBy, List<PersonRefResponse> paidBackTo) {
         return new TransactionResponse(t.getId(), AccountRefResponse.of(t.getAccount()), t.getDirection(), t.getAmount(),
                 t.getOriginalAmount(), t.getOriginalCurrency(), t.isAmountEstimated(), t.getOccurredAt(),

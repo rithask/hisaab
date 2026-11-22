@@ -2,7 +2,7 @@ package com.hisaab.messages.reading;
 
 import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.service.SmsSenders;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Component;
 
@@ -13,18 +13,18 @@ import java.util.Optional;
  * duplicate). A recorded SMS teaches which bank its sender is.
  */
 @Component
-class Record implements ReadingStep {
+class RecordTransaction implements ReadingStep {
     private final TransactionService txns;
     private final SmsSenders senders;
 
-    Record(TransactionService txns, SmsSenders senders) {
+    RecordTransaction(TransactionService txns, SmsSenders senders) {
         this.txns = txns;
         this.senders = senders;
     }
 
     @Override
     public void apply(MessageReading r) {
-        Optional<Txn> created = txns.createFromEmail(r.parsed, r.account, r.raw);
+        Optional<Transaction> created = txns.createFromEmail(r.parsed, r.account, r.raw);
         r.txn = created.orElse(null);
         r.raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
         if (!r.sms()) return;

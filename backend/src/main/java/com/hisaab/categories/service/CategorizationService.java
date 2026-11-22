@@ -10,10 +10,10 @@ import com.hisaab.categories.model.CategoryVote;
 import com.hisaab.categories.repository.CategoryRuleRepository;
 import com.hisaab.categories.repository.CategoryVoteRepository;
 import com.hisaab.common.util.Names;
-import com.hisaab.messages.model.RawEmail;
-import com.hisaab.messages.model.SmsTemplate;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.messages.model.InboxMessage;
+import com.hisaab.messages.model.LearnedFormat;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,10 +43,10 @@ import java.util.regex.Pattern;
 public class CategorizationService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CategorizationService.class);
     private final CategoryRuleRepository rules;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
     private final CategoryVoteRepository votes;
 
-    public CategorizationService(CategoryRuleRepository rules, TxnRepository txns, CategoryVoteRepository votes) {
+    public CategorizationService(CategoryRuleRepository rules, TransactionRepository txns, CategoryVoteRepository votes) {
         this.rules = rules;
         this.txns = txns;
         this.votes = votes;
@@ -57,7 +57,7 @@ public class CategorizationService {
     }
 
     @Transactional
-    public void categorize(Txn t) {
+    public void categorize(Transaction t) {
         if (t.isTransfer() || t.getCategory() != null) return;
         suggest(t).ifPresent(c -> {
             t.setCategory(c);
@@ -66,7 +66,7 @@ public class CategorizationService {
     }
 
     /** The category the app would pick for this transaction, if any. */
-    Optional<Category> suggest(Txn t) {
+    Optional<Category> suggest(Transaction t) {
         CategoryKind kind = kindFor(t.getDirection());
         if (t.getMerchantKey() != null) {
             Optional<Category> c = choose(fitting(votes.findByKeyTypeAndKey(CategoryVote.MERCHANT, t.getMerchantKey()), kind), t.getAmount());
@@ -185,7 +185,7 @@ public class CategorizationService {
     private static final Pattern TO_PERSON = Pattern.compile("(?i)\\b(?:UPI|IMPS)/(?:P2A|P2P)/");
 
     /** The UPI ID in the payee or the bank's description, lower-cased. */
-    static String vpaOf(Txn t) {
+    static String vpaOf(Transaction t) {
         for (String s : new String[]{t.getCounterparty(), t.getDescription()}) {
             if (s == null) continue;
             Matcher m = VPA.matcher(s);
@@ -195,7 +195,7 @@ public class CategorizationService {
     }
 
     /** A UPI or IMPS payment to a person (P2P/P2A), not a shop (P2M). */
-    static boolean toPerson(Txn t) {
+    static boolean toPerson(Transaction t) {
         return t.getDescription() != null && TO_PERSON.matcher(t.getDescription()).find();
     }
 
@@ -204,7 +204,7 @@ public class CategorizationService {
      * Returns how many other transactions look similar.
      */
     @Transactional
-    public int learn(Txn t, Category category) {
+    public int learn(Transaction t, Category category) {
         if (category == null) return 0;
         String vpa = vpaOf(t);
         if (vpa != null) vote(CategoryVote.VPA, vpa, category, t.getAmount());
@@ -232,12 +232,12 @@ public class CategorizationService {
     }
 
     /** Whether choosing a category for this transaction is remembered for the wording of its message. */
-    public boolean learnsByWording(Txn t) {
+    public boolean learnsByWording(Transaction t) {
         return nameless(t) && !wordingKeys(t).isEmpty();
     }
 
     /** No payee name and no UPI ID: nothing but the message's wording to recognise it by. */
-    static boolean nameless(Txn t) {
+    static boolean nameless(Transaction t) {
         return t.getMerchantKey() == null && vpaOf(t) == null;
     }
 
@@ -245,11 +245,11 @@ public class CategorizationService {
      * What identifies the wording of the messages this transaction came from (its own alert, then the other
      * channel's copy), most exact first: the learned format that read it, then its words with numbers removed.
      */
-    static List<String[]> wordingKeys(Txn t) {
+    static List<String[]> wordingKeys(Transaction t) {
         List<String[]> out = new ArrayList<>();
-        for (RawEmail m : new RawEmail[]{t.getRawEmail(), t.getTwinRawEmail()}) {
+        for (InboxMessage m : new InboxMessage[]{t.getRawEmail(), t.getTwinRawEmail()}) {
             if (m == null) continue;
-            SmsTemplate f = m.getTemplate();
+            LearnedFormat f = m.getTemplate();
             if (f != null && f.getId() != null && !f.isSkip()) out.add(new String[]{CategoryVote.FORMAT, f.getId().toString()});
             String w = wording(m.getBodyText());
             if (w != null) out.add(new String[]{CategoryVote.WORDING, sha256(w)});
@@ -331,7 +331,7 @@ public class CategorizationService {
         if (r.getMatchType() == RuleMatch.MERCHANT) votes.deleteAll(votes.findByKeyTypeAndKey(CategoryVote.MERCHANT, r.getPattern()));
     }
 
-    List<Txn> similar(Txn t, Category category) {
+    List<Transaction> similar(Transaction t, Category category) {
         if (t.getMerchantKey() == null) return List.of();
         return txns.findSimilar(t.getMerchantKey(), t.getId(), category.getId()).stream()
                 .filter(o -> o.getDirection() == t.getDirection())
@@ -339,9 +339,9 @@ public class CategorizationService {
     }
 
     @Transactional
-    public int applyToSimilar(Txn t) {
+    public int applyToSimilar(Transaction t) {
         if (t.getCategory() == null) return 0;
-        List<Txn> list = similar(t, t.getCategory());
+        List<Transaction> list = similar(t, t.getCategory());
         list.forEach(o -> {
             o.setCategory(t.getCategory());
             o.setCategorySuggested(false);

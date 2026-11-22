@@ -4,10 +4,10 @@ import com.hisaab.common.model.AccountType;
 import com.hisaab.common.model.Direction;
 import com.hisaab.common.model.Institution;
 import com.hisaab.messages.model.Channel;
-import com.hisaab.messages.model.SmsTemplate;
+import com.hisaab.messages.model.LearnedFormat;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;
-import com.hisaab.messages.repository.SmsTemplateRepository;
+import com.hisaab.messages.repository.LearnedFormatRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,32 +24,32 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Reads a message with a format I taught (see {@link SmsLearningService}), when one fits its wording exactly: the
+ * Reads a message with a format I taught (see {@link FormatLearningService}), when one fits its wording exactly: the
  * amount, payee, account digits, reference and balance come from the format's slots, not from guessing.
  */
 @Service
-public class SmsReader {
-    private static final Logger log = LoggerFactory.getLogger(SmsReader.class);
+public class LearnedFormatReader {
+    private static final Logger log = LoggerFactory.getLogger(LearnedFormatReader.class);
 
     /** An amount as banks write it: 1,250.75 */
     static final String NUM = "[0-9][0-9,]*(?:\\.[0-9]{1,2})?";
     static final Pattern NUMBER = Pattern.compile(NUM);
 
-    private final SmsTemplateRepository templates;
+    private final LearnedFormatRepository templates;
 
-    public SmsReader(SmsTemplateRepository templates) {
+    public LearnedFormatReader(LearnedFormatRepository templates) {
         this.templates = templates;
     }
 
     /** @param txn what the format read; null when the format says the message isn't a transaction */
-    public record Match(ParsedTransaction txn, SmsTemplate template) {
+    public record Match(ParsedTransaction txn, LearnedFormat template) {
         public boolean skip() {
             return txn == null;
         }
     }
 
     /** What a learned format reads from a message: the fields the safety net compares (all null for a skip). */
-    record Read(SmsTemplate template, Direction direction, BigDecimal amount, Institution institution, String payee, Matcher m) {
+    record Read(LearnedFormat template, Direction direction, BigDecimal amount, Institution institution, String payee, Matcher m) {
         boolean skip() {
             return template.isSkip();
         }
@@ -67,7 +67,7 @@ public class SmsReader {
         String flat = flat(text);
         Optional<Read> r = read(templates.findByChannelOrderByHitsDescIdAsc(channel), flat);
         if (r.isEmpty()) return Optional.empty();
-        SmsTemplate t = r.get().template();
+        LearnedFormat t = r.get().template();
         t.setHits(t.getHits() + 1);
         t.setLastUsedAt(Instant.now());
         if (r.get().skip()) return Optional.of(new Match(null, t));
@@ -81,13 +81,13 @@ public class SmsReader {
     }
 
     /** The first of these formats (in the order given) that fits the whole message. */
-    static Optional<Read> read(List<SmsTemplate> set, String flat) {
+    static Optional<Read> read(List<LearnedFormat> set, String flat) {
         // "Not a transaction" formats are checked first, then the ones that read transactions; within each, the
         // newest lesson wins (the safety net already made sure it doesn't break older ones). Paused ones aren't used.
-        Comparator<SmsTemplate> newestFirst = Comparator.comparing((SmsTemplate t) -> t.getId() == null ? Long.MAX_VALUE : t.getId()).reversed();
-        List<SmsTemplate> ordered = new ArrayList<>(set.stream().filter(t -> t.isSkip() && !t.isPaused()).sorted(newestFirst).toList());
+        Comparator<LearnedFormat> newestFirst = Comparator.comparing((LearnedFormat t) -> t.getId() == null ? Long.MAX_VALUE : t.getId()).reversed();
+        List<LearnedFormat> ordered = new ArrayList<>(set.stream().filter(t -> t.isSkip() && !t.isPaused()).sorted(newestFirst).toList());
         set.stream().filter(t -> !t.isSkip() && !t.isPaused()).sorted(newestFirst).forEach(ordered::add);
-        for (SmsTemplate t : ordered) {
+        for (LearnedFormat t : ordered) {
             Matcher m;
             try {
                 m = Pattern.compile(t.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
@@ -109,20 +109,20 @@ public class SmsReader {
         return Optional.empty();
     }
 
-    private static String group(SmsTemplate t, Matcher m, String name) {
+    private static String group(LearnedFormat t, Matcher m, String name) {
         return t.getPattern().contains("(?<" + name + ">") ? m.group(name) : null;
     }
 
     /** A paused format that fits this message, if any (its messages wait for review instead). */
-    public Optional<SmsTemplate> pausedFor(Channel channel, String text) {
+    public Optional<LearnedFormat> pausedFor(Channel channel, String text) {
         String flat = flat(text);
-        return templates.findByChannelOrderByHitsDescIdAsc(channel).stream().filter(SmsTemplate::isPaused)
+        return templates.findByChannelOrderByHitsDescIdAsc(channel).stream().filter(LearnedFormat::isPaused)
                 .filter(t -> read(List.of(withoutPause(t)), flat).isPresent()).findFirst();
     }
 
-    static SmsTemplate withoutPause(SmsTemplate t) {
+    static LearnedFormat withoutPause(LearnedFormat t) {
         if (!t.isPaused()) return t;
-        SmsTemplate c = new SmsTemplate();
+        LearnedFormat c = new LearnedFormat();
         c.setId(t.getId());
         c.setPattern(t.getPattern());
         c.setKind(t.getKind());

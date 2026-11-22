@@ -4,28 +4,28 @@ import com.hisaab.messages.model.Channel;
 import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.messages.model.EmailContent;
-import com.hisaab.messages.model.RawEmail;
+import com.hisaab.messages.model.InboxMessage;
 import com.hisaab.messages.parser.ParsedTransaction;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 
 /**
  * One stored message being read: what the steps of {@link MessageReader} have worked out so far. A step either adds
  * to it (what was read, the account, the transaction) or decides the message's status and stops the reading.
  */
 public final class MessageReading {
-    final RawEmail raw;
+    final InboxMessage raw;
     /** the email as the bank parsers see it; null for an SMS */
     final EmailContent content;
     ParsedTransaction parsed;
     Account account;
-    Txn txn;
+    Transaction txn;
     /** the balance printed in an SMS fits exactly one direction, which confirms the reading */
     boolean balanceAddsUp;
     /** an SMS collects notes along the way ("Direction corrected …") and keeps them at the end */
     final StringBuilder notes = new StringBuilder();
     private boolean done;
 
-    MessageReading(RawEmail raw, EmailContent content) {
+    MessageReading(InboxMessage raw, EmailContent content) {
         this.raw = raw;
         this.content = content;
     }
@@ -54,7 +54,7 @@ public final class MessageReading {
         return parsed;
     }
 
-    public Txn txn() {
+    public Transaction txn() {
         return txn;
     }
 }

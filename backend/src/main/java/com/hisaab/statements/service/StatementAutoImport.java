@@ -38,7 +38,7 @@ public class StatementAutoImport {
 
     /** Runs after the email's own transaction has committed, so a problem here never loses the email. */
     @TransactionalEventListener(fallbackExecution = true)
-    public void onSaved(StatementSaved e) {
+    public void onSaved(StatementSavedEvent e) {
         try {
             self.read(e.statementFileId());
         } catch (RuntimeException ex) {

@@ -17,7 +17,7 @@ import com.hisaab.transactions.dto.TransactionResponse;
 import com.hisaab.transactions.dto.TransactionUpdateRequest;
 import com.hisaab.transactions.dto.TransactionUpdateResponse;
 import com.hisaab.transactions.dto.TransferLinkRequest;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import com.hisaab.transactions.service.TransactionService.Filter;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -55,7 +55,7 @@ public class TransactionFacade {
         this.views = views;
     }
 
-    private TransactionResponse dto(Txn t) {
+    private TransactionResponse dto(Transaction t) {
         return views.one(t);
     }
 
@@ -70,7 +70,7 @@ public class TransactionFacade {
             case "smallest" -> Sort.by(Sort.Order.asc("amount"), Sort.Order.desc("occurredAt"));
             default -> Sort.by(Sort.Direction.DESC, "occurredAt", "id");
         };
-        Page<Txn> p = transactions.search(new Filter(accountId, categoryId, uncategorized, tag, q, from, to,
+        Page<Transaction> p = transactions.search(new Filter(accountId, categoryId, uncategorized, tag, q, from, to,
                         includeTransfers, direction, minAmount, maxAmount),
                 PageRequest.of(page, Math.min(size, 200), order));
         return new PageResponse<>(views.page(p.getContent()), page, size, p.getTotalElements(), p.hasNext());
@@ -91,13 +91,13 @@ public class TransactionFacade {
     /** My share of something a friend paid for (see TransactionService#createPaidBy). */
     @Transactional
     public TransactionResponse createPaidBy(PaidByRequest in) {
-        Txn t = transactions.createPaidBy(in);
+        Transaction t = transactions.createPaidBy(in);
         return dto(t);
     }
 
     @Transactional
     public TransactionResponse updatePaidBy(Long id, PaidByRequest in) {
-        Txn t = transactions.updatePaidBy(id, in);
+        Transaction t = transactions.updatePaidBy(id, in);
         return dto(t);
     }
 
@@ -114,14 +114,14 @@ public class TransactionFacade {
     /** After a category correction, apply the same category to other transactions from the same merchant. */
     @Transactional
     public Map<String, Integer> applyToSimilar(Long id) {
-        Txn t = transactions.get(id);
+        Transaction t = transactions.get(id);
         if (t.isPaidByPerson()) return Map.of("updated", 0); // nothing is learned from these
         return Map.of("updated", categorizer.applyToSimilar(t));
     }
 
     @Transactional
     public TransactionResponse link(Long id, TransferLinkRequest req) {
-        Txn t = transactions.get(id), other = transactions.get(req.otherId());
+        Transaction t = transactions.get(id), other = transactions.get(req.otherId());
         if (t.isPaidByPerson() || other.isPaidByPerson()) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         transfers.link(t, other);
         return dto(t);
@@ -129,7 +129,7 @@ public class TransactionFacade {
 
     @Transactional
     public TransactionResponse unlink(Long id) {
-        Txn t = transactions.get(id);
+        Transaction t = transactions.get(id);
         transfers.unlink(t);
         return dto(t);
     }
@@ -138,13 +138,13 @@ public class TransactionFacade {
 
     @Transactional(readOnly = true)
     public SplitResponse getSplit(Long id) {
-        Txn t = transactions.get(id);
+        Transaction t = transactions.get(id);
         return splitDto(t, shares.findByTxn(t).stream().map(ShareResponse::of).toList());
     }
 
     @Transactional
     public SplitResponse setSplit(Long id, SplitRequest req) {
-        Txn t = transactions.get(id);
+        Transaction t = transactions.get(id);
         if (!t.isDebit()) throw new BadRequestException("Only money I paid out can be split");
         if (t.isPaidByPerson()) throw new BadRequestException("Someone else paid for this; change your share instead");
         var saved = splits.setSplit(t, req.method() == null ? SplitMethod.EQUAL : req.method(),
@@ -153,7 +153,7 @@ public class TransactionFacade {
         return splitDto(t, saved.stream().map(ShareResponse::of).toList());
     }
 
-    private static SplitResponse splitDto(Txn t, List<ShareResponse> list) {
+    private static SplitResponse splitDto(Transaction t, List<ShareResponse> list) {
         BigDecimal others = list.stream().map(ShareResponse::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new SplitResponse(t.getAmount(), others, t.getAmount().subtract(others), list);
     }

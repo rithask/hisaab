@@ -1,11 +1,11 @@
 package com.hisaab.categories.service;
 
-import com.hisaab.transactions.model.TxnSource;
+import com.hisaab.transactions.model.TransactionSource;
 import com.hisaab.categories.model.PayeeAlias;
 import com.hisaab.categories.repository.PayeeAliasRepository;
 import com.hisaab.common.util.Names;
-import com.hisaab.transactions.model.Txn;
-import com.hisaab.transactions.repository.TxnRepository;
+import com.hisaab.transactions.model.Transaction;
+import com.hisaab.transactions.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,12 +17,12 @@ import java.util.List;
  */
 @Service
 public class PayeeAliasService {
-    private static final List<TxnSource> FROM_ALERTS = List.of(TxnSource.EMAIL, TxnSource.SMS);
+    private static final List<TransactionSource> FROM_ALERTS = List.of(TransactionSource.EMAIL, TransactionSource.SMS);
 
     private final PayeeAliasRepository aliases;
-    private final TxnRepository txns;
+    private final TransactionRepository txns;
 
-    public PayeeAliasService(PayeeAliasRepository aliases, TxnRepository txns) {
+    public PayeeAliasService(PayeeAliasRepository aliases, TransactionRepository txns) {
         this.aliases = aliases;
         this.txns = txns;
     }
@@ -44,7 +44,7 @@ public class PayeeAliasService {
      * @return how many other transactions were renamed
      */
     @Transactional
-    public int learn(Txn renamed, String oldName, String newName) {
+    public int learn(Transaction renamed, String oldName, String newName) {
         String oldKey = Names.merchantKey(oldName);
         String newKey = Names.merchantKey(newName);
         if (oldKey == null || newKey == null || newName.isBlank() || oldKey.equals(newKey) && oldName.equals(newName)) return 0;
@@ -60,7 +60,7 @@ public class PayeeAliasService {
         }
 
         int n = 0;
-        for (Txn t : txns.findByMerchantKeyAndSourceIn(oldKey, FROM_ALERTS)) {
+        for (Transaction t : txns.findByMerchantKeyAndSourceIn(oldKey, FROM_ALERTS)) {
             if (t.getId().equals(renamed.getId())) continue;
             t.setCounterparty(newName.trim());
             t.setMerchantKey(newKey);

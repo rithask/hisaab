@@ -7,9 +7,10 @@ import lombok.Setter;
 import java.time.Instant;
 
 @Entity
+@Table(name = "raw_email")
 @Getter
 @Setter
-public class RawEmail {
+public class InboxMessage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -48,7 +49,7 @@ public class RawEmail {
 
     /** The learned format it was read with, if any. */
     @ManyToOne(fetch = FetchType.LAZY)
-    private SmsTemplate template;
+    private LearnedFormat template;
 
     @Column(insertable = false, updatable = false)
     private Instant createdAt;

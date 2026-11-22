@@ -11,7 +11,7 @@ import com.hisaab.people.model.SplitShare;
 import com.hisaab.people.repository.SettlementRepository;
 import com.hisaab.people.repository.SplitShareRepository;
 import com.hisaab.reports.service.ReportService;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.model.Transaction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -35,11 +35,11 @@ public class TransactionViews {
         this.settlements = settlements;
     }
 
-    public TransactionResponse one(Txn t) {
+    public TransactionResponse one(Transaction t) {
         return page(List.of(t)).getFirst();
     }
 
-    public List<TransactionResponse> page(List<Txn> txns) {
+    public List<TransactionResponse> page(List<Transaction> txns) {
         if (txns.isEmpty()) return List.of();
         Map<Long, List<SplitShare>> split = shares.findByTxnInOrderById(txns).stream()
                 .collect(Collectors.groupingBy(s -> s.getTxn().getId()));
@@ -53,7 +53,7 @@ public class TransactionViews {
      * One row: a payment that's all someone else's is money I lent ("Lent to Fabis"); a confirmed repayment says who
      * paid me back or whom I paid back.
      */
-    static TransactionResponse view(Txn t, List<SplitShare> split, List<Settlement> repaid) {
+    static TransactionResponse view(Transaction t, List<SplitShare> split, List<Settlement> repaid) {
         BigDecimal shared = split.stream().map(SplitShare::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal in = sum(repaid, SettlementDirection.IN), out = sum(repaid, SettlementDirection.OUT);
         BigDecimal mine = ReportService.myAmount(t.getDirection(), t.getAmount(), shared, in, out);

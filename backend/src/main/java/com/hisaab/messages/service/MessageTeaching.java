@@ -13,15 +13,15 @@ import com.hisaab.categories.model.Category;
 import com.hisaab.categories.repository.CategoryRepository;
 import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.categories.service.PayeeAliasService;
-import com.hisaab.messages.model.RawEmail;
-import com.hisaab.messages.model.SmsTemplate;
+import com.hisaab.messages.model.InboxMessage;
+import com.hisaab.messages.model.LearnedFormat;
 import com.hisaab.messages.parser.ParseUtil;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;
 import com.hisaab.messages.reading.MessageAccounts;
 import com.hisaab.messages.reading.MessageReader;
-import com.hisaab.messages.repository.RawEmailRepository;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.messages.repository.InboxMessageRepository;
+import com.hisaab.transactions.model.Transaction;
 import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,22 +41,22 @@ import java.util.Set;
  */
 @Service
 public class MessageTeaching {
-    private final RawEmailRepository emails;
+    private final InboxMessageRepository emails;
     private final AccountRepository accounts;
     private final CategoryRepository categories;
     private final TransactionService txns;
     private final SmsParser smsParser;
-    private final SmsLearningService learning;
+    private final FormatLearningService learning;
     private final SenderTrust trust;
     private final PayeeAliasService aliases;
     private final MessageAccounts messageAccounts;
     private final MessageReader reader;
-    private final SmsReader smsReader;
+    private final LearnedFormatReader smsReader;
     private final SmsSenders senders;
 
-    public MessageTeaching(RawEmailRepository emails, AccountRepository accounts, CategoryRepository categories, TransactionService txns,
-                           SmsParser smsParser, SmsLearningService learning, SenderTrust trust, PayeeAliasService aliases,
-                           MessageAccounts messageAccounts, MessageReader reader, SmsReader smsReader, SmsSenders senders) {
+    public MessageTeaching(InboxMessageRepository emails, AccountRepository accounts, CategoryRepository categories, TransactionService txns,
+                           SmsParser smsParser, FormatLearningService learning, SenderTrust trust, PayeeAliasService aliases,
+                           MessageAccounts messageAccounts, MessageReader reader, LearnedFormatReader smsReader, SmsSenders senders) {
         this.senders = senders;
         this.smsReader = smsReader;
         this.emails = emails;
@@ -73,18 +73,18 @@ public class MessageTeaching {
 
     /** What the parser makes of a stored SMS right now, to pre-fill the correction form. */
     @Transactional(readOnly = true)
-    public TeachPreviewResponse preview(RawEmail raw) {
-        ParsedTransaction p = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(SmsReader.Match::txn)
+    public TeachPreviewResponse preview(InboxMessage raw) {
+        ParsedTransaction p = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(LearnedFormatReader.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
-        List<Txn> existing = txns.forMessage(raw);
+        List<Transaction> existing = txns.forMessage(raw);
         Direction direction = p == null ? null : p.direction();
         BigDecimal amount = p == null ? null : p.amount();
         Long accountId = p == null ? null : messageAccounts.learnedOrMatched(p).map(Account::getId).orElse(null);
         String name = p == null ? null : p.counterparty();
         Long categoryId = null;
         if (!existing.isEmpty()) {
-            Txn t = existing.get(0);
+            Transaction t = existing.get(0);
             categoryId = t.getCategory() == null || t.isCategorySuggested() ? null : t.getCategory().getId();
             direction = t.getDirection();
             amount = t.getAmount();
@@ -92,7 +92,7 @@ public class MessageTeaching {
             name = t.getCounterparty();
         }
         // Where those are in the text, so the form can show them marked.
-        int[] amountAt = amount == null ? null : SmsReader.findAmount(flat, amount);
+        int[] amountAt = amount == null ? null : LearnedFormatReader.findAmount(flat, amount);
         int[] payeeAt = null;
         for (String v : Arrays.asList(p == null ? null : p.counterparty(), name)) {
             int at = v == null || v.isBlank() ? -1 : flat.toLowerCase(Locale.ROOT).indexOf(v.toLowerCase(Locale.ROOT));
@@ -110,7 +110,7 @@ public class MessageTeaching {
      * @param category  the category I picked, if any
      * @param categoryByWording that category was remembered for messages worded like this (it has no payee)
      */
-    public record TeachResult(RawEmail message, Txn txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
+    public record TeachResult(InboxMessage message, Transaction txn, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
                               boolean pausedFormat, boolean mergedFormat, String category, boolean categoryByWording) {}
 
     /**
@@ -120,7 +120,7 @@ public class MessageTeaching {
      * (not a free mail domain, and not one the provider flagged as forged), since I've said its alerts are real.
      */
     @Transactional
-    public TeachResult teach(RawEmail raw, TeachRequest in) {
+    public TeachResult teach(InboxMessage raw, TeachRequest in) {
         if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
         if (in.direction() == null) throw new BadRequestException("Say whether money went out or came in");
         if (in.amount() == null || in.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
@@ -135,21 +135,21 @@ public class MessageTeaching {
         String text = raw.getBodyText();
         String flat = text.replaceAll("\\s+", " ").trim();
         // The payee as the bank writes it (what I marked, else what I typed) and the name I want shown for it.
-        int[] marked = SmsLearningService.span(in.payeeAt(), flat);
+        int[] marked = FormatLearningService.span(in.payeeAt(), flat);
         String name = in.counterparty() == null || in.counterparty().isBlank() ? null : in.counterparty().trim();
         String payee = marked != null ? ParseUtil.clean(flat.substring(marked[0], marked[1])) : name;
         if (payee != null && name != null && !payee.equals(name)) aliases.remember(payee, name);
 
         // A transaction already recorded from it is fixed in place, so its category, notes, tags and split stay.
-        List<Txn> recorded = txns.forMessage(raw);
-        for (Txn extra : recorded.stream().skip(1).toList()) txns.delete(extra.getId());
+        List<Transaction> recorded = txns.forMessage(raw);
+        for (Transaction extra : recorded.stream().skip(1).toList()) txns.delete(extra.getId());
         if (recorded.isEmpty()) txns.unpair(raw);
 
-        SmsLearningService.Truth truth = new SmsLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked);
+        FormatLearningService.Truth truth = new FormatLearningService.Truth(in.direction(), in.amount(), account, payee, in.amountAt(), marked);
         // the format that read it (if one did) was wrong: count that against it before learning the right one
-        SmsTemplate readBy = raw.getTemplate();
+        LearnedFormat readBy = raw.getTemplate();
         boolean paused = learning.corrected(readBy, text, truth);
-        SmsLearningService.LearnResult learned = learning.teach(raw.getChannel(), text, truth, raw);
+        FormatLearningService.LearnResult learned = learning.teach(raw.getChannel(), text, truth, raw);
         // read by the format just learned from now on (it's what a category is remembered for when there's no payee)
         raw.setTemplate(learned.template().orElse(null));
         if (raw.getChannel() == Channel.EMAIL) trustTaughtSender(raw);
@@ -172,7 +172,7 @@ public class MessageTeaching {
                 "INR", account.getLast4(), w.date(), w.time(), payee, ref == null ? null : flat.substring(ref[0], ref[1]),
                 bal == null || account.isCard() ? null : SmsParser.toAmount(flat.substring(bal[0], bal[1])),
                 account.isCard() && in.direction() == Direction.CREDIT, null);
-        Optional<Txn> created = recorded.isEmpty() ? txns.createFromEmail(p, account, raw)
+        Optional<Transaction> created = recorded.isEmpty() ? txns.createFromEmail(p, account, raw)
                 : Optional.of(txns.correct(recorded.get(0), p, account));
         boolean sms = raw.getChannel() == Channel.SMS;
         raw.setParser(sms ? "sms-taught" : "email-taught");
@@ -183,7 +183,7 @@ public class MessageTeaching {
 
         // The category I picked, set and learned before the waiting messages are read again, so they get it too.
         // When this one was already recorded from the other channel, it goes on that transaction.
-        Optional<Txn> target = created.isPresent() ? created : txns.pairedWith(raw).stream().findFirst();
+        Optional<Transaction> target = created.isPresent() ? created : txns.pairedWith(raw).stream().findFirst();
         boolean byWording = false;
         if (category != null && target.isPresent()) {
             byWording = txns.update(target.get().getId(), new TransactionUpdateRequest(
@@ -192,7 +192,7 @@ public class MessageTeaching {
 
         int alsoFixed = 0;
         for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR, EmailStatus.IGNORED)) {
-            for (RawEmail other : emails.findByStatus(st)) {
+            for (InboxMessage other : emails.findByStatus(st)) {
                 if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
                 // Messages I chose to ignore are only revisited when a learned format reads them exactly.
                 if (st == EmailStatus.IGNORED && smsReader.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(x -> !x.skip()).isEmpty()) continue;
@@ -205,19 +205,19 @@ public class MessageTeaching {
     }
 
     /** @param alsoSkipped other messages waiting for review that are worded the same and were skipped too */
-    public record SkipResult(RawEmail message, boolean learned, int conflicts, int alsoSkipped) {}
+    public record SkipResult(InboxMessage message, boolean learned, int conflicts, int alsoSkipped) {}
 
     /**
      * I say a message isn't a transaction: it's kept as Ignored, any transaction recorded from it is removed, its
      * wording is learned so later ones are skipped, and waiting messages worded the same are skipped now.
      */
     @Transactional
-    public SkipResult notATransaction(RawEmail raw) {
+    public SkipResult notATransaction(InboxMessage raw) {
         if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
         learning.corrected(raw.getTemplate(), raw.getBodyText(), null);
         raw.setTemplate(null);
-        SmsLearningService.LearnResult r = learning.skip(raw.getChannel(), raw.getBodyText(), raw);
-        for (Txn t : txns.forMessage(raw)) txns.delete(t.getId());
+        FormatLearningService.LearnResult r = learning.skip(raw.getChannel(), raw.getBodyText(), raw);
+        for (Transaction t : txns.forMessage(raw)) txns.delete(t.getId());
         txns.unpair(raw);
         raw.setStatus(EmailStatus.IGNORED);
         raw.setHold(null);
@@ -225,9 +225,9 @@ public class MessageTeaching {
         int also = 0;
         if (r.template().isPresent()) {
             for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR)) {
-                for (RawEmail other : emails.findByStatus(st)) {
+                for (InboxMessage other : emails.findByStatus(st)) {
                     if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
-                    if (smsReader.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(SmsReader.Match::skip).isEmpty()) continue;
+                    if (smsReader.match(other.getChannel(), other.getBodyText(), other.getReceivedAt()).filter(LearnedFormatReader.Match::skip).isEmpty()) continue;
                     other.setStatus(EmailStatus.IGNORED);
                     other.setHold(null);
                     other.setNote(MessageReader.NOT_A_TXN_NOTE);
@@ -243,7 +243,7 @@ public class MessageTeaching {
             "protonmail.com", "rediffmail.com", "zoho.com", "aol.com");
 
     /** I've said this email is a real alert: its bank's domain may send them (unless it's webmail or flagged). */
-    private void trustTaughtSender(RawEmail raw) {
+    private void trustTaughtSender(InboxMessage raw) {
         String domain = SenderTrust.domainOf(raw.getFromAddress());
         if (domain == null || FREE_MAIL.contains(domain) || SenderTrust.FAIL.equals(raw.getSenderCheck())) return;
         trust.trust(domain);

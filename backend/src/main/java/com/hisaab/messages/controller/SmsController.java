@@ -6,9 +6,9 @@ import com.hisaab.messages.dto.SmsResponse;
 import com.hisaab.messages.dto.SmsTransactionResponse;
 import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.parser.ParsedTransaction;
-import com.hisaab.messages.service.EmailProcessor;
-import com.hisaab.messages.service.EmailProcessor.SmsOutcome;
-import com.hisaab.transactions.model.Txn;
+import com.hisaab.messages.service.MessageProcessor;
+import com.hisaab.messages.service.MessageProcessor.SmsOutcome;
+import com.hisaab.transactions.model.Transaction;
 import org.springframework.web.bind.annotation.*;
 
 import com.hisaab.common.exception.BadRequestException;
@@ -23,9 +23,9 @@ import java.time.Instant;
 public class SmsController {
     static final int MAX_LENGTH = 2000;
 
-    private final EmailProcessor processor;
+    private final MessageProcessor processor;
 
-    public SmsController(EmailProcessor processor) {
+    public SmsController(MessageProcessor processor) {
         this.processor = processor;
     }
 
@@ -44,10 +44,10 @@ public class SmsController {
             return new SmsResponse(EmailStatus.DUPLICATE.name(), "Already received this SMS", o.message().getId(), null, null);
         }
         EmailStatus st = o.message().getStatus();
-        Txn t = o.txn();
+        Transaction t = o.txn();
         String msg;
         if (t != null) {
-            msg = EmailProcessor.summary(t);
+            msg = MessageProcessor.summary(t);
         } else {
             msg = o.message().getNote();
         }

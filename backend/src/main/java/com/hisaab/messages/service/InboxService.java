@@ -8,8 +8,8 @@ import com.hisaab.messages.dto.TeachRequest;
 import com.hisaab.messages.dto.TeachResponse;
 import com.hisaab.messages.dto.TrustResponse;
 import com.hisaab.messages.model.EmailStatus;
-import com.hisaab.messages.model.RawEmail;
-import com.hisaab.messages.repository.RawEmailRepository;
+import com.hisaab.messages.model.InboxMessage;
+import com.hisaab.messages.repository.InboxMessageRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -30,24 +30,24 @@ public class InboxService {
     private static final Logger log = LoggerFactory.getLogger(InboxService.class);
     private static final int PAGE_SIZE = 50;
 
-    private final RawEmailRepository messages;
-    private final EmailProcessor processor;
+    private final InboxMessageRepository messages;
+    private final MessageProcessor processor;
     private final MessageTeaching teaching;
 
-    public InboxService(RawEmailRepository messages, EmailProcessor processor, MessageTeaching teaching) {
+    public InboxService(InboxMessageRepository messages, MessageProcessor processor, MessageTeaching teaching) {
         this.messages = messages;
         this.processor = processor;
         this.teaching = teaching;
     }
 
-    private RawEmail message(Long id) {
+    private InboxMessage message(Long id) {
         return messages.findById(id).orElseThrow(notFound("Message"));
     }
 
     /** Newest first, a page at a time; all of them, or only those with this status. */
     public List<InboxMessageResponse> list(EmailStatus status, int page) {
         PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE);
-        Page<RawEmail> found = status == null ? messages.findAllByOrderByReceivedAtDesc(pageRequest)
+        Page<InboxMessage> found = status == null ? messages.findAllByOrderByReceivedAtDesc(pageRequest)
                 : messages.findByStatusOrderByReceivedAtDesc(status, pageRequest);
         return found.getContent().stream().map(m -> InboxMessageResponse.of(m, false)).toList();
     }
@@ -65,7 +65,7 @@ public class InboxService {
     public int reprocessPending() {
         int parsed = 0;
         for (EmailStatus status : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR)) {
-            for (RawEmail m : messages.findByStatus(status)) {
+            for (InboxMessage m : messages.findByStatus(status)) {
                 if (processor.reprocess(m).getStatus() == EmailStatus.PARSED) parsed++;
             }
         }
@@ -75,7 +75,7 @@ public class InboxService {
 
     @Transactional
     public InboxMessageResponse ignore(Long id) {
-        RawEmail m = message(id);
+        InboxMessage m = message(id);
         m.setStatus(EmailStatus.IGNORED);
         return InboxMessageResponse.of(m, false);
     }

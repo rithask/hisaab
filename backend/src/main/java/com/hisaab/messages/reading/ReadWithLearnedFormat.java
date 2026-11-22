@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
 import com.hisaab.messages.model.EmailStatus;
-import com.hisaab.messages.service.SmsReader;
+import com.hisaab.messages.service.LearnedFormatReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -13,11 +13,11 @@ import java.util.Optional;
  * transaction" skips the message; one that was paused (corrected too often) sends it for review.
  */
 @Component
-class KnownFormat implements ReadingStep {
-    private static final Logger log = LoggerFactory.getLogger(KnownFormat.class);
-    private final SmsReader reader;
+class ReadWithLearnedFormat implements ReadingStep {
+    private static final Logger log = LoggerFactory.getLogger(ReadWithLearnedFormat.class);
+    private final LearnedFormatReader reader;
 
-    KnownFormat(SmsReader reader) {
+    ReadWithLearnedFormat(LearnedFormatReader reader) {
         this.reader = reader;
     }
 
@@ -37,8 +37,8 @@ class KnownFormat implements ReadingStep {
 
     private void read(MessageReading r) {
         String parser = r.sms() ? "sms-learned" : "email-learned";
-        Optional<SmsReader.Match> learned = reader.match(r.raw.getChannel(), r.raw.getBodyText(), r.raw.getReceivedAt());
-        r.raw.setTemplate(learned.map(SmsReader.Match::template).orElse(null));
+        Optional<LearnedFormatReader.Match> learned = reader.match(r.raw.getChannel(), r.raw.getBodyText(), r.raw.getReceivedAt());
+        r.raw.setTemplate(learned.map(LearnedFormatReader.Match::template).orElse(null));
         if (learned.isEmpty() && reader.pausedFor(r.raw.getChannel(), r.raw.getBodyText()).isPresent()) {
             r.raw.setParser(parser);
             r.stop(EmailStatus.NEEDS_REVIEW, MessageReader.PAUSED_NOTE);

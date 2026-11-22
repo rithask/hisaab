@@ -20,8 +20,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /** The Data API answers errors as standard problem details (RFC 9457), unlike the app's own {"error": ...}. */
 @RestControllerAdvice(assignableTypes = DataApiController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
-public class DataApiErrors {
-    private static final Logger log = LoggerFactory.getLogger(DataApiErrors.class);
+public class DataApiExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(DataApiExceptionHandler.class);
 
     @ExceptionHandler(TokenForbiddenException.class)
     ResponseEntity<ProblemDetail> forbidden(TokenForbiddenException e) {
