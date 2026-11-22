@@ -1,5 +1,8 @@
 package com.hisaab.investments.service;
 
+import com.hisaab.common.util.Audit;
+import com.hisaab.investments.dto.HoldingResponse;
+import com.hisaab.investments.dto.PortfolioResponse;
 import com.hisaab.investments.dto.HoldingImportResponse;
 import com.hisaab.investments.dto.HoldingRequest;
 import com.hisaab.investments.model.AssetType;
@@ -36,6 +39,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.hisaab.common.exception.NotFound.notFound;
+
 @Service
 public class HoldingService {
     private static final Logger log = LoggerFactory.getLogger(HoldingService.class);
@@ -53,6 +58,26 @@ public class HoldingService {
         this.prices = prices;
         this.jdbc = jdbc;
         this.enabled = props.prices() == null || props.prices().enabled();
+    }
+
+    public PortfolioResponse portfolio() {
+        return PortfolioResponse.of(holdings.findAllByOrderByAssetTypeAscNameAsc().stream().map(HoldingResponse::of).toList());
+    }
+
+    /** Adds a holding, or updates the one already held with the same symbol. */
+    public HoldingResponse create(HoldingRequest in) {
+        String symbol = in.symbol() == null ? "" : in.symbol().trim().toUpperCase();
+        Holding holding = holdings.findByAssetTypeAndSymbol(in.assetType(), symbol).orElseGet(Holding::new);
+        return HoldingResponse.of(save(holding, in));
+    }
+
+    public HoldingResponse update(Long id, HoldingRequest in) {
+        return HoldingResponse.of(save(holdings.findById(id).orElseThrow(notFound("Holding")), in));
+    }
+
+    public void delete(Long id) {
+        Audit.log("Holding deleted id={}", id);
+        holdings.deleteById(id);
     }
 
     @Transactional

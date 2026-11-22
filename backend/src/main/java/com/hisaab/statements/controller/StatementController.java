@@ -2,60 +2,42 @@ package com.hisaab.statements.controller;
 
 import com.hisaab.statements.dto.AssignAccountRequest;
 import com.hisaab.statements.dto.StatementFileResponse;
-import com.hisaab.accounts.repository.AccountRepository;
-import com.hisaab.statements.model.StatementFile;
-import com.hisaab.statements.repository.StatementFileRepository;
-import com.hisaab.statements.service.StatementStorage;
-import org.springframework.core.io.FileSystemResource;
+import com.hisaab.statements.service.StatementFileService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import com.hisaab.common.exception.NotFoundException;
 import java.util.List;
-
-import static com.hisaab.common.exception.NotFound.notFound;
 
 /** Saved statement PDFs (Statements page): the list, the file itself, and which account one belongs to. */
 @RestController
 @RequestMapping("/api/statements")
 public class StatementController {
-    private final StatementFileRepository statements;
-    private final StatementStorage storage;
-    private final AccountRepository accounts;
+    private final StatementFileService statements;
 
-    public StatementController(StatementFileRepository statements, StatementStorage storage, AccountRepository accounts) {
+    public StatementController(StatementFileService statements) {
         this.statements = statements;
-        this.storage = storage;
-        this.accounts = accounts;
     }
 
     @GetMapping
-    @Transactional(readOnly = true)
     public List<StatementFileResponse> statements() {
-        return statements.findAllByOrderByReceivedAtDesc().stream().map(StatementFileResponse::of).toList();
+        return statements.list();
     }
 
     @GetMapping("/{id}/file")
     public ResponseEntity<Resource> download(@PathVariable Long id) {
-        StatementFile s = statements.findById(id).orElseThrow(notFound("Statement"));
-        Resource file = new FileSystemResource(storage.resolve(s.getStoredPath()));
-        if (!file.exists()) throw new NotFoundException("File is missing from storage");
+        StatementFileService.StoredPdf pdf = statements.file(id);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(s.getFileName()).build().toString())
-                .body(file);
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(pdf.fileName()).build().toString())
+                .body(pdf.content());
     }
 
     @PatchMapping("/{id}")
-    @Transactional
     public StatementFileResponse assign(@PathVariable Long id, @RequestBody AssignAccountRequest req) {
-        StatementFile s = statements.findById(id).orElseThrow(notFound("Statement"));
-        s.setAccount(req.accountId() == null ? null : accounts.findById(req.accountId()).orElseThrow(notFound("Account")));
-        return StatementFileResponse.of(s);
+        return statements.assign(id, req);
     }
 }

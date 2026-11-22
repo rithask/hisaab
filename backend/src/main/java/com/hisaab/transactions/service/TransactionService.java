@@ -81,6 +81,11 @@ public class TransactionService {
         this.prices = prices;
     }
 
+    /** Every tag in use, by name. */
+    public List<String> tagNames() {
+        return tags.findAllByOrderByNameAsc().stream().map(Tag::getName).toList();
+    }
+
     public Txn get(Long id) {
         return txns.findById(id).orElseThrow(notFound("Transaction " + id));
     }

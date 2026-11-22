@@ -8,6 +8,8 @@ import com.hisaab.common.model.Direction;
 import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
+import com.hisaab.auth.util.AuthLog;
+import com.hisaab.common.util.Audit;
 import com.hisaab.accounts.util.CardCycle;
 import com.hisaab.common.util.Money;
 import com.hisaab.transactions.repository.TxnRepository;
@@ -34,6 +36,13 @@ public class AccountService {
         this.accounts = accounts;
         this.txns = txns;
         this.balances = balances;
+    }
+
+    public void delete(Long id) {
+        Account account = get(id);
+        accounts.delete(account);
+        // deleting an account deletes its transactions too
+        Audit.log("Account deleted id={} name=\"{}\" with its transactions", id, AuthLog.clean(account.getName(), 60));
     }
 
     public Account get(Long id) {

@@ -3,10 +3,7 @@ package com.hisaab.accounts.controller;
 import com.hisaab.accounts.dto.AccountRequest;
 import com.hisaab.accounts.dto.AccountResponse;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.accounts.service.AccountService;
-import com.hisaab.auth.util.AuthLog;
-import com.hisaab.common.util.Audit;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,11 +12,8 @@ import java.util.List;
 @RequestMapping("/api/accounts")
 public class AccountController {
     private final AccountService service;
-    private final AccountRepository repo;
-
-    public AccountController(AccountService service, AccountRepository repo) {
+    public AccountController(AccountService service) {
         this.service = service;
-        this.repo = repo;
     }
 
     @GetMapping
@@ -44,9 +38,6 @@ public class AccountController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        var a = service.get(id);
-        repo.delete(a);
-        // deleting an account deletes its transactions too
-        Audit.log("Account deleted id={} name=\"{}\" with its transactions", id, AuthLog.clean(a.getName(), 60));
+        service.delete(id);
     }
 }
