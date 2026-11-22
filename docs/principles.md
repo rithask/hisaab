@@ -98,26 +98,47 @@ phone SMS shortcut ──POST /api/v1/sms (token)──────────�
 
 ### 3.2 Backend packages (`backend/src/main/java/com/hisaab`)
 
-The backend is packaged **by feature**: each package holds a feature's entities, repositories, services and
-controllers, so everything about one thing is in one place. Inside a package the usual layers still apply:
-controllers are thin (parse input, call a service, return a DTO; never return entities), services hold the logic
-and the transaction boundaries (`@Transactional`), and entities only change through services.
+The backend is packaged **by feature**: each package holds everything about one thing, split into the usual
+layers as sub-packages:
+
+| Sub-package | Holds | Rules |
+|---|---|---|
+| `controller` | REST endpoints | Thin: parse the request, call **one service**, return its answer. No repositories, no `@Transactional`, never an entity. Only web work stays here (uploads, download headers, the session). |
+| `service` | Logic | Owns the transaction boundaries (`@Transactional`) and is the only place entities change. A screen that needs several services gets one service that puts them together (`DashboardService`, `TransactionFacade`). |
+| `dto` | What the API reads and returns | One record per file: `…Request` for what the app sends, `…Response` for what it gets back (`Api…` for the Data API). Records that never leave the server (parser results, cursors) stay nested where they're used. |
+| `model` | Entities and enums | One enum per file, in the feature that owns it. |
+| `repository` | Spring Data repositories | Named `…Repository`. |
+| `exception` | That feature's own exceptions | Most code needs only the three in `common/exception`. |
+| `util` | Small stateless helpers | |
+
+Named sub-packages for a feature's own machinery sit alongside: `messages/parser`, `messages/reading`,
+`statements/parser`.
+
+**Errors.** Services throw `NotFoundException` (404), `BadRequestException` (400) or `NotAllowedException` (400,
+"not now"), with a message a person can act on; it's shown as is. `ApiExceptionHandler` (and
+`DataApiExceptionHandler` for `/api/v1`) logs every refused request once and turns anything unexpected into a 500
+whose message carries a short reference that's also in the log; internals never reach the screen. Work outside a
+request (scheduled jobs, background imports) catches and logs its own failures. Never swallow an exception
+silently: if it's safe to carry on, log why.
+
+**Names.** Classes say what they are in full (`Transaction`, not `Txn`); events end in `Event`; variables are
+named after what they hold (`account`, not `a`), except loop counters and short lambdas.
 
 | Package | Holds |
 |---|---|
 | `accounts` | Accounts and cards, balances, card billing cycles, balance-mismatch alerts |
-| `transactions` | Transactions and tags, transfers between my accounts, `TransactionViews` |
+| `transactions` | Transactions and tags, transfers between my accounts, `TransactionViews`, `TransactionFacade` |
 | `categories` | Categories, auto-filing rules and votes, payee names |
-| `people` | People, splits, repayments, `BalancesChanged` |
+| `people` | People, splits, repayments, `BalancesChangedEvent` |
 | `investments` | Holdings, mutual fund schemes, prices |
-| `messages` | Bank emails and SMS: IMAP sync, taking messages in, teaching, SMS learning; `parser/` (one parser per bank and format, behind `BankEmailParser`, plus `SmsParser`) and `reading/` (the reading pipeline) |
+| `messages` | Bank emails and SMS: IMAP sync, taking messages in (`MessageProcessor`), teaching, learned formats; `parser/` (one parser per bank and format, behind `BankEmailParser`, plus `SmsParser`) and `reading/` (the reading pipeline) |
 | `statements` | PDF text, statement parsers (one per bank and card, behind `StatementParser`), the review-then-import flow |
 | `reports` | Home's totals, income and spending reports, net worth history, year in review |
 | `watch` | Bills, subscriptions, unusual activity, card rewards |
 | `budgets`, `backups` | Those optional features |
 | `settings` | Small settings, feature switches (`FeatureService`, `@RequiresFeature`), Reset |
 | `dataapi` | The Data API (`/api/v1`) and its tokens |
-| `common` | Shared by many features: `Money`, `Names`, the enums most features use (`Direction`, `Institution`, `AccountType`), the account and person references many replies carry, `NotFound`, `Audit`, the error handler |
+| `common` | Shared by many features: `Money`, `Names`, the enums most features use (`Direction`, `Institution`, `AccountType`), the account and person references many replies carry, `PageResponse`, the exceptions and their handler, `NotFound`, `Audit` |
 | `config` | Security, sign-in (password, OIDC), the API token filter, SPA routing, `AppProperties` |
 
 A new feature gets its own package. Something two features need goes in the one that owns it (and is `public`), or
@@ -131,10 +152,10 @@ in `common` only when no feature owns it.
   table, never a query per row (`TransactionViews`; grouped queries like `BalanceService.current(list)` and
   `SplitService.balances(list)`). Check with the query count, not just the timing: test data is small.
 - **Domain events for follow-ups.** When a change means other things must be looked at again, the service that
-  made it publishes an event and the owner listens: `BalancesChanged` (something changed what people owe) makes
+  made it publishes an event and the owner listens: `BalancesChangedEvent` (something changed what people owe) makes
   `SplitService` look for repayments again. Use direct calls instead when the order matters or each caller needs a
   different subset; say why in a comment (as `TransactionService.afterCreate` does).
-- **Pipeline for incoming messages.** `MessageReader` runs small steps in order of trust (known format, parsers,
+- **Pipeline for incoming messages.** `MessageReader` runs small steps in order of trust (learned format, parsers,
   sender check, account, balance check, record, learn). A new rule is a new step or a change to one step, not
   another branch in a long method.
 - **Switches by annotation.** An optional feature's endpoints carry `@RequiresFeature(Feature.X)`; they're refused
