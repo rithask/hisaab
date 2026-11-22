@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -42,7 +43,9 @@ public final class ParseUtil {
             fmt("dd/MM/uu"), fmt("dd/MM/uuuu"), fmt("dd-MM-uu"), fmt("dd-MM-uuuu"), fmt("uuuu-MM-dd"));
 
     private static DateTimeFormatter fmt(String p) {
-        return new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(p).toFormatter(Locale.ENGLISH);
+        // strict: "31 Feb" is unreadable, not quietly 28 Feb
+        return new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(p).toFormatter(Locale.ENGLISH)
+                .withResolverStyle(ResolverStyle.STRICT);
     }
 
     static LocalDate date(String s) {
@@ -57,8 +60,43 @@ public final class ParseUtil {
         throw new IllegalArgumentException("Unrecognised date: " + s);
     }
 
+    private static final List<DateTimeFormatter> TIME_FORMATS = List.of(
+            fmt("H:mm:ss"), fmt("H:mm"), fmt("h:mm:ss a"), fmt("h:mm a"), fmt("h:mm:ssa"), fmt("h:mma"));
+
+    /** "16:44:02", "16:44", "4:44:02 PM", "4:44 pm". */
     static LocalTime time(String s) {
-        return s == null ? null : LocalTime.parse(s.trim());
+        if (s == null) return null;
+        String v = s.trim().replaceAll("(?i)\\s*IST$", "");
+        for (DateTimeFormatter f : TIME_FORMATS) {
+            try {
+                return LocalTime.parse(v, f);
+            } catch (DateTimeParseException ignored) {
+                // try next
+            }
+        }
+        throw new IllegalArgumentException("Unrecognised time: " + s);
+    }
+
+    /**
+     * The date, or null when it can't be read: an alert is still recorded, at the time the email arrived, rather
+     * than failing because a bank wrote its date a new way.
+     */
+    static LocalDate dateOrNull(String s) {
+        if (s == null) return null;
+        try {
+            return date(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** The time, or null when it can't be read (the time the email arrived is used instead). */
+    static LocalTime timeOrNull(String s) {
+        try {
+            return time(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**

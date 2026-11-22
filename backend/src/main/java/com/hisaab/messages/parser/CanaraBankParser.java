@@ -61,6 +61,6 @@ public class CanaraBankParser implements BankEmailParser {
 
         return Optional.of(new ParsedTransaction(Institution.CANARA, AccountType.BANK, dir,
                 amount(m.group(2)), currency(m.group(1)), m.group(5),
-                date(m.group(4)), null, party, ref, balance, false, null));
+                dateOrNull(m.group(4)), null, party, ref, balance, false, null));
     }
 }

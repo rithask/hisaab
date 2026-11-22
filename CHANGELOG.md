@@ -17,6 +17,11 @@ must do when upgrading (marked **Upgrade:**).
   account comes first in these, so they used to wait for review). An internal transfer's codes are kept as its
   reference instead of being shown as the payee.
 
+### Fixed
+- A bank alert email whose date can't be read is still recorded, at the time the email arrived, instead of being
+  marked as an error. An impossible date (31 Feb) is no longer quietly read as a different day, and 12-hour times
+  ("4:44 PM") are read.
+
 ## [0.14.0] - 2026-11-21
 
 ### Changed

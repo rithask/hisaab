@@ -228,6 +228,28 @@ class BankParsersTest {
     }
 
     @Test
+    void anUnreadableDateStillRecordsTheAlertAtTheTimeTheEmailArrived() {
+        // an impossible date where the date should be (details made up)
+        var p = new HdfcCreditCardParser().parse(html("alerts@hdfcbank.bank.in", "Alert", HDFC_DEBIT.replace("06 Nov, 2026", "31 Feb, 2026"))).orElseThrow();
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("692.00"));
+        assertThat(p.date()).isNull();
+        assertThat(p.time()).isNull();
+    }
+
+    @Test
+    void datesAndTimesAreReadLeniently() {
+        assertThat(ParseUtil.dateOrNull("31 Feb, 2026")).isNull();
+        assertThat(ParseUtil.dateOrNull("not a date")).isNull();
+        assertThat(ParseUtil.dateOrNull("21 Nov, 2026")).isEqualTo(LocalDate.of(2026, 11, 21));
+        assertThat(ParseUtil.timeOrNull("16:44:02")).isEqualTo(LocalTime.of(16, 44, 2));
+        assertThat(ParseUtil.timeOrNull("4:44 PM")).isEqualTo(LocalTime.of(16, 44));
+        assertThat(ParseUtil.timeOrNull("11:05:30 am")).isEqualTo(LocalTime.of(11, 5, 30));
+        assertThat(ParseUtil.timeOrNull("09:10:00 IST")).isEqualTo(LocalTime.of(9, 10));
+        assertThat(ParseUtil.timeOrNull("25:99")).isNull();
+        assertThat(ParseUtil.timeOrNull(null)).isNull();
+    }
+
+    @Test
     void parsersDoNotClaimEachOthersEmails() {
         var hdfc = html("x", "s", HDFC_DEBIT);
         var canara = html("x", "s", CANARA_DEBIT);

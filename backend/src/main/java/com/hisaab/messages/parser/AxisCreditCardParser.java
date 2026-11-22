@@ -59,14 +59,8 @@ public class AxisCreditCardParser implements BankEmailParser {
         LocalTime time = null;
         Matcher when = match(WHEN, labelled(text, "Date\\s*&\\s*Time"));
         if (when != null) {
-            try {
-                date = date(when.group(1));
-                time = time(when.group(2));
-            } catch (RuntimeException unreadable) {
-                // the email's received time is used instead
-                date = null;
-                time = null;
-            }
+            date = dateOrNull(when.group(1));
+            time = date == null ? null : timeOrNull(when.group(2)); // unreadable: the email's received time is used
         }
         String merchant = labelled(text, "Merchant\\s+Name");
         if (merchant != null) merchant = clean(NEXT_LABEL.matcher(merchant).replaceFirst(""));

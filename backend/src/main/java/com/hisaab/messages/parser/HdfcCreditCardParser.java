@@ -52,13 +52,13 @@ public class HdfcCreditCardParser implements BankEmailParser {
             boolean payment = dir == Direction.CREDIT && email.haystack().contains("payment");
             return Optional.of(new ParsedTransaction(Institution.HDFC, AccountType.CREDIT_CARD, dir,
                     amount(m.group(2)), currency(m.group(1)), m.group(4),
-                    date(m.group(6)), time(m.group(7)), clean(m.group(5)), null, null, payment, null));
+                    dateOrNull(m.group(6)), timeOrNull(m.group(7)), clean(m.group(5)), null, null, payment, null));
         }
         m = LEGACY.matcher(text);
         if (m.find()) {
             return Optional.of(new ParsedTransaction(Institution.HDFC, AccountType.CREDIT_CARD, Direction.DEBIT,
                     amount(m.group(3)), currency(m.group(2)), m.group(1),
-                    date(m.group(5)), time(m.group(6)), clean(m.group(4)), null, null, false, null));
+                    dateOrNull(m.group(5)), timeOrNull(m.group(6)), clean(m.group(4)), null, null, false, null));
         }
         m = PAYMENT.matcher(text);
         if (m.find() && email.haystack().matches("(?s).*(received|credited).*")) {

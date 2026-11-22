@@ -71,7 +71,7 @@ public class AxisBankAccountParser implements BankEmailParser {
             RefAndParty rp = splitNarration(info);
             return Optional.of(new ParsedTransaction(Institution.AXIS, AccountType.BANK, dir,
                     amount(am.group(3)), currency(am.group(2)), acm.group(1),
-                    date(dm.group(1)), time(dm.group(2)), rp.counterparty(), rp.reference(), balance, false, info));
+                    dateOrNull(dm.group(1)), timeOrNull(dm.group(2)), rp.counterparty(), rp.reference(), balance, false, info));
         }
 
         Matcher sm = SENTENCE.matcher(flat);
@@ -81,7 +81,7 @@ public class AxisBankAccountParser implements BankEmailParser {
             RefAndParty rp = splitNarration(info);
             return Optional.of(new ParsedTransaction(Institution.AXIS, AccountType.BANK, dir,
                     amount(sm.group(4)), currency(sm.group(3)), sm.group(1),
-                    date(sm.group(5)), time(sm.group(6)), rp.counterparty(), rp.reference(), balance, false, info));
+                    dateOrNull(sm.group(5)), timeOrNull(sm.group(6)), rp.counterparty(), rp.reference(), balance, false, info));
         }
 
         Matcher lm = LEGACY.matcher(flat);
@@ -93,7 +93,7 @@ public class AxisBankAccountParser implements BankEmailParser {
             RefAndParty rp = splitNarration(info);
             return Optional.of(new ParsedTransaction(Institution.AXIS, AccountType.BANK, dir,
                     amount(lm.group(2)), currency(lm.group(1)), lm.group(4),
-                    date(lm.group(5)), time(lm.group(6)), rp.counterparty(), rp.reference(), balance, false, info));
+                    dateOrNull(lm.group(5)), timeOrNull(lm.group(6)), rp.counterparty(), rp.reference(), balance, false, info));
         }
         return Optional.empty();
     }
