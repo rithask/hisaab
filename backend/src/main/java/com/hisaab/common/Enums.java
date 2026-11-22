@@ -6,7 +6,20 @@ public final class Enums {
 
     public enum AccountType { BANK, CREDIT_CARD, CASH }
 
-    public enum Institution { HDFC, AXIS, SBI, CANARA, OTHER }
+    public enum Institution {
+        HDFC("HDFC Bank"), AXIS("Axis Bank"), SBI("SBI"), CANARA("Canara Bank"), OTHER("bank");
+
+        private final String label;
+
+        Institution(String label) {
+            this.label = label;
+        }
+
+        /** How the bank is named in sentences ("isn't a known HDFC Bank address"). */
+        public String label() {
+            return label;
+        }
+    }
 
     public enum Direction { DEBIT, CREDIT }
 

@@ -43,7 +43,7 @@ public class SenderTrust {
 
     /** Whether an alert email from {@code from} with this provider verdict may be recorded as {@code bank}'s. */
     @Transactional(readOnly = true)
-    public Verdict judge(String from, String senderCheck, Institution bank, String bankName) {
+    public Verdict judge(String from, String senderCheck, Institution bank) {
         String domain = domainOf(from);
         if (FAIL.equals(senderCheck)) {
             return new Verdict(false, UNVERIFIED_SENDER, "Your mail provider couldn't confirm this really came from "
@@ -53,7 +53,7 @@ public class SenderTrust {
             return new Verdict(true, null, null);
         }
         return new Verdict(false, UNKNOWN_SENDER, "Sent from " + (domain == null ? "an unknown address" : domain)
-                + ", which isn't a known " + bankName + " address, so it wasn't recorded. If it's your bank, trust this sender.");
+                + ", which isn't a known " + bank.label() + " address, so it wasn't recorded. If it's your bank, trust this sender.");
     }
 
     private boolean isTrusted(String domain) {
