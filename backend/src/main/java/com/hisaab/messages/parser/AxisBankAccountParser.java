@@ -49,6 +49,11 @@ public class AxisBankAccountParser implements BankEmailParser {
     }
 
     @Override
+    public Institution institution() {
+        return Institution.AXIS;
+    }
+
+    @Override
     public Optional<ParsedTransaction> parse(EmailContent email) {
         String hay = email.haystack();
         if (!hay.contains("axis")) return Optional.empty();

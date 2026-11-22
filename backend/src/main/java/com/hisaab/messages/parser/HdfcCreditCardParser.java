@@ -42,6 +42,11 @@ public class HdfcCreditCardParser implements BankEmailParser {
     }
 
     @Override
+    public Institution institution() {
+        return Institution.HDFC;
+    }
+
+    @Override
     public Optional<ParsedTransaction> parse(EmailContent email) {
         String text = email.flat();
         if (!email.haystack().contains("hdfc")) return Optional.empty();

@@ -21,6 +21,8 @@ must do when upgrading (marked **Upgrade:**).
 - A bank alert email whose date can't be read is still recorded, at the time the email arrived, instead of being
   marked as an error. An impossible date (31 Feb) is no longer quietly read as a different day, and 12-hour times
   ("4:44 PM") are read.
+- Alert emails from a bank's own address are only read by that bank's parsers, in a fixed order, so one bank's
+  email can't be mistaken for another's. Forwarded alerts are still read by all of them.
 
 ## [0.14.0] - 2026-11-21
 

@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +74,13 @@ public class SenderTrust {
         if (at < 0) return null;
         String d = from.substring(at + 1).trim().toLowerCase(Locale.ROOT).replaceAll("[>\\s]+$", "");
         return d.isEmpty() ? null : d;
+    }
+
+    /** The bank this address belongs to, when it's one of a bank's own domains (not a forwarder or a trusted sender). */
+    public static Optional<Institution> bankOf(String from) {
+        String domain = domainOf(from);
+        if (domain == null) return Optional.empty();
+        return BANK_DOMAINS.entrySet().stream().filter(e -> matches(domain, e.getValue())).map(Map.Entry::getKey).findFirst();
     }
 
     /** {@code alerts.hdfcbank.net} matches {@code hdfcbank.net}; {@code hdfcbank.net.evil.com} doesn't. */

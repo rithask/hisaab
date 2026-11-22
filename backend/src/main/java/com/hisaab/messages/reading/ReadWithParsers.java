@@ -1,6 +1,8 @@
 package com.hisaab.messages.reading;
 
 import com.hisaab.common.Enums.EmailStatus;
+import com.hisaab.common.Enums.Institution;
+import com.hisaab.messages.SenderTrust;
 import com.hisaab.messages.parser.BankEmailParser;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;
@@ -8,14 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Step 2, when no taught format read it: an SMS goes to the general SMS reader, an email to each bank's parser in
- * turn. Nothing read it: it goes for review if it looks like a payment, otherwise it's ignored.
+ * Step 2, when no taught format read it: an SMS goes to the general SMS reader, an email to its bank's parsers (by
+ * the sender's domain; every bank's when it's not from a bank). Nothing read it: it goes for review if it looks like a payment, otherwise it's ignored.
  */
 @Component
 class ReadWithParsers implements ReadingStep {
@@ -29,7 +32,17 @@ class ReadWithParsers implements ReadingStep {
 
     ReadWithParsers(SmsParser smsParser, List<BankEmailParser> parsers) {
         this.smsParser = smsParser;
-        this.parsers = parsers;
+        // a fixed order, so the same email is always read the same way
+        this.parsers = parsers.stream().sorted(Comparator.comparing(BankEmailParser::name)).toList();
+    }
+
+    /**
+     * The parsers to offer an email to: its bank's, when it comes from one of a bank's own domains; otherwise every
+     * one (a forwarded alert, or one from a sender I trusted).
+     */
+    List<BankEmailParser> parsersFor(String from) {
+        Optional<Institution> bank = SenderTrust.bankOf(from);
+        return bank.map(b -> parsers.stream().filter(p -> p.institution() == b).toList()).orElse(parsers);
     }
 
     @Override
@@ -59,7 +72,7 @@ class ReadWithParsers implements ReadingStep {
     }
 
     private void readEmail(MessageReading r) {
-        for (BankEmailParser parser : parsers) {
+        for (BankEmailParser parser : parsersFor(r.raw.getFromAddress())) {
             Optional<ParsedTransaction> parsed;
             try {
                 parsed = parser.parse(r.content);

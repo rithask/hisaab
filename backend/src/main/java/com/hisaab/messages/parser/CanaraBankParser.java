@@ -38,6 +38,11 @@ public class CanaraBankParser implements BankEmailParser {
     }
 
     @Override
+    public Institution institution() {
+        return Institution.CANARA;
+    }
+
+    @Override
     public Optional<ParsedTransaction> parse(EmailContent email) {
         if (!email.haystack().contains("canara")) return Optional.empty();
         String text = email.flat();
