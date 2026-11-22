@@ -179,6 +179,55 @@ class BankParsersTest {
     }
 
     @Test
+    void hdfcCardSpendUnderAPaymentSubjectIsNotABillPayment() {
+        // HDFC's subject for a card spend (Nov 2026) says "payment"; the spend must stay a spend (details made up)
+        String body = "<html><body><table><tr><td>Dear Customer,<br><br>Greetings from HDFC Bank.<br><br>We would like to inform you that "
+                + "<b>Rs. 318.00</b> has been debited from your HDFC Bank Credit Card ending <b>6619</b> towards <b>PAY*SOME FOOD APP</b> on "
+                + "<b>03 Dec, 2026 at 13:20:41</b>. <br>To check your available balance, outstanding amount, or view recent transactions, you may use:"
+                + "<ul><li><b>Mycards:</b>https://example.com</li></ul></td></tr></table></body></html>";
+        var p = new HdfcCreditCardParser().parse(html("alerts@hdfcbank.bank.in", "A payment was made using your Credit Card", body)).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.DEBIT);
+        assertThat(p.cardPayment()).isFalse();
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("318.00"));
+        assertThat(p.counterparty()).isEqualTo("PAY*SOME FOOD APP");
+        assertThat(p.time()).isEqualTo(LocalTime.of(13, 20, 41));
+    }
+
+    /** Canara sends plain text (Nov 2026); every detail here is made up. */
+    private static EmailContent canaraPlain(String sentence) {
+        String body = "Dear Customer,\n\nThanking you for banking with Canara Bank.\n\n" + sentence
+                + "\n\n\nThis is an auto generated mail\n";
+        return new EmailContent("canarabank@canarabank.com", "UPI/IMPS/MB Transaction Alert", Instant.parse("2026-12-04T09:10:00Z"),
+                HtmlText.normaliseLines(body));
+    }
+
+    @Test
+    void canaraPlainTextCreditFromAPerson() {
+        var p = new CanaraBankParser().parse(canaraPlain("An amount of INR 2,750.00 has been CREDITED on 04/12/26 to your account  XXXX4471 "
+                + "from RAHUL KUMAR with UPI Ref No.:600099998888. Total Available Balance INR 12,040.15.If you are not expecting this credit "
+                + "or suspect any fraudulent activity, please contact: 18000000000")).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.CREDIT);
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("2750.00"));
+        assertThat(p.last4()).isEqualTo("4471");
+        assertThat(p.date()).isEqualTo(LocalDate.of(2026, 12, 4));
+        assertThat(p.time()).isNull();
+        assertThat(p.counterparty()).isEqualTo("RAHUL KUMAR");
+        assertThat(p.reference()).isEqualTo("600099998888");
+        assertThat(p.balance()).isEqualByComparingTo(new BigDecimal("12040.15"));
+    }
+
+    @Test
+    void canaraPlainTextDebitToAShop() {
+        var p = new CanaraBankParser().parse(canaraPlain("An amount of INR 45.00 has been DEBITED on 05/12/26 from your account XXXX4471 "
+                + "to Corner Bake with UPI Ref No.:600011113333. Total Available Balance INR 11,995.15.To report fraud & stop further debit "
+                + "transaction, Call : 18000000000.\n\nIf the transaction was not initiated by you, send an email to block.")).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.DEBIT);
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("45.00"));
+        assertThat(p.counterparty()).isEqualTo("Corner Bake");
+        assertThat(p.balance()).isEqualByComparingTo(new BigDecimal("11995.15"));
+    }
+
+    @Test
     void parsersDoNotClaimEachOthersEmails() {
         var hdfc = html("x", "s", HDFC_DEBIT);
         var canara = html("x", "s", CANARA_DEBIT);
