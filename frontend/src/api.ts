@@ -491,6 +491,10 @@ export interface Learned {
   formats: { id: number; skeleton: string; sample?: string; institution?: string; direction?: Direction; hits: number; lastUsedAt?: string; channel: 'SMS' | 'EMAIL'; kind: 'TXN' | 'SKIP'; corrections: number; paused: boolean; auto: boolean }[]
   payees: { id: number; rawKey: string; displayName: string; hits: number }[]
   senders: number
+  /** email domains I trusted myself */
+  trustedDomains: { domain: string; since?: string }[]
+  /** each bank's own email domains, built in: always trusted, can't be removed */
+  bankDomains: { institution: string; name: string; domains: string[] }[]
 }
 
 export type LineKind = 'MATCH' | 'POSSIBLE' | 'NEW'

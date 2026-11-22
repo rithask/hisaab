@@ -3,14 +3,14 @@ import { GraduationCap, X } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { api, type Learned } from '../../api'
 import { Card, Confirm, FieldLabel, IconBadge, IconButton, TextButton } from '../../components/ui'
-import { dateTime, plural } from '../../format'
+import { dateTime, plural, shortDate } from '../../format'
 import { useMoneyMutation } from '../../hooks'
 
 type Format = Learned['formats'][number]
 
 /**
  * Everything the app has picked up from my corrections, each with a way to make it forget a mistake: message
- * wordings and payee names.
+ * wordings, payee names, and the email senders it trusts.
  */
 export function LearnedCard() {
   const learned = useQuery({ queryKey: ['sms-learned'], queryFn: () => api<Learned>('/sms/learned') })
@@ -36,6 +36,7 @@ export function LearnedCard() {
           )}
           {l.formats.length > 0 && <Formats formats={l.formats} />}
           {l.payees.length > 0 && <Payees payees={l.payees} />}
+          <EmailSenders trusted={l.trustedDomains} banks={l.bankDomains} />
         </div>
       )}
     </Card>
@@ -112,6 +113,40 @@ function Payees({ payees }: { payees: Learned['payees'] }) {
           </ForgetRow>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/** Who may send transaction alerts: each bank's own addresses (built in), then the senders I trusted. */
+function EmailSenders({ trusted, banks }: { trusted: Learned['trustedDomains']; banks: Learned['bankDomains'] }) {
+  const untrust = useMoneyMutation((domain: string) => api(`/trusted-senders/${encodeURIComponent(domain)}`, { method: 'DELETE' }))
+  return (
+    <section>
+      <FieldLabel>Trusted email senders</FieldLabel>
+      <ul className="divide-y divide-line rounded-box bg-surface-2 px-3">
+        {banks.map((b) => (
+          <li key={b.institution} className="py-2.5 text-small">
+            <p className="font-medium">{b.name}</p>
+            <p className="ink-2 mt-0.5 break-words text-caption">{b.domains.join(' · ')}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="ink-3 mt-2 px-1 text-caption">Your banks' own addresses are built in and always trusted.</p>
+      {trusted.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {trusted.map((t) => (
+            <ForgetRow key={t.domain} ask={`Stop trusting ${t.domain}? Its alerts will wait for review.`} yes="Stop trusting" label={`Stop trusting ${t.domain}`} busy={untrust.isPending} onForget={() => untrust.mutate(t.domain)}>
+              <span className="min-w-0 flex-1 truncate font-medium">{t.domain}</span>
+              {t.since && <span className="ink-3 shrink-0 text-micro">trusted {shortDate(t.since)}</span>}
+            </ForgetRow>
+          ))}
+        </ul>
+      )}
+      <p className="ink-3 mt-2 px-1 text-caption">
+        {trusted.length > 0
+          ? "Senders you trusted (from a held email, or by teaching one) can be removed; what was already recorded stays."
+          : 'Senders you trust from a held email, or by teaching one, show up here.'}
+      </p>
     </section>
   )
 }

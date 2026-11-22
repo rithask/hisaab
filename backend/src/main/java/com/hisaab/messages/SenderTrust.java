@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,6 +67,20 @@ public class SenderTrust {
         String d = domain == null ? null : domain.trim().toLowerCase(Locale.ROOT);
         if (d == null || !d.matches("[a-z0-9.-]+\\.[a-z]{2,}")) throw new IllegalArgumentException("Not an email domain: " + domain);
         if (!trusted.existsById(d)) trusted.save(new TrustedSender(d));
+    }
+
+    /** The domains I've trusted myself (the banks' own are built in and not listed), by domain. */
+    @Transactional(readOnly = true)
+    public List<TrustedSender> trustedSenders() {
+        return trusted.findAllByOrderByDomainAsc();
+    }
+
+    /** Stop trusting a domain: its later alerts wait for review again. What was already recorded stays. */
+    @Transactional
+    public void untrust(String domain) {
+        String d = domain == null ? null : domain.trim().toLowerCase(Locale.ROOT);
+        if (d == null || !trusted.existsById(d)) throw new NoSuchElementException("That sender isn't trusted");
+        trusted.deleteById(d);
     }
 
     public static String domainOf(String from) {

@@ -16,6 +16,9 @@ must do when upgrading (marked **Upgrade:**).
 - **Axis Bank account credits** are now read: "your A/c no. XX… has been credited with INR … on … by …" (the
   account comes first in these, so they used to wait for review). An internal transfer's codes are kept as its
   reference instead of being shown as the payee.
+- Settings → What it learned shows **which email senders are trusted**: each bank's own addresses (built in, always
+  trusted) and the senders you trusted yourself, with the date and a way to stop trusting one (its later alerts
+  wait for review again; what was already recorded stays).
 
 ### Fixed
 - A bank alert email whose date can't be read is still recorded, at the time the email arrived, instead of being
