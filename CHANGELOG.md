@@ -9,6 +9,11 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- **Axis Bank credit card** alert emails are now read ("Here's the summary of your Axis Bank Credit Card
+  Transaction"): amount, merchant, card, date and time. Refunds and bill payments from the card aren't read yet and
+  wait for review.
+
 ## [0.14.0] - 2026-11-21
 
 ### Changed

@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class ParseUtil {
@@ -58,6 +59,27 @@ public final class ParseUtil {
 
     static LocalTime time(String s) {
         return s == null ? null : LocalTime.parse(s.trim());
+    }
+
+    /**
+     * The value next to a label in a table-style alert ("Transaction Amount:" then "INR 630"): what follows the
+     * label on its line, or else the next non-empty line. The label is a regex; a trailing "*", ":" or "." after it
+     * is allowed. What follows the value on the same line is left for the caller to cut. Null when the label isn't there.
+     */
+    static String labelled(String text, String label) {
+        if (text == null) return null;
+        // a label starting its line first; else one mid-line (a table that came out on one line)
+        Matcher m = Pattern.compile("(?im)^\\s*" + label + "\\s*\\*?\\s*[:.]?[ \\t]*(.*)$").matcher(text);
+        if (!m.find()) {
+            m = Pattern.compile("(?im)\\b" + label + "\\s*\\*?\\s*[:.]?[ \\t]*(.*)$").matcher(text);
+            if (!m.find()) return null;
+        }
+        String same = m.group(1).trim();
+        if (!same.isEmpty()) return same;
+        for (String line : text.substring(m.end()).split("\\R")) {
+            if (!line.isBlank()) return line.trim();
+        }
+        return null;
     }
 
     public static String clean(String s) {
