@@ -1,10 +1,10 @@
 package com.hisaab.messages.parser;
 
-import com.hisaab.common.Enums.AccountType;
-import com.hisaab.common.Enums.Direction;
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.EmailContent;
-import com.hisaab.messages.HtmlText;
+import com.hisaab.common.model.Enums.AccountType;
+import com.hisaab.common.model.Enums.Direction;
+import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.messages.model.EmailContent;
+import com.hisaab.messages.util.HtmlText;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

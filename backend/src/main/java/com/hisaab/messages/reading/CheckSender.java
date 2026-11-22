@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.Enums.EmailStatus;
-import com.hisaab.messages.SenderTrust;
+import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.service.SenderTrust;
 import org.springframework.stereotype.Component;
 
 /** Step 4, email: an alert is only recorded when it really comes from its bank (or a sender I trusted). */

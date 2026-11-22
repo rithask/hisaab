@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.SmsSenders;
+import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.messages.service.SmsSenders;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

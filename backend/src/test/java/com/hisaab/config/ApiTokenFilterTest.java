@@ -1,7 +1,7 @@
 package com.hisaab.config;
 
-import com.hisaab.dataapi.ApiToken;
-import com.hisaab.dataapi.ApiToken.Job;
+import com.hisaab.dataapi.model.ApiToken;
+import com.hisaab.dataapi.model.ApiToken.Job;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;

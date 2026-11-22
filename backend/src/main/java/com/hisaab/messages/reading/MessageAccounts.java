@@ -1,12 +1,12 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.accounts.Account;
-import com.hisaab.accounts.AccountRepo;
-import com.hisaab.common.Enums.AccountType;
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.AccountMatch;
-import com.hisaab.messages.SmsSenders;
+import com.hisaab.accounts.model.Account;
+import com.hisaab.accounts.repository.AccountRepository;
+import com.hisaab.common.model.Enums.AccountType;
+import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.messages.parser.ParsedTransaction;
+import com.hisaab.messages.service.SmsSenders;
+import com.hisaab.messages.util.AccountMatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -19,10 +19,10 @@ import java.util.Optional;
 public class MessageAccounts {
     private static final Logger log = LoggerFactory.getLogger(MessageAccounts.class);
 
-    private final AccountRepo accounts;
+    private final AccountRepository accounts;
     private final SmsSenders senders;
 
-    public MessageAccounts(AccountRepo accounts, SmsSenders senders) {
+    public MessageAccounts(AccountRepository accounts, SmsSenders senders) {
         this.accounts = accounts;
         this.senders = senders;
     }

@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.accounts.BalanceService;
-import com.hisaab.common.Enums.Direction;
+import com.hisaab.accounts.service.BalanceService;
+import com.hisaab.common.model.Enums.Direction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

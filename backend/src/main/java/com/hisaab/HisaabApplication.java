@@ -1,6 +1,6 @@
 package com.hisaab;
 
-import com.hisaab.common.Money;
+import com.hisaab.common.util.Money;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;

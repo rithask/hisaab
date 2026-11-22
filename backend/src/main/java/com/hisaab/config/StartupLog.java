@@ -1,7 +1,7 @@
 package com.hisaab.config;
 
-import com.hisaab.common.Money;
-import com.hisaab.settings.FeatureService;
+import com.hisaab.common.util.Money;
+import com.hisaab.settings.service.FeatureService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

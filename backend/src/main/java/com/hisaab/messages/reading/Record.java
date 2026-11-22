@@ -1,9 +1,9 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.Enums.EmailStatus;
-import com.hisaab.messages.SmsSenders;
-import com.hisaab.transactions.TransactionService;
-import com.hisaab.transactions.Txn;
+import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.service.SmsSenders;
+import com.hisaab.transactions.model.Txn;
+import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

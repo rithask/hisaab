@@ -1,12 +1,12 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.accounts.Account;
-import com.hisaab.common.Enums.Channel;
-import com.hisaab.common.Enums.EmailStatus;
-import com.hisaab.messages.EmailContent;
-import com.hisaab.messages.RawEmail;
+import com.hisaab.accounts.model.Account;
+import com.hisaab.common.model.Enums.Channel;
+import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.model.EmailContent;
+import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.parser.ParsedTransaction;
-import com.hisaab.transactions.Txn;
+import com.hisaab.transactions.model.Txn;
 
 /**
  * One stored message being read: what the steps of {@link MessageReader} have worked out so far. A step either adds

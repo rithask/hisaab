@@ -1,11 +1,11 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.Enums.EmailStatus;
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.SenderTrust;
+import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.messages.parser.BankEmailParser;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;
+import com.hisaab.messages.service.SenderTrust;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

@@ -1,8 +1,8 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.Enums.Channel;
-import com.hisaab.messages.EmailContent;
-import com.hisaab.messages.RawEmail;
+import com.hisaab.common.model.Enums.Channel;
+import com.hisaab.messages.model.EmailContent;
+import com.hisaab.messages.model.RawEmail;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

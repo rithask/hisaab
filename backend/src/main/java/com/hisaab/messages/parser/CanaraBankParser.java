@@ -1,9 +1,9 @@
 package com.hisaab.messages.parser;
 
-import com.hisaab.common.Enums.AccountType;
-import com.hisaab.common.Enums.Direction;
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.EmailContent;
+import com.hisaab.common.model.Enums.AccountType;
+import com.hisaab.common.model.Enums.Direction;
+import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.messages.model.EmailContent;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

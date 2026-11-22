@@ -1,7 +1,7 @@
 package com.hisaab.messages.parser;
 
-import com.hisaab.common.Enums.Institution;
-import com.hisaab.messages.EmailContent;
+import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.messages.model.EmailContent;
 
 import java.util.Optional;
 
