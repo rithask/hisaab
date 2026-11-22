@@ -1,7 +1,7 @@
 package com.hisaab.statements.parser;
 
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Direction;
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
 import com.hisaab.statements.service.StatementImportService;
 import org.junit.jupiter.api.Test;
 

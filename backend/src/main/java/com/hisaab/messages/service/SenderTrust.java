@@ -1,6 +1,6 @@
 package com.hisaab.messages.service;
 
-import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.common.model.Institution;
 import com.hisaab.messages.model.TrustedSender;
 import com.hisaab.messages.repository.TrustedSenderRepository;
 import org.springframework.stereotype.Service;

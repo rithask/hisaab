@@ -1,10 +1,10 @@
 package com.hisaab.reports.service;
 
+import com.hisaab.common.model.AccountType;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.accounts.service.AccountService.AccountView;
 import com.hisaab.common.dto.Dtos.HoldingDto;
 import com.hisaab.common.dto.Dtos.PortfolioDto;
-import com.hisaab.common.model.Enums.AccountType;
 import com.hisaab.investments.repository.HoldingRepository;
 import com.hisaab.people.repository.PersonRepository;
 import com.hisaab.people.service.SplitService;

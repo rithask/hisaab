@@ -1,7 +1,7 @@
 package com.hisaab.messages.model;
 
-import com.hisaab.common.model.Enums.Institution;
 import jakarta.persistence.*;
+import com.hisaab.common.model.Institution;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

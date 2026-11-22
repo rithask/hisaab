@@ -1,10 +1,10 @@
 package com.hisaab.transactions.service;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.people.model.SettlementDirection;
+import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.common.dto.Dtos.PersonRef;
 import com.hisaab.common.dto.Dtos.TxnDto;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.SettlementDirection;
-import com.hisaab.common.model.Enums.SettlementStatus;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
 import com.hisaab.people.model.SplitShare;

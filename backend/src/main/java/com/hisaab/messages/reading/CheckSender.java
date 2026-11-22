@@ -1,6 +1,6 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.service.SenderTrust;
 import org.springframework.stereotype.Component;
 

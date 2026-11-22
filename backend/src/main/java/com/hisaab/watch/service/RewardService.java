@@ -1,8 +1,8 @@
 package com.hisaab.watch.service;
 
+import com.hisaab.common.model.AccountType;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
-import com.hisaab.common.model.Enums.AccountType;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;

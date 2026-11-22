@@ -1,6 +1,6 @@
 package com.hisaab.investments.repository;
 
-import com.hisaab.common.model.Enums.AssetType;
+import com.hisaab.investments.model.AssetType;
 import com.hisaab.investments.model.Holding;
 import org.springframework.data.jpa.repository.JpaRepository;
 

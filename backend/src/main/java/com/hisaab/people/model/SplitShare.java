@@ -1,6 +1,5 @@
 package com.hisaab.people.model;
 
-import com.hisaab.common.model.Enums.SplitMethod;
 import com.hisaab.transactions.model.Txn;
 import jakarta.persistence.*;
 import lombok.Getter;

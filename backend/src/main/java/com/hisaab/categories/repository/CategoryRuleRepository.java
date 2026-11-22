@@ -1,7 +1,7 @@
 package com.hisaab.categories.repository;
 
+import com.hisaab.categories.model.RuleMatch;
 import com.hisaab.categories.model.CategoryRule;
-import com.hisaab.common.model.Enums.RuleMatch;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

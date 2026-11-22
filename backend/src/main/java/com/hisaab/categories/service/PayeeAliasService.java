@@ -1,8 +1,8 @@
 package com.hisaab.categories.service;
 
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.categories.model.PayeeAlias;
 import com.hisaab.categories.repository.PayeeAliasRepository;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.common.util.Names;
 import com.hisaab.transactions.model.Txn;
 import com.hisaab.transactions.repository.TxnRepository;

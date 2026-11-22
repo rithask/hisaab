@@ -1,7 +1,5 @@
 package com.hisaab.categories.model;
 
-import com.hisaab.common.model.Enums.RuleMatch;
-import com.hisaab.common.model.Enums.RuleSource;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

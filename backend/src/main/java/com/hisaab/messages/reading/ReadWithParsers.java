@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.model.Enums.EmailStatus;
-import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.common.model.Institution;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.parser.BankEmailParser;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.parser.SmsParser;

@@ -1,8 +1,8 @@
 package com.hisaab.people.service;
 
-import com.hisaab.common.model.Enums.SettlementDirection;
-import com.hisaab.common.model.Enums.SettlementStatus;
-import com.hisaab.common.model.Enums.SplitMethod;
+import com.hisaab.people.model.SettlementDirection;
+import com.hisaab.people.model.SettlementStatus;
+import com.hisaab.people.model.SplitMethod;
 import com.hisaab.common.util.Audit;
 import com.hisaab.common.util.Money;
 import com.hisaab.common.util.Names;

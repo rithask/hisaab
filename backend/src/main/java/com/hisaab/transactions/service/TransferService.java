@@ -1,8 +1,8 @@
 package com.hisaab.transactions.service;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.common.util.Names;
 import com.hisaab.settings.service.SettingsService;
 import com.hisaab.transactions.model.Txn;

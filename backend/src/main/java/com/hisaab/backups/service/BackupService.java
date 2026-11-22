@@ -1,8 +1,8 @@
 package com.hisaab.backups.service;
 
+import com.hisaab.settings.model.Feature;
 import com.hisaab.common.util.Money;
 import com.hisaab.settings.service.FeatureService;
-import com.hisaab.settings.service.FeatureService.Feature;
 import com.hisaab.settings.service.SettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

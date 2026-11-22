@@ -1,6 +1,6 @@
 package com.hisaab.settings.service;
 
-import com.hisaab.settings.service.ResetService.Part;
+import com.hisaab.settings.model.ResetPart;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -11,34 +11,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ResetServiceTest {
     @Test
     void clearingTheDataAlsoClearsWhatWasLearnedAndCategoriesNeedTheData() {
-        assertThat(ResetService.withNeeded(List.of(Part.DATA))).containsExactlyInAnyOrder(Part.DATA, Part.LEARNED);
-        assertThat(ResetService.withNeeded(List.of(Part.CATEGORIES))).containsExactlyInAnyOrder(Part.CATEGORIES, Part.DATA, Part.LEARNED);
-        assertThat(ResetService.withNeeded(List.of(Part.LEARNED))).containsExactly(Part.LEARNED);
-        assertThat(ResetService.withNeeded(List.of(Part.SETTINGS, Part.CONNECTIONS))).containsExactlyInAnyOrder(Part.SETTINGS, Part.CONNECTIONS);
+        assertThat(ResetService.withNeeded(List.of(ResetPart.DATA))).containsExactlyInAnyOrder(ResetPart.DATA, ResetPart.LEARNED);
+        assertThat(ResetService.withNeeded(List.of(ResetPart.CATEGORIES))).containsExactlyInAnyOrder(ResetPart.CATEGORIES, ResetPart.DATA, ResetPart.LEARNED);
+        assertThat(ResetService.withNeeded(List.of(ResetPart.LEARNED))).containsExactly(ResetPart.LEARNED);
+        assertThat(ResetService.withNeeded(List.of(ResetPart.SETTINGS, ResetPart.CONNECTIONS))).containsExactlyInAnyOrder(ResetPart.SETTINGS, ResetPart.CONNECTIONS);
     }
 
     @Test
     void eachPartTouchesOnlyItsOwnTables() {
-        String learned = String.join("\n", ResetService.statements(Set.of(Part.LEARNED)));
+        String learned = String.join("\n", ResetService.statements(Set.of(ResetPart.LEARNED)));
         assertThat(learned).contains("category_rule where source <> 'SYSTEM'", "payee_alias", "sms_template")
                 .doesNotContain("delete from txn", "delete from account\n", "delete from category\n", "app_setting");
 
-        String settings = String.join("\n", ResetService.statements(Set.of(Part.SETTINGS)));
+        String settings = String.join("\n", ResetService.statements(Set.of(ResetPart.SETTINGS)));
         assertThat(settings).contains("feature.%", "owner.name").doesNotContain("txn", "imap", "mail.", "backup.", "oidc");
 
-        String connections = String.join("\n", ResetService.statements(Set.of(Part.CONNECTIONS)));
+        String connections = String.join("\n", ResetService.statements(Set.of(ResetPart.CONNECTIONS)));
         assertThat(connections).contains("api_token", "oidc.link.%").doesNotContain("delete from txn", "feature.");
     }
 
     @Test
     void neverTouchesSignInMailProgressOrBackups() {
-        String all = String.join("\n", ResetService.statements(Set.of(Part.values())));
+        String all = String.join("\n", ResetService.statements(Set.of(ResetPart.values())));
         assertThat(all).doesNotContain("imap.", "mail.", "backup.", "mf_scheme");
     }
 
     @Test
     void childrenAreDeletedBeforeTheirParents() {
-        List<String> sql = ResetService.statements(ResetService.withNeeded(List.of(Part.CATEGORIES)));
+        List<String> sql = ResetService.statements(ResetService.withNeeded(List.of(ResetPart.CATEGORIES)));
         assertThat(sql.indexOf("delete from txn")).isLessThan(sql.indexOf("delete from account"))
                 .isLessThan(sql.indexOf("delete from person"));
         assertThat(sql.indexOf("delete from split_share")).isLessThan(sql.indexOf("delete from txn"));

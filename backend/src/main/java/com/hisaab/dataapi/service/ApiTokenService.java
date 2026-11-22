@@ -1,9 +1,9 @@
 package com.hisaab.dataapi.service;
 
+import com.hisaab.dataapi.model.TokenJob;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.categories.repository.CategoryRepository;
 import com.hisaab.dataapi.model.ApiToken;
-import com.hisaab.dataapi.model.ApiToken.Job;
 import com.hisaab.dataapi.repository.ApiTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,9 +49,9 @@ public class ApiTokenService {
      * @param accounts   account ids it may see or add to; null for all
      * @param moneyIn    also money coming in (otherwise money out only)
      */
-    public record TokenInput(String name, Job job, List<String> categories, List<Long> accounts, Boolean moneyIn, Boolean includeNotes) {}
+    public record TokenInput(String name, TokenJob job, List<String> categories, List<Long> accounts, Boolean moneyIn, Boolean includeNotes) {}
 
-    public record TokenView(Long id, String name, Job job, String hint, List<String> categories, List<Long> accounts,
+    public record TokenView(Long id, String name, TokenJob job, String hint, List<String> categories, List<Long> accounts,
                             boolean moneyIn, boolean includeNotes, Instant createdAt, Instant lastUsedAt) {}
 
     public record Created(String token, TokenView view) {}
@@ -120,13 +120,13 @@ public class ApiTokenService {
         if (name.isEmpty()) throw new BadRequestException("Give the token a name, like \"Mileage app\"");
         if (name.length() > 60) throw new BadRequestException("Keep the name under 60 characters");
         t.setName(name);
-        Job job = t.getJob();
-        boolean usesCategories = job == Job.READ_TRANSACTIONS || job == Job.ADD_TRANSACTIONS || job == Job.READ_TOTALS;
-        boolean usesAccounts = job != Job.SEND_SMS;
+        TokenJob job = t.getJob();
+        boolean usesCategories = job == TokenJob.READ_TRANSACTIONS || job == TokenJob.ADD_TRANSACTIONS || job == TokenJob.READ_TOTALS;
+        boolean usesAccounts = job != TokenJob.SEND_SMS;
         t.setCategoryIds(usesCategories ? categoryLimit(in.categories()) : null);
         t.setAccountIds(usesAccounts ? accountLimit(in.accounts()) : null);
         t.setMoneyIn(usesCategories && Boolean.TRUE.equals(in.moneyIn()));
-        t.setIncludeNotes(job != Job.READ_TRANSACTIONS || !Boolean.FALSE.equals(in.includeNotes()));
+        t.setIncludeNotes(job != TokenJob.READ_TRANSACTIONS || !Boolean.FALSE.equals(in.includeNotes()));
     }
 
     private String categoryLimit(List<String> ids) {

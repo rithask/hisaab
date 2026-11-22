@@ -1,8 +1,8 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.EmailStatus;
-import com.hisaab.common.model.Enums.TxnSource;
+import com.hisaab.messages.model.Channel;
+import com.hisaab.messages.model.EmailStatus;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.parser.SmsParser;
 import com.hisaab.messages.service.SmsLearningService;

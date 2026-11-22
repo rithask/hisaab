@@ -1,5 +1,6 @@
 package com.hisaab.settings.service;
 
+import com.hisaab.settings.model.Feature;
 import com.hisaab.common.util.Audit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,20 +21,6 @@ import java.util.Map;
 public class FeatureService {
     private static final Logger log = LoggerFactory.getLogger(FeatureService.class);
 
-    public enum Feature {
-        BACKUPS, BUDGETS, REWARDS, DATA_API(false);
-
-        final boolean onByDefault;
-
-        Feature() {
-            this(true);
-        }
-
-        Feature(boolean onByDefault) {
-            this.onByDefault = onByDefault;
-        }
-    }
-
     private final SettingsService settings;
 
     public FeatureService(SettingsService settings) {
@@ -41,7 +28,7 @@ public class FeatureService {
     }
 
     public boolean on(Feature f) {
-        return Boolean.parseBoolean(settings.get(key(f)).orElse(Boolean.toString(f.onByDefault)));
+        return Boolean.parseBoolean(settings.get(key(f)).orElse(Boolean.toString(f.onByDefault())));
     }
 
     /** Refuses the request (400 with a readable message) when the feature is switched off. */

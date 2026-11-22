@@ -1,15 +1,15 @@
 package com.hisaab.transactions.service;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.messages.model.Channel;
+import com.hisaab.people.model.SettlementStatus;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.service.BalanceService;
 import com.hisaab.categories.model.Category;
 import com.hisaab.categories.repository.CategoryRepository;
 import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.categories.service.PayeeAliasService;
-import com.hisaab.common.model.Enums;
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.common.util.Audit;
 import com.hisaab.common.util.Money;
 import com.hisaab.common.util.Names;
@@ -469,7 +469,7 @@ public class TransactionService {
                 var repaid = query.subquery(BigDecimal.class);
                 var st = repaid.from(Settlement.class);
                 repaid.select(cb.coalesce(cb.sum(st.<BigDecimal>get("amount")), BigDecimal.ZERO))
-                        .where(cb.equal(st.get("txn"), root), cb.equal(st.get("status"), Enums.SettlementStatus.CONFIRMED));
+                        .where(cb.equal(st.get("txn"), root), cb.equal(st.get("status"), SettlementStatus.CONFIRMED));
                 ps.add(cb.gt(cb.diff(cb.diff(root.<BigDecimal>get("amount"), shared), repaid), BigDecimal.ZERO));
             } else if (f.categoryId() != null) {
                 ps.add(cb.equal(root.get("category").get("id"), f.categoryId()));

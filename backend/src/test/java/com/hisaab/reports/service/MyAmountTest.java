@@ -1,6 +1,6 @@
 package com.hisaab.reports.service;
 
-import com.hisaab.common.model.Enums.Direction;
+import com.hisaab.common.model.Direction;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

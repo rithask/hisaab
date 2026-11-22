@@ -1,8 +1,8 @@
 package com.hisaab.backups.controller;
 
+import com.hisaab.settings.model.Feature;
 import com.hisaab.backups.service.BackupService;
 import com.hisaab.common.util.Audit;
-import com.hisaab.settings.service.FeatureService.Feature;
 import com.hisaab.settings.service.RequiresFeature;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;

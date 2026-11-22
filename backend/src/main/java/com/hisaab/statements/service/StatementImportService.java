@@ -1,14 +1,14 @@
 package com.hisaab.statements.service;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.statements.model.ImportStatus;
+import com.hisaab.statements.model.LineDecision;
+import com.hisaab.statements.model.LineKind;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.accounts.service.BalanceService;
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.ImportStatus;
-import com.hisaab.common.model.Enums.LineDecision;
-import com.hisaab.common.model.Enums.LineKind;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.common.util.Money;
 import com.hisaab.common.util.Names;
 import com.hisaab.settings.service.SettingsService;

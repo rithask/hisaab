@@ -1,9 +1,9 @@
 package com.hisaab.messages.service;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.messages.model.Channel;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.Direction;
 import com.hisaab.messages.model.LearnedExample;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.model.SmsTemplate;

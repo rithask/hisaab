@@ -1,6 +1,5 @@
 package com.hisaab.accounts.model;
 
-import com.hisaab.common.model.Enums.AlertType;
 import com.hisaab.transactions.model.Txn;
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -1,7 +1,7 @@
 package com.hisaab.messages.controller;
 
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.common.dto.Dtos.EmailDto;
-import com.hisaab.common.model.Enums.EmailStatus;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.repository.RawEmailRepository;
 import com.hisaab.messages.service.EmailProcessor;

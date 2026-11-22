@@ -1,9 +1,8 @@
 package com.hisaab.transactions.model;
 
+import com.hisaab.common.model.Direction;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.categories.model.Category;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.people.model.Person;

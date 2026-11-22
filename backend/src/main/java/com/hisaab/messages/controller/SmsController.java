@@ -1,7 +1,7 @@
 package com.hisaab.messages.controller;
 
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.common.model.Direction;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.parser.ParsedTransaction;
 import com.hisaab.messages.service.EmailProcessor;
 import com.hisaab.messages.service.EmailProcessor.SmsOutcome;

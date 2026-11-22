@@ -1,7 +1,7 @@
 package com.hisaab.messages.controller;
 
+import com.hisaab.common.model.Institution;
 import com.hisaab.categories.service.PayeeAliasService;
-import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.common.util.Audit;
 import com.hisaab.messages.service.SenderTrust;
 import com.hisaab.messages.service.SmsLearningService;

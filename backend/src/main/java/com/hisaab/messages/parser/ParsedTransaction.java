@@ -1,9 +1,9 @@
 package com.hisaab.messages.parser;
 
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.Institution;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;

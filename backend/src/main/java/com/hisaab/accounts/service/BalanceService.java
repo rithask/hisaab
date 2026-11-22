@@ -1,11 +1,11 @@
 package com.hisaab.accounts.service;
 
+import com.hisaab.accounts.model.AlertType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.model.Alert;
 import com.hisaab.accounts.repository.AlertRepository;
-import com.hisaab.common.model.Enums.AlertType;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.common.util.Audit;
 import com.hisaab.transactions.model.Txn;
 import com.hisaab.transactions.repository.TxnRepository;

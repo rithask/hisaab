@@ -1,11 +1,23 @@
 package com.hisaab.common.dto;
 
+import com.hisaab.accounts.model.AlertType;
+import com.hisaab.categories.model.CategoryKind;
+import com.hisaab.categories.model.RuleMatch;
+import com.hisaab.categories.model.RuleSource;
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
+import com.hisaab.investments.model.AssetType;
+import com.hisaab.messages.model.Channel;
+import com.hisaab.messages.model.EmailStatus;
+import com.hisaab.people.model.SettlementDirection;
+import com.hisaab.people.model.SettlementStatus;
+import com.hisaab.people.model.SplitMethod;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.model.Alert;
 import com.hisaab.categories.model.Category;
 import com.hisaab.categories.model.CategoryRule;
-import com.hisaab.common.model.Enums.*;
-import com.hisaab.common.model.Enums.Channel;
 import com.hisaab.investments.model.Holding;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.service.SenderTrust;

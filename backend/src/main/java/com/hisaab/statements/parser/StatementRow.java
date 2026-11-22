@@ -1,7 +1,7 @@
 package com.hisaab.statements.parser;
 
-import com.hisaab.common.model.Enums.Direction;
 
+import com.hisaab.common.model.Direction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;

@@ -1,6 +1,6 @@
 package com.hisaab.statements.repository;
 
-import com.hisaab.common.model.Enums.ImportStatus;
+import com.hisaab.statements.model.ImportStatus;
 import com.hisaab.statements.model.StatementFile;
 import com.hisaab.statements.model.StatementImport;
 import org.springframework.data.jpa.repository.JpaRepository;

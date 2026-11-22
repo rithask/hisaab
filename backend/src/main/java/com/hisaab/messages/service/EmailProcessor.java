@@ -1,11 +1,11 @@
 package com.hisaab.messages.service;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
+import com.hisaab.messages.model.Channel;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.EmailStatus;
-import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.common.util.Money;
 import com.hisaab.messages.model.EmailContent;
 import com.hisaab.messages.model.IncomingEmail;

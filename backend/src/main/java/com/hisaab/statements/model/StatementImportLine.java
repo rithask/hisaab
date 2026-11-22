@@ -1,8 +1,6 @@
 package com.hisaab.statements.model;
 
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.LineDecision;
-import com.hisaab.common.model.Enums.LineKind;
+import com.hisaab.common.model.Direction;
 import com.hisaab.transactions.model.Txn;
 import jakarta.persistence.*;
 import lombok.Getter;

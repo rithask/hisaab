@@ -1,11 +1,11 @@
 package com.hisaab.reports.controller;
 
+import com.hisaab.messages.model.EmailStatus;
+import com.hisaab.people.model.SettlementStatus;
+import com.hisaab.statements.model.ImportStatus;
 import com.hisaab.accounts.repository.AlertRepository;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.accounts.service.AccountService.AccountView;
-import com.hisaab.common.model.Enums.EmailStatus;
-import com.hisaab.common.model.Enums.ImportStatus;
-import com.hisaab.common.model.Enums.SettlementStatus;
 import com.hisaab.common.util.Money;
 import com.hisaab.investments.repository.HoldingRepository;
 import com.hisaab.messages.repository.RawEmailRepository;

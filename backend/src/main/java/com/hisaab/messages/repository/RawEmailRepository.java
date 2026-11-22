@@ -1,6 +1,6 @@
 package com.hisaab.messages.repository;
 
-import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.model.RawEmail;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

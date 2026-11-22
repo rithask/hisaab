@@ -1,6 +1,6 @@
 package com.hisaab.messages.reading;
 
-import com.hisaab.common.model.Enums.EmailStatus;
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.messages.service.SmsReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

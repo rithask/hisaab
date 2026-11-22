@@ -1,7 +1,5 @@
 package com.hisaab.messages.model;
 
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.EmailStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

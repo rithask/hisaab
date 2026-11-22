@@ -1,8 +1,8 @@
 package com.hisaab.dataapi.service;
 
+import com.hisaab.common.model.Direction;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.categories.model.Category;
-import com.hisaab.common.model.Enums.Direction;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.people.model.Person;
 import com.hisaab.transactions.model.Txn;

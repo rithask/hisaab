@@ -1,7 +1,7 @@
 package com.hisaab.settings.controller;
 
+import com.hisaab.settings.model.ResetPart;
 import com.hisaab.settings.service.ResetService;
-import com.hisaab.settings.service.ResetService.Part;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +22,7 @@ public class ResetController {
     }
 
     /** @param word what I typed to confirm ("reset") */
-    public record ResetIn(List<Part> parts, String word, boolean withoutBackup) {}
+    public record ResetIn(List<ResetPart> parts, String word, boolean withoutBackup) {}
 
     @PostMapping
     public ResetService.Result reset(@RequestBody ResetIn in) {

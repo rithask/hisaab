@@ -1,7 +1,7 @@
 package com.hisaab.people.repository;
 
-import com.hisaab.common.model.Enums.SettlementDirection;
-import com.hisaab.common.model.Enums.SettlementStatus;
+import com.hisaab.people.model.SettlementDirection;
+import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
 import com.hisaab.transactions.model.Txn;

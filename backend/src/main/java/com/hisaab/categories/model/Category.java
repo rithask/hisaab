@@ -1,6 +1,5 @@
 package com.hisaab.categories.model;
 
-import com.hisaab.common.model.Enums.CategoryKind;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

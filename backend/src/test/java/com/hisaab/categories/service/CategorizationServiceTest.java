@@ -1,11 +1,11 @@
 package com.hisaab.categories.service;
 
+import com.hisaab.categories.model.CategoryKind;
+import com.hisaab.common.model.Direction;
 import com.hisaab.categories.model.Category;
 import com.hisaab.categories.model.CategoryVote;
 import com.hisaab.categories.repository.CategoryRuleRepository;
 import com.hisaab.categories.repository.CategoryVoteRepository;
-import com.hisaab.common.model.Enums.CategoryKind;
-import com.hisaab.common.model.Enums.Direction;
 import com.hisaab.common.util.Names;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.model.SmsTemplate;

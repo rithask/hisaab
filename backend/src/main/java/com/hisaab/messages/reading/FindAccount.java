@@ -1,7 +1,7 @@
 package com.hisaab.messages.reading;
 
+import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.EmailStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

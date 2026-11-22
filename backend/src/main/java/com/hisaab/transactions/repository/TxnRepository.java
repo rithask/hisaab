@@ -1,8 +1,8 @@
 package com.hisaab.transactions.repository;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.transactions.model.TxnSource;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.TxnSource;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.people.model.Person;

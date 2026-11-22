@@ -1,9 +1,10 @@
 package com.hisaab.settings.service;
 
+import com.hisaab.settings.model.Feature;
+import com.hisaab.settings.model.ResetPart;
 import com.hisaab.backups.service.BackupService;
 import com.hisaab.common.util.Audit;
 import com.hisaab.config.AppProperties;
-import com.hisaab.settings.service.FeatureService.Feature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -33,34 +34,21 @@ public class ResetService {
     /** What I type to confirm. */
     public static final String WORD = "reset";
 
-    public enum Part {
-        /** Accounts, transactions, people, statements, investments, budgets, messages… */
-        DATA,
-        /** Rules, payee names, SMS formats and everything else learned from corrections. */
-        LEARNED,
-        /** My categories; the built-in ones come back. */
-        CATEGORIES,
-        /** Feature switches, my name, Home options. */
-        SETTINGS,
-        /** API tokens and the Pocket ID link. */
-        CONNECTIONS
-    }
-
     /**
      * Adds the parts a choice can't go without: learned rules point at accounts and saved messages, so clearing
      * the data clears them too; transactions use categories, so categories are only reset along with the data.
      */
-    public static Set<Part> withNeeded(Collection<Part> chosen) {
-        EnumSet<Part> s = chosen.isEmpty() ? EnumSet.noneOf(Part.class) : EnumSet.copyOf(chosen);
-        if (s.contains(Part.CATEGORIES)) s.add(Part.DATA);
-        if (s.contains(Part.DATA)) s.add(Part.LEARNED);
+    public static Set<ResetPart> withNeeded(Collection<ResetPart> chosen) {
+        EnumSet<ResetPart> s = chosen.isEmpty() ? EnumSet.noneOf(ResetPart.class) : EnumSet.copyOf(chosen);
+        if (s.contains(ResetPart.CATEGORIES)) s.add(ResetPart.DATA);
+        if (s.contains(ResetPart.DATA)) s.add(ResetPart.LEARNED);
         return s;
     }
 
     /** Deletes per part, in an order that respects the foreign keys (children first). */
-    static List<String> statements(Set<Part> parts) {
+    static List<String> statements(Set<ResetPart> parts) {
         List<String> sql = new ArrayList<>();
-        if (parts.contains(Part.DATA)) {
+        if (parts.contains(ResetPart.DATA)) {
             sql.addAll(List.of(
                     "delete from refund_watch", "delete from txn_tag", "delete from split_share", "delete from settlement",
                     "delete from alert", "delete from statement_import_line", "delete from statement_import",
@@ -71,20 +59,20 @@ public class ResetService {
                     "delete from subscription_ignore", "delete from watch_dismiss", "delete from networth_snapshot",
                     "delete from app_setting where key like 'statement.password.%'"));
         }
-        if (parts.contains(Part.LEARNED)) {
+        if (parts.contains(ResetPart.LEARNED)) {
             sql.addAll(List.of(
                     "delete from category_rule where source <> 'SYSTEM'", "delete from category_vote",
                     "delete from payee_alias", "delete from account_hint", "delete from learned_example",
                     "update raw_email set template_id = null", "delete from sms_template", "delete from sms_sender",
                     "delete from trusted_sender"));
         }
-        if (parts.contains(Part.CATEGORIES)) {
+        if (parts.contains(ResetPart.CATEGORIES)) {
             sql.add("delete from category");   // its rules, votes and budgets go with it
         }
-        if (parts.contains(Part.SETTINGS)) {
+        if (parts.contains(ResetPart.SETTINGS)) {
             sql.add("delete from app_setting where key like 'feature.%' or key like 'home.%' or key = '" + SettingsService.OWNER_NAME + "'");
         }
-        if (parts.contains(Part.CONNECTIONS)) {
+        if (parts.contains(ResetPart.CONNECTIONS)) {
             sql.addAll(List.of("update txn set api_token_id = null", "delete from api_token",
                     "delete from app_setting where key like 'oidc.link.%'"));
         }
@@ -148,10 +136,10 @@ public class ResetService {
      * Takes a backup (unless backups are off and I said to go without), then clears the chosen parts in one
      * transaction. Saved statement PDFs are deleted only once that has committed.
      */
-    public synchronized Result reset(Collection<Part> chosen, String word, boolean withoutBackup) {
+    public synchronized Result reset(Collection<ResetPart> chosen, String word, boolean withoutBackup) {
         if (chosen == null || chosen.isEmpty()) throw new BadRequestException("Choose what to reset");
         if (word == null || !word.trim().equalsIgnoreCase(WORD)) throw new BadRequestException("Type “" + WORD + "” to confirm");
-        Set<Part> parts = withNeeded(chosen);
+        Set<ResetPart> parts = withNeeded(chosen);
 
         String backup = null;
         if (features.on(Feature.BACKUPS)) {
@@ -166,13 +154,13 @@ public class ResetService {
 
         tx.executeWithoutResult(status -> {
             for (String sql : statements(parts)) jdbc.update(sql);
-            if (parts.contains(Part.CATEGORIES)) {
+            if (parts.contains(ResetPart.CATEGORIES)) {
                 // the connection of this transaction, so the defaults come back in the same all-or-nothing step
                 ScriptUtils.executeSqlScript(DataSourceUtils.getConnection(dataSource), new ClassPathResource("db/defaults/categories.sql"));
             }
         });
         settings.forget(); // the reset changed app_setting directly
-        if (parts.contains(Part.DATA)) deleteStatementFiles();
+        if (parts.contains(ResetPart.DATA)) deleteStatementFiles();
         Audit.log("Reset {} backup={}", parts.stream().map(p -> p.name().toLowerCase()).toList(), backup == null ? "none" : backup);
         return new Result(backup);
     }

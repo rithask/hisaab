@@ -1,6 +1,6 @@
 package com.hisaab.reports.service;
 
-import com.hisaab.common.model.Enums.Direction;
+import com.hisaab.common.model.Direction;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;

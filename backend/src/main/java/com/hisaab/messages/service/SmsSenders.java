@@ -1,7 +1,7 @@
 package com.hisaab.messages.service;
 
+import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.messages.model.AccountHint;
 import com.hisaab.messages.model.SmsSender;
 import com.hisaab.messages.repository.AccountHintRepository;

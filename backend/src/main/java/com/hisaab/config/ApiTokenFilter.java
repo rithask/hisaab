@@ -1,8 +1,9 @@
 package com.hisaab.config;
 
+import com.hisaab.dataapi.model.TokenJob;
+import com.hisaab.settings.model.Feature;
 import com.hisaab.auth.util.AuthLog;
 import com.hisaab.dataapi.model.ApiToken;
-import com.hisaab.dataapi.model.ApiToken.Job;
 import com.hisaab.dataapi.service.ApiTokenService;
 import com.hisaab.settings.service.FeatureService;
 import jakarta.servlet.FilterChain;
@@ -58,22 +59,22 @@ public class ApiTokenFilter extends OncePerRequestFilter {
     }
 
     /** The jobs whose tokens may call this endpoint (empty: no such endpoint). */
-    static Set<Job> jobsFor(String method, String path) {
+    static Set<TokenJob> jobsFor(String method, String path) {
         if ("POST".equals(method)) {
             return switch (path) {
-                case "/api/v1/sms" -> Set.of(Job.SEND_SMS);
-                case "/api/v1/transactions" -> Set.of(Job.ADD_TRANSACTIONS);
+                case "/api/v1/sms" -> Set.of(TokenJob.SEND_SMS);
+                case "/api/v1/transactions" -> Set.of(TokenJob.ADD_TRANSACTIONS);
                 default -> Set.of();
             };
         }
         if (!"GET".equals(method)) return Set.of();
         return switch (path) {
-            case "/api/v1/transactions" -> Set.of(Job.READ_TRANSACTIONS);
-            case "/api/v1/balances" -> Set.of(Job.READ_BALANCES);
-            case "/api/v1/summary" -> Set.of(Job.READ_TOTALS);
-            case "/api/v1/categories" -> Set.of(Job.READ_TRANSACTIONS, Job.ADD_TRANSACTIONS, Job.READ_TOTALS);
-            case "/api/v1/accounts" -> Set.of(Job.READ_TRANSACTIONS, Job.ADD_TRANSACTIONS, Job.READ_TOTALS, Job.READ_BALANCES);
-            default -> path.matches("/api/v1/transactions/[^/]+") ? Set.of(Job.READ_TRANSACTIONS) : Set.of();
+            case "/api/v1/transactions" -> Set.of(TokenJob.READ_TRANSACTIONS);
+            case "/api/v1/balances" -> Set.of(TokenJob.READ_BALANCES);
+            case "/api/v1/summary" -> Set.of(TokenJob.READ_TOTALS);
+            case "/api/v1/categories" -> Set.of(TokenJob.READ_TRANSACTIONS, TokenJob.ADD_TRANSACTIONS, TokenJob.READ_TOTALS);
+            case "/api/v1/accounts" -> Set.of(TokenJob.READ_TRANSACTIONS, TokenJob.ADD_TRANSACTIONS, TokenJob.READ_TOTALS, TokenJob.READ_BALANCES);
+            default -> path.matches("/api/v1/transactions/[^/]+") ? Set.of(TokenJob.READ_TRANSACTIONS) : Set.of();
         };
     }
 
@@ -111,7 +112,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
             reject(req, res, 401, "Unauthorized", "Invalid API token");
             return;
         }
-        Set<Job> allowed = jobsFor(req.getMethod(), req.getRequestURI());
+        Set<TokenJob> allowed = jobsFor(req.getMethod(), req.getRequestURI());
         if (allowed.isEmpty()) {
             reject(req, res, 404, "Not Found", "There's no such endpoint. See docs/api.md.");
             AuthLog.tokenUsed(req, token.getName(), 404);
@@ -124,7 +125,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
             return;
         }
         // SMS forwarding is part of the app itself; everything else is the optional Data API
-        if (token.getJob() != Job.SEND_SMS && !features.on(FeatureService.Feature.DATA_API)) {
+        if (token.getJob() != TokenJob.SEND_SMS && !features.on(Feature.DATA_API)) {
             reject(req, res, 403, "Forbidden", "The Data API is turned off in Settings.");
             AuthLog.tokenUsed(req, token.getName(), 403);
             return;
@@ -149,7 +150,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
     }
 
     /** What a job lets a token do, for messages: "This token can only …". */
-    public static String does(Job job) {
+    public static String does(TokenJob job) {
         return switch (job) {
             case SEND_SMS -> "send SMS";
             case READ_TRANSACTIONS -> "read transactions";

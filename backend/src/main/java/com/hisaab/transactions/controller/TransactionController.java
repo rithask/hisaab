@@ -1,11 +1,11 @@
 package com.hisaab.transactions.controller;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.people.model.SplitMethod;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.common.dto.Dtos.ShareDto;
 import com.hisaab.common.dto.Dtos.TxnDto;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.SplitMethod;
 import com.hisaab.people.repository.SplitShareRepository;
 import com.hisaab.people.service.SplitService;
 import com.hisaab.transactions.model.Txn;

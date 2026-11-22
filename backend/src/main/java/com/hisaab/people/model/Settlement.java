@@ -1,7 +1,5 @@
 package com.hisaab.people.model;
 
-import com.hisaab.common.model.Enums.SettlementDirection;
-import com.hisaab.common.model.Enums.SettlementStatus;
 import com.hisaab.transactions.model.Txn;
 import jakarta.persistence.*;
 import lombok.Getter;

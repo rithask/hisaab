@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A token an app or shortcut uses to reach the API. Each has exactly one {@link Job} and the limits I chose
+ * A token an app or shortcut uses to reach the API. Each has exactly one {@link TokenJob} and the limits I chose
  * (categories, accounts, money in); only a hash of the token is stored. A revoked token is kept, so transactions
  * it added still say who added them.
  */
@@ -19,8 +19,6 @@ import java.util.stream.Collectors;
 @Getter
 @Setter
 public class ApiToken {
-    public enum Job { SEND_SMS, READ_TRANSACTIONS, ADD_TRANSACTIONS, READ_BALANCES, READ_TOTALS }
-
     /** In a category limit: uncategorised transactions. */
     public static final String UNCATEGORISED = "none";
 
@@ -31,7 +29,7 @@ public class ApiToken {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    private Job job;
+    private TokenJob job;
 
     private String tokenHash;
 

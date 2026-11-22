@@ -1,9 +1,8 @@
 package com.hisaab.statements.model;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.ImportStatus;
-import com.hisaab.common.model.Enums.Institution;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

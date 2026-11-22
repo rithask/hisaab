@@ -1,10 +1,10 @@
 package com.hisaab.statements.controller;
 
+import com.hisaab.common.model.Direction;
+import com.hisaab.statements.model.LineDecision;
+import com.hisaab.statements.model.LineKind;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.common.dto.Dtos.AccountRef;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.LineDecision;
-import com.hisaab.common.model.Enums.LineKind;
 import com.hisaab.common.util.Audit;
 import com.hisaab.common.util.Money;
 import com.hisaab.statements.model.StatementFile;

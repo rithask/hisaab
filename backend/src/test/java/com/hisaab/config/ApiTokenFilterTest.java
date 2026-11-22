@@ -1,7 +1,7 @@
 package com.hisaab.config;
 
+import com.hisaab.dataapi.model.TokenJob;
 import com.hisaab.dataapi.model.ApiToken;
-import com.hisaab.dataapi.model.ApiToken.Job;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -11,14 +11,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ApiTokenFilterTest {
     @Test
     void eachEndpointTakesOnlyItsJob() {
-        assertThat(ApiTokenFilter.jobsFor("POST", "/api/v1/sms")).containsExactly(Job.SEND_SMS);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/transactions")).containsExactly(Job.READ_TRANSACTIONS);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/transactions/812")).containsExactly(Job.READ_TRANSACTIONS);
-        assertThat(ApiTokenFilter.jobsFor("POST", "/api/v1/transactions")).containsExactly(Job.ADD_TRANSACTIONS);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/balances")).containsExactly(Job.READ_BALANCES);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/summary")).containsExactly(Job.READ_TOTALS);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/accounts")).doesNotContain(Job.SEND_SMS);
-        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/categories")).doesNotContain(Job.SEND_SMS, Job.READ_BALANCES);
+        assertThat(ApiTokenFilter.jobsFor("POST", "/api/v1/sms")).containsExactly(TokenJob.SEND_SMS);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/transactions")).containsExactly(TokenJob.READ_TRANSACTIONS);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/transactions/812")).containsExactly(TokenJob.READ_TRANSACTIONS);
+        assertThat(ApiTokenFilter.jobsFor("POST", "/api/v1/transactions")).containsExactly(TokenJob.ADD_TRANSACTIONS);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/balances")).containsExactly(TokenJob.READ_BALANCES);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/summary")).containsExactly(TokenJob.READ_TOTALS);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/accounts")).doesNotContain(TokenJob.SEND_SMS);
+        assertThat(ApiTokenFilter.jobsFor("GET", "/api/v1/categories")).doesNotContain(TokenJob.SEND_SMS, TokenJob.READ_BALANCES);
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.hisaab.investments.model;
 
-import com.hisaab.common.model.Enums.AssetType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

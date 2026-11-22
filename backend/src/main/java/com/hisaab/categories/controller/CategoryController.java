@@ -1,5 +1,8 @@
 package com.hisaab.categories.controller;
 
+import com.hisaab.categories.model.CategoryKind;
+import com.hisaab.categories.model.RuleMatch;
+import com.hisaab.categories.model.RuleSource;
 import com.hisaab.auth.util.AuthLog;
 import com.hisaab.categories.model.Category;
 import com.hisaab.categories.model.CategoryRule;
@@ -8,9 +11,6 @@ import com.hisaab.categories.repository.CategoryRuleRepository;
 import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.common.dto.Dtos.CategoryDto;
 import com.hisaab.common.dto.Dtos.RuleDto;
-import com.hisaab.common.model.Enums.CategoryKind;
-import com.hisaab.common.model.Enums.RuleMatch;
-import com.hisaab.common.model.Enums.RuleSource;
 import com.hisaab.common.util.Audit;
 import com.hisaab.transactions.model.Tag;
 import com.hisaab.transactions.repository.TagRepository;

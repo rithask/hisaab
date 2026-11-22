@@ -1,7 +1,7 @@
 package com.hisaab.settings.service;
 
-import com.hisaab.settings.service.FeatureService.Feature;
 
+import com.hisaab.settings.model.Feature;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

@@ -1,7 +1,7 @@
 package com.hisaab.watch.controller;
 
+import com.hisaab.settings.model.Feature;
 import com.hisaab.common.util.Money;
-import com.hisaab.settings.service.FeatureService.Feature;
 import com.hisaab.settings.service.RequiresFeature;
 import com.hisaab.watch.service.BillService;
 import com.hisaab.watch.service.RewardService;

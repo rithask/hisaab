@@ -1,8 +1,8 @@
 package com.hisaab.statements.parser;
 
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.Institution;
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 

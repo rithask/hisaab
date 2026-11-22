@@ -1,7 +1,7 @@
 package com.hisaab.categories.repository;
 
+import com.hisaab.categories.model.CategoryKind;
 import com.hisaab.categories.model.Category;
-import com.hisaab.common.model.Enums.CategoryKind;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -1,9 +1,9 @@
 package com.hisaab.budgets.controller;
 
+import com.hisaab.settings.model.Feature;
 import com.hisaab.budgets.service.BudgetService;
 import com.hisaab.common.util.Audit;
 import com.hisaab.common.util.Money;
-import com.hisaab.settings.service.FeatureService.Feature;
 import com.hisaab.settings.service.RequiresFeature;
 import org.springframework.web.bind.annotation.*;
 

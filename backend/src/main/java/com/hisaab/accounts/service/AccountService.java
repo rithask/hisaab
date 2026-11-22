@@ -1,11 +1,11 @@
 package com.hisaab.accounts.service;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.accounts.util.CardCycle;
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.Institution;
 import com.hisaab.common.util.Money;
 import com.hisaab.transactions.repository.TxnRepository;
 import org.springframework.stereotype.Service;

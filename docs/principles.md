@@ -117,7 +117,7 @@ and the transaction boundaries (`@Transactional`), and entities only change thro
 | `budgets`, `backups` | Those optional features |
 | `settings` | Small settings, feature switches (`FeatureService`, `@RequiresFeature`), Reset |
 | `dataapi` | The Data API (`/api/v1`) and its tokens |
-| `common` | Shared by many features: `Money`, `Names`, `Enums`, `Dtos`, `NotFound`, `Audit`, the error handler |
+| `common` | Shared by many features: `Money`, `Names`, the enums most features use (`Direction`, `Institution`, `AccountType`), `Dtos`, `NotFound`, `Audit`, the error handler |
 | `config` | Security, sign-in (password, OIDC), the API token filter, SPA routing, `AppProperties` |
 
 A new feature gets its own package. Something two features need goes in the one that owns it (and is `public`), or
@@ -207,7 +207,7 @@ in `common` only when no feature owns it.
 
 First ask whether it needs a switch at all (principle 5). If it only reads your data, it doesn't.
 
-1. Add it to `FeatureService.Feature` in `settings` (on by default unless it's risky), and give it its own package.
+1. Add it to the `Feature` enum in `settings/model` (on by default unless it's risky), and give it its own package.
 2. Backend: mark its controller or each endpoint `@RequiresFeature(Feature.X)` (requests are refused while it's
    off), and check `features.on(Feature.X)` before any scheduled work.
 3. Frontend: add the key to the `Feature` type in `api.ts` and a row in `FEATURES` in `Settings.tsx`; wrap the

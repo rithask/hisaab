@@ -1,6 +1,6 @@
 package com.hisaab.investments.service;
 
-import com.hisaab.common.model.Enums.AssetType;
+import com.hisaab.investments.model.AssetType;
 import com.hisaab.common.util.Money;
 import com.hisaab.config.AppProperties;
 import com.hisaab.investments.model.Holding;

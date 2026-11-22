@@ -1,8 +1,8 @@
 package com.hisaab.statements.parser;
 
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Institution;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Institution;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;

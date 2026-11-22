@@ -1,10 +1,9 @@
 package com.hisaab.messages.model;
 
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Channel;
-import com.hisaab.common.model.Enums.Direction;
-import com.hisaab.common.model.Enums.Institution;
 import jakarta.persistence.*;
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Direction;
+import com.hisaab.common.model.Institution;
 import lombok.Getter;
 import lombok.Setter;
 

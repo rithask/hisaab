@@ -1,8 +1,8 @@
 package com.hisaab.messages.util;
 
+import com.hisaab.common.model.AccountType;
+import com.hisaab.common.model.Institution;
 import com.hisaab.accounts.model.Account;
-import com.hisaab.common.model.Enums.AccountType;
-import com.hisaab.common.model.Enums.Institution;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
