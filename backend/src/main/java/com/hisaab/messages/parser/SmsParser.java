@@ -144,9 +144,9 @@ public class SmsParser {
         }
 
         // ---- when ---------------------------------------------------------------------------------------
-        When w = findWhen(flat, receivedAt);
-        LocalDate date = w.date();
-        LocalTime time = w.time();
+        When when = findWhen(flat, receivedAt);
+        LocalDate date = when.date();
+        LocalTime time = when.time();
 
         // ---- who ----------------------------------------------------------------------------------------
         String reference = null;
@@ -248,8 +248,8 @@ public class SmsParser {
         return Math.abs(d - amountAt) <= Math.abs(c - amountAt) ? Direction.DEBIT : Direction.CREDIT;
     }
 
-    private static int nearestIndex(Pattern p, String s, int at) {
-        Matcher m = p.matcher(s);
+    private static int nearestIndex(Pattern pattern, String s, int at) {
+        Matcher m = pattern.matcher(s);
         int best = -1;
         while (m.find()) {
             // "credited to your card" in a payment SMS is the transaction itself; skip "cr" inside "Card"

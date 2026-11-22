@@ -48,29 +48,30 @@ public class SubscriptionService {
         LocalDate historyStart = jdbc.queryForObject(
                 "select min((occurred_at at time zone current_setting('TimeZone'))::date) from txn", new MapSqlParameterSource(), LocalDate.class);
 
-        for (Series s : bills.recurring(today, false)) {
-            if (s.varies()) continue;                                      // electricity, phone: bills, not subscriptions
-            if (hiddenKeys.contains(s.key())) {
-                hidden.add(new HiddenSubscriptionResponse(s.key(), s.payee()));
+        for (Series series : bills.recurring(today, false)) {
+            if (series.varies()) continue;                                      // electricity, phone: bills, not subscriptions
+            if (hiddenKeys.contains(series.key())) {
+                hidden.add(new HiddenSubscriptionResponse(series.key(), series.payee()));
                 continue;
             }
-            if (!hiddenKeys.contains("+" + s.key()) && s.category() != null && NOT_SUBSCRIPTIONS.matcher(s.category()).find()) continue;
+            if (!hiddenKeys.contains("+" + series.key()) && series.category() != null && NOT_SUBSCRIPTIONS.matcher(series.category()).find()) continue;
 
-            Payment first = s.days().getFirst(), last = s.days().getLast();
+            Payment first = series.days().getFirst(), last = series.days().getLast();
             // "New" means it started recently, not that it's among the first payments the app ever saw: a payee whose
             // first payment falls in the first month of my history was most likely paying before the data starts.
-            boolean isNew = !s.stopped() && historyStart != null
-                    && ChronoUnit.DAYS.between(first.day(), today) <= Math.max(45, s.periodDays() * 2 + 5)
+            boolean isNew = !series.stopped() && historyStart != null
+                    && ChronoUnit.DAYS.between(first.day(), today) <= Math.max(45, series.periodDays() * 2 + 5)
                     && first.day().isAfter(historyStart.plusDays(30));
-            String status = s.stopped() ? "STOPPED" : isNew ? "NEW" : "ACTIVE";
-            BigDecimal monthly = perMonth(s.amount(), s.every());
-            BigDecimal paidThisYear = s.payments().stream().filter(p -> p.day().getYear() == today.getYear())
+            String status = series.stopped() ? "STOPPED" : isNew ? "NEW" : "ACTIVE";
+            BigDecimal monthly = perMonth(series.amount(), series.every());
+            BigDecimal paidThisYear = series.payments().stream().filter(p -> p.day().getYear() == today.getYear())
                     .map(Payment::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-            items.add(new SubscriptionResponse(s.key(), s.payee(), s.accountId(), s.account(), s.category(), s.color(), s.amount(),
-                    s.every(), monthly, Money.r2(monthly.multiply(BigDecimal.valueOf(12))), first.day(), last.day(),
-                    s.due(), s.days().size(), status, s.change(), Money.r2(paidThisYear)));
+            items.add(new SubscriptionResponse(series.key(), series.payee(), series.accountId(), series.account(), series.category(), series.color(), series.amount(),
+                    series.every(), monthly, Money.r2(monthly.multiply(BigDecimal.valueOf(12))), first.day(),
+                            last.day(),
+                    series.due(), series.days().size(), status, series.change(), Money.r2(paidThisYear)));
 
-            alerts.addAll(alertsFor(s, status, today));
+            alerts.addAll(alertsFor(series, status, today));
         }
         alerts.removeIf(a -> dismissed.contains(a.key()));
         alerts.sort(Comparator.comparing(SubscriptionAlertResponse::day).reversed());
@@ -81,34 +82,37 @@ public class SubscriptionService {
         return new SubscriptionOverviewResponse(items, alerts, Money.r2(monthly), Money.r2(monthly.multiply(BigDecimal.valueOf(12))), hidden);
     }
 
-    private List<SubscriptionAlertResponse> alertsFor(Series s, String status, LocalDate today) {
+    private List<SubscriptionAlertResponse> alertsFor(Series series, String status, LocalDate today) {
         List<SubscriptionAlertResponse> out = new ArrayList<>();
-        Payment last = s.days().getLast();
-        PriceChangeResponse c = s.change();
+        Payment last = series.days().getLast();
+        PriceChangeResponse priceChange = series.change();
         // A price change is news for about two billing periods.
-        if (c != null && ChronoUnit.DAYS.between(c.on(), today) <= Math.max(60, s.periodDays() * 2)) {
-            boolean up = c.to().compareTo(c.from()) > 0;
-            BigDecimal perYear = Money.r2(perMonth(c.to().subtract(c.from()).abs(), s.every()).multiply(BigDecimal.valueOf(12)));
-            out.add(new SubscriptionAlertResponse("sub:price:" + s.key() + ":" + c.on(), up ? "PRICE_UP" : "PRICE_DOWN", s.key(), s.payee(), c.to(),
-                    c.from(), perYear, s.every(), c.on(), null, s.account(), null, List.of(idOn(s, c.on()))));
+        if (priceChange != null && ChronoUnit.DAYS.between(priceChange.on(), today) <= Math.max(60,
+                series.periodDays() * 2)) {
+            boolean up = priceChange.to().compareTo(priceChange.from()) > 0;
+            BigDecimal perYear = Money.r2(perMonth(priceChange.to().subtract(priceChange.from()).abs(), series.every()).multiply(BigDecimal.valueOf(12)));
+            out.add(new SubscriptionAlertResponse("sub:price:" + series.key() + ":" + priceChange.on(), up ? "PRICE_UP" : "PRICE_DOWN", series.key(), series.payee(), priceChange.to(),
+                    priceChange.from(), perYear, series.every(), priceChange.on(), null, series.account(), null,
+                            List.of(idOn(series, priceChange.on()))));
         }
         // Charged twice within half a period (same day included), in the last 90 days, for about the same amount.
-        List<Payment> ps = s.payments();
+        List<Payment> ps = series.payments();
         for (int i = 1; i < ps.size(); i++) {
-            Payment a = ps.get(i - 1), b = ps.get(i);
+            Payment payment = ps.get(i - 1), b = ps.get(i);
             if (b.day().isBefore(today.minusDays(90))) continue;
-            long gap = ChronoUnit.DAYS.between(a.day(), b.day());
-            if (gap * 2 >= s.periodDays()) continue;
-            if (a.amount().subtract(b.amount()).abs().compareTo(b.amount().multiply(new BigDecimal("0.05"))) > 0) continue;
-            out.add(new SubscriptionAlertResponse("sub:double:" + s.key() + ":" + b.id(), "DOUBLE", s.key(), s.payee(), b.amount(), a.amount(), null,
-                    s.every(), b.day(), a.day(), b.account(), a.account(), List.of(a.id(), b.id())));
+            long gap = ChronoUnit.DAYS.between(payment.day(), b.day());
+            if (gap * 2 >= series.periodDays()) continue;
+            if (payment.amount().subtract(b.amount()).abs().compareTo(b.amount().multiply(new BigDecimal("0.05"))) > 0) continue;
+            out.add(new SubscriptionAlertResponse("sub:double:" + series.key() + ":" + b.id(), "DOUBLE", series.key(), series.payee(), b.amount(), payment.amount(), null,
+                    series.every(), b.day(), payment.day(), b.account(), payment.account(), List.of(payment.id(),
+                            b.id())));
         }
         if (status.equals("NEW"))
-            out.add(new SubscriptionAlertResponse("sub:new:" + s.key(), "NEW", s.key(), s.payee(), s.amount(), null, null, s.every(), last.day(),
-                    s.days().getFirst().day(), s.account(), null, List.of(last.id())));
+            out.add(new SubscriptionAlertResponse("sub:new:" + series.key(), "NEW", series.key(), series.payee(), series.amount(), null, null, series.every(), last.day(),
+                    series.days().getFirst().day(), series.account(), null, List.of(last.id())));
         if (status.equals("STOPPED"))
-            out.add(new SubscriptionAlertResponse("sub:stopped:" + s.key() + ":" + last.day(), "STOPPED", s.key(), s.payee(), s.amount(), null, null,
-                    s.every(), s.due(), last.day(), s.account(), null, List.of(last.id())));
+            out.add(new SubscriptionAlertResponse("sub:stopped:" + series.key() + ":" + last.day(), "STOPPED", series.key(), series.payee(), series.amount(), null, null,
+                    series.every(), series.due(), last.day(), series.account(), null, List.of(last.id())));
         return out;
     }
 

@@ -9,10 +9,10 @@ public record PortfolioResponse(BigDecimal invested, BigDecimal currentValue, Bi
                                 BigDecimal dayChange, List<HoldingResponse> holdings) {
     public static PortfolioResponse of(List<HoldingResponse> list) {
         BigDecimal inv = BigDecimal.ZERO, cur = BigDecimal.ZERO, day = BigDecimal.ZERO;
-        for (HoldingResponse h : list) {
-            inv = inv.add(h.invested());
-            cur = cur.add(h.currentValue() == null ? h.invested() : h.currentValue());
-            if (h.dayChange() != null) day = day.add(h.dayChange());
+        for (HoldingResponse holding : list) {
+            inv = inv.add(holding.invested());
+            cur = cur.add(holding.currentValue() == null ? holding.invested() : holding.currentValue());
+            if (holding.dayChange() != null) day = day.add(holding.dayChange());
         }
         BigDecimal pnl = cur.subtract(inv);
         BigDecimal pct = inv.signum() == 0 ? BigDecimal.ZERO

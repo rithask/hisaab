@@ -36,8 +36,9 @@ public record ParsedTransaction(
         if (date == null) time = null;
     }
 
-    public ParsedTransaction withDirection(Direction d) {
-        return new ParsedTransaction(institution, accountType, d, amount, currency, last4, date, time, counterparty,
+    public ParsedTransaction withDirection(Direction direction) {
+        return new ParsedTransaction(institution, accountType, direction, amount, currency, last4, date, time,
+                counterparty,
                 reference, balance, cardPayment, description);
     }
 

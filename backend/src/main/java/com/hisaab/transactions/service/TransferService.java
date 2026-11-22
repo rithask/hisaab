@@ -34,22 +34,23 @@ public class TransferService {
 
     /** Call before the transaction is categorised. {@code hintedCardPayment} comes from the parser. */
     @Transactional
-    public void detect(Transaction t, boolean hintedCardPayment) {
-        if (t.getLinkedTxn() != null) return;
-        Direction other = t.getDirection() == Direction.DEBIT ? Direction.CREDIT : Direction.DEBIT;
-        List<Transaction> candidates = txns.findTransferCandidates(t.getAccount(), other, t.getAmount(),
-                t.getOccurredAt().minus(WINDOW), t.getOccurredAt().plus(WINDOW));
+    public void detect(Transaction transaction, boolean hintedCardPayment) {
+        if (transaction.getLinkedTxn() != null) return;
+        Direction other = transaction.getDirection() == Direction.DEBIT ? Direction.CREDIT : Direction.DEBIT;
+        List<Transaction> candidates = txns.findTransferCandidates(transaction.getAccount(), other,
+                transaction.getAmount(),
+                transaction.getOccurredAt().minus(WINDOW), transaction.getOccurredAt().plus(WINDOW));
         candidates.stream()
-                .filter(c -> !c.getId().equals(t.getId()))
+                .filter(c -> !c.getId().equals(transaction.getId()))
                 // a debit to a stranger with the same amount shouldn't be paired; prefer flagged/self ones
-                .filter(c -> c.isTransfer() || looksLikeSelf(c) || looksLikeSelf(t) || hintedCardPayment
-                        || c.getAccount().isCard() || t.getAccount().isCard()
-                        || mentions(t, c.getAccount()) || mentions(c, t.getAccount()))
-                .min(Comparator.comparing(c -> Duration.between(c.getOccurredAt(), t.getOccurredAt()).abs()))
-                .ifPresentOrElse(c -> link(t, c), () -> {
-                    if (hintedCardPayment || looksLikeSelf(t)) {
-                        t.setTransfer(true);
-                        log.info("Transaction {} marked as a transfer between my accounts ({}), other side not found yet", t.getId(),
+                .filter(c -> c.isTransfer() || looksLikeSelf(c) || looksLikeSelf(transaction) || hintedCardPayment
+                        || c.getAccount().isCard() || transaction.getAccount().isCard()
+                        || mentions(transaction, c.getAccount()) || mentions(c, transaction.getAccount()))
+                .min(Comparator.comparing(c -> Duration.between(c.getOccurredAt(), transaction.getOccurredAt()).abs()))
+                .ifPresentOrElse(c -> link(transaction, c), () -> {
+                    if (hintedCardPayment || looksLikeSelf(transaction)) {
+                        transaction.setTransfer(true);
+                        log.info("Transaction {} marked as a transfer between my accounts ({}), other side not found yet", transaction.getId(),
                                 hintedCardPayment ? "card payment" : "paid to my own name");
                     }
                 });

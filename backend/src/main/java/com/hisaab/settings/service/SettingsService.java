@@ -39,7 +39,8 @@ public class SettingsService {
         Map<String, String> c = cache;
         if (c == null) {
             c = new ConcurrentHashMap<>();
-            for (AppSetting s : repo.findAll()) if (s.getValue() != null) c.put(s.getKey(), s.getValue());
+            for (AppSetting setting : repo.findAll()) if (setting.getValue() != null) c.put(setting.getKey(),
+                    setting.getValue());
             cache = c;
         }
         return c;

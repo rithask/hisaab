@@ -28,8 +28,8 @@ class StatementStorageTest {
 
     @Test
     void absolutePathsFromAnotherMachineAreReRooted() {
-        Path p = storage().resolve("/Users/someone/app/backend/./data/statements/unassigned/2026-11_x.pdf");
-        assertEquals(root.resolve("statements/unassigned/2026-11_x.pdf"), p);
+        Path path = storage().resolve("/Users/someone/app/backend/./data/statements/unassigned/2026-11_x.pdf");
+        assertEquals(root.resolve("statements/unassigned/2026-11_x.pdf"), path);
     }
 
     @Test

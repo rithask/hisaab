@@ -27,8 +27,8 @@ public class FeatureService {
         this.settings = settings;
     }
 
-    public boolean on(Feature f) {
-        return Boolean.parseBoolean(settings.get(key(f)).orElse(Boolean.toString(f.onByDefault())));
+    public boolean on(Feature feature) {
+        return Boolean.parseBoolean(settings.get(key(feature)).orElse(Boolean.toString(feature.onByDefault())));
     }
 
     /** Refuses the request (400 with a readable message) when the feature is switched off. */

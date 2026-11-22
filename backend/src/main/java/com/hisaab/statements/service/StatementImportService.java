@@ -143,20 +143,20 @@ public class StatementImportService {
         imports.save(imp);
 
         int n = 0;
-        for (StatementRow r : s.rows()) {
+        for (StatementRow row : s.rows()) {
             StatementImportLine l = new StatementImportLine();
             l.setStatementImport(imp);
             l.setLineNo(n++);
-            l.setTxnDate(r.date());
-            l.setTxnTime(r.time());
-            l.setDescription(r.description());
-            l.setCounterparty(r.counterparty());
-            l.setReferenceNo(r.reference());
-            l.setDirection(r.direction());
-            l.setAmount(r.amount());
-            l.setBalance(r.balance());
-            l.setCardPayment(r.cardPayment());
-            l.setUncertain(r.uncertain());
+            l.setTxnDate(row.date());
+            l.setTxnTime(row.time());
+            l.setDescription(row.description());
+            l.setCounterparty(row.counterparty());
+            l.setReferenceNo(row.reference());
+            l.setDirection(row.direction());
+            l.setAmount(row.amount());
+            l.setBalance(row.balance());
+            l.setCardPayment(row.cardPayment());
+            l.setUncertain(row.uncertain());
             lines.save(l);
         }
         if (imp.getAccount() != null) reconcile(imp);
@@ -170,18 +170,18 @@ public class StatementImportService {
     }
 
     /** An existing review for this saved statement, so opening it twice doesn't create a second one. */
-    public Optional<StatementImport> openReviewFor(StatementFile f) {
-        return imports.findFirstByStatementFileAndStatus(f, ImportStatus.REVIEW);
+    public Optional<StatementImport> openReviewFor(StatementFile statementFile) {
+        return imports.findFirstByStatementFileAndStatus(statementFile, ImportStatus.REVIEW);
     }
 
     public long pendingCount() {
         return imports.countByStatus(ImportStatus.REVIEW);
     }
 
-    private Optional<Account> findAccount(ParsedStatement s) {
-        if (s.last4() == null) return Optional.empty();
-        return accounts.findByLast4AndArchivedFalse(s.last4()).stream()
-                .filter(a -> a.getInstitution() == s.institution() && a.isCard() == (s.accountType() == AccountType.CREDIT_CARD))
+    private Optional<Account> findAccount(ParsedStatement parsed) {
+        if (parsed.last4() == null) return Optional.empty();
+        return accounts.findByLast4AndArchivedFalse(parsed.last4()).stream()
+                .filter(a -> a.getInstitution() == parsed.institution() && a.isCard() == (parsed.accountType() == AccountType.CREDIT_CARD))
                 .findFirst();
     }
 
@@ -216,20 +216,21 @@ public class StatementImportService {
 
         List<Pair> pairs = new ArrayList<>();
         for (StatementImportLine l : ls) {
-            for (Transaction t : existing) {
-                boolean seenBefore = earlier.getOrDefault(t.getId(), List.of()).stream().anyMatch(e -> sameLine(e, l));
-                if (seenBefore) pairs.add(new Pair(l, t, 2000, true, "Matched when this statement was imported before"));
-                else score(l, t).ifPresent(pairs::add);
+            for (Transaction transaction : existing) {
+                boolean seenBefore = earlier.getOrDefault(transaction.getId(),
+                        List.of()).stream().anyMatch(e -> sameLine(e, l));
+                if (seenBefore) pairs.add(new Pair(l, transaction, 2000, true, "Matched when this statement was imported before"));
+                else score(l, transaction).ifPresent(pairs::add);
             }
         }
         pairs.sort(Comparator.comparingDouble(Pair::score).reversed());
 
         Set<Long> usedTxns = new HashSet<>();
         Map<Long, Pair> chosen = new HashMap<>();
-        for (Pair p : pairs) {
-            if (chosen.containsKey(p.line().getId()) || usedTxns.contains(p.txn().getId())) continue;
-            chosen.put(p.line().getId(), p);
-            usedTxns.add(p.txn().getId());
+        for (Pair pair : pairs) {
+            if (chosen.containsKey(pair.line().getId()) || usedTxns.contains(pair.txn().getId())) continue;
+            chosen.put(pair.line().getId(), pair);
+            usedTxns.add(pair.txn().getId());
         }
         for (StatementImportLine l : ls) {
             Pair p = chosen.get(l.getId());
@@ -253,22 +254,22 @@ public class StatementImportService {
     }
 
     /** How strongly a statement line and a recorded transaction look like the same thing, if at all. */
-    private Optional<Pair> score(StatementImportLine l, Transaction t) {
-        if (t.getDirection() != l.getDirection()) return Optional.empty();
-        boolean sameAmount = t.getAmount().compareTo(l.getAmount()) == 0;
+    private Optional<Pair> score(StatementImportLine l, Transaction transaction) {
+        if (transaction.getDirection() != l.getDirection()) return Optional.empty();
+        boolean sameAmount = transaction.getAmount().compareTo(l.getAmount()) == 0;
         // A foreign-currency spend is recorded at an estimated rate; the statement has the real rupee amount.
-        boolean estimated = t.isAmountEstimated() && l.getAmount().subtract(t.getAmount()).abs()
-                .compareTo(t.getAmount().multiply(new BigDecimal("0.15"))) <= 0;
+        boolean estimated = transaction.isAmountEstimated() && l.getAmount().subtract(transaction.getAmount()).abs()
+                .compareTo(transaction.getAmount().multiply(new BigDecimal("0.15"))) <= 0;
         if (!sameAmount && !estimated) return Optional.empty();
 
-        boolean sameRef = l.getReferenceNo() != null && l.getReferenceNo().equals(t.getReferenceNo());
-        LocalDateTime when = t.getOccurredAt().atZone(Money.INDIA).toLocalDateTime();
+        boolean sameRef = l.getReferenceNo() != null && l.getReferenceNo().equals(transaction.getReferenceNo());
+        LocalDateTime when = transaction.getOccurredAt().atZone(Money.INDIA).toLocalDateTime();
         long days = Math.abs(ChronoUnit.DAYS.between(when.toLocalDate(), l.getTxnDate()));
-        long minutes = l.getTxnTime() != null && !t.isTimeEstimated()
+        long minutes = l.getTxnTime() != null && !transaction.isTimeEstimated()
                 ? Math.abs(Duration.between(when, l.getTxnDate().atTime(l.getTxnTime())).toMinutes()) : -1;
         boolean close = minutes >= 0 ? minutes <= 90 : days <= 1;
-        boolean similarName = similar(l.getCounterparty(), t.getCounterparty());
-        boolean nameless = t.getCounterparty() == null || l.getCounterparty() == null;
+        boolean similarName = similar(l.getCounterparty(), transaction.getCounterparty());
+        boolean nameless = transaction.getCounterparty() == null || l.getCounterparty() == null;
 
         String reason;
         boolean exact;
@@ -292,7 +293,7 @@ public class StatementImportService {
         }
         double score = (sameRef ? 1000 : 0) + (exact ? 500 : 0) + (similarName ? 100 : 0) + (sameAmount ? 50 : 0)
                 - days * 10 - (minutes >= 0 ? minutes / 10.0 : 0);
-        return Optional.of(new Pair(l, t, score, exact, reason));
+        return Optional.of(new Pair(l, transaction, score, exact, reason));
     }
 
     public static boolean similar(String a, String b) {
@@ -327,8 +328,8 @@ public class StatementImportService {
     }
 
     private void applyFills(StatementImportLine l, Transaction t) {
-        for (FieldFillResponse f : fills(l, t)) {
-            switch (f.field()) {
+        for (FieldFillResponse fieldFill : fills(l, t)) {
+            switch (fieldFill.field()) {
                 case "counterparty" -> {
                     t.setCounterparty(l.getCounterparty());
                     t.setMerchantKey(Names.merchantKey(l.getCounterparty()));
@@ -356,8 +357,8 @@ public class StatementImportService {
     }
 
     /** Lines dated before the account's starting balance are history only; they never change the balance. */
-    public boolean beforeStart(StatementImportLine l, Account a) {
-        return when(l).isBefore(a.getOpeningDate());
+    public boolean beforeStart(StatementImportLine l, Account account) {
+        return when(l).isBefore(account.getOpeningDate());
     }
 
     /** Change to the account's balance (or card outstanding) if this line were added. */
@@ -397,12 +398,12 @@ public class StatementImportService {
     // ---- decisions & commit -------------------------------------------------------------------------------
 
     @Transactional
-    public StatementImportLine decide(Long importId, Long lineId, LineDecision d) {
+    public StatementImportLine decide(Long importId, Long lineId, LineDecision lineDecision) {
         StatementImport imp = review(importId);
         StatementImportLine l = lines.findById(lineId).filter(x -> x.getStatementImport().getId().equals(imp.getId()))
                 .orElseThrow(notFound("Line"));
-        if (d == LineDecision.MERGE && l.getMatchTxn() == null) throw new BadRequestException("Nothing to merge this line with");
-        l.setDecision(d);
+        if (lineDecision == LineDecision.MERGE && l.getMatchTxn() == null) throw new BadRequestException("Nothing to merge this line with");
+        l.setDecision(lineDecision);
         return l;
     }
 
@@ -450,8 +451,8 @@ public class StatementImportService {
                 f.setSizeBytes(0);
             }
             f.setReceivedAt(Instant.now());
-            LocalDate p = imp.getPeriodTo() != null ? imp.getPeriodTo() : ls.getLast().getTxnDate();
-            f.setPeriodLabel(p.format(StatementStorage.PERIOD));
+            LocalDate date = imp.getPeriodTo() != null ? imp.getPeriodTo() : ls.getLast().getTxnDate();
+            f.setPeriodLabel(date.format(StatementStorage.PERIOD));
             imp.setStatementFile(statementFiles.save(f));
         } else if (imp.getStatementFile() != null && imp.getStatementFile().getAccount() == null) {
             imp.getStatementFile().setAccount(account);
@@ -526,12 +527,12 @@ public class StatementImportService {
 
     private static String encodeChecks(List<ParsedStatement.Check> checks) {
         StringBuilder b = new StringBuilder();
-        for (ParsedStatement.Check c : checks) b.append(c.ok() ? "OK" : "FAIL").append('|').append(c.label().replace('|', '/')).append('|').append(c.detail().replace("\n", " ")).append('\n');
+        for (ParsedStatement.Check check : checks) b.append(check.ok() ? "OK" : "FAIL").append('|').append(check.label().replace('|', '/')).append('|').append(check.detail().replace("\n", " ")).append('\n');
         return b.toString();
     }
 
-    private static Instant startOf(LocalDate d) {
-        return d.atStartOfDay(Money.INDIA).toInstant();
+    private static Instant startOf(LocalDate date) {
+        return date.atStartOfDay(Money.INDIA).toInstant();
     }
 
     private static boolean isBlank(String s) {

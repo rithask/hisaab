@@ -29,9 +29,9 @@ public class FeatureGate implements HandlerInterceptor, WebMvcConfigurer {
     @Override
     public boolean preHandle(HttpServletRequest req, HttpServletResponse res, Object handler) {
         if (handler instanceof HandlerMethod m) {
-            RequiresFeature r = AnnotatedElementUtils.findMergedAnnotation(m.getMethod(), RequiresFeature.class);
-            if (r == null) r = AnnotatedElementUtils.findMergedAnnotation(m.getBeanType(), RequiresFeature.class);
-            if (r != null) features.require(r.value());
+            RequiresFeature required = AnnotatedElementUtils.findMergedAnnotation(m.getMethod(), RequiresFeature.class);
+            if (required == null) required = AnnotatedElementUtils.findMergedAnnotation(m.getBeanType(), RequiresFeature.class);
+            if (required != null) features.require(required.value());
         }
         return true;
     }

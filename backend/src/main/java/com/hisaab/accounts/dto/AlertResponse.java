@@ -8,9 +8,10 @@ import java.time.Instant;
 
 public record AlertResponse(Long id, AlertType type, String message, AccountRefResponse account, Long txnId,
                             BigDecimal expected, BigDecimal actual, Instant createdAt) {
-    public static AlertResponse of(Alert a) {
-        return new AlertResponse(a.getId(), a.getType(), a.getMessage(),
-                a.getAccount() == null ? null : AccountRefResponse.of(a.getAccount()),
-                a.getTxn() == null ? null : a.getTxn().getId(), a.getExpected(), a.getActual(), a.getCreatedAt());
+    public static AlertResponse of(Alert alert) {
+        return new AlertResponse(alert.getId(), alert.getType(), alert.getMessage(),
+                alert.getAccount() == null ? null : AccountRefResponse.of(alert.getAccount()),
+                alert.getTxn() == null ? null : alert.getTxn().getId(), alert.getExpected(), alert.getActual(),
+                        alert.getCreatedAt());
     }
 }

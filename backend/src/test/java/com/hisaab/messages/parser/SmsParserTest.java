@@ -17,9 +17,9 @@ class SmsParserTest {
     private static final Instant RECEIVED = Instant.parse("2026-11-06T18:00:00Z"); // 6 Nov 23:30 IST
 
     private ParsedTransaction ok(String sender, String text) {
-        SmsParser.Result r = parser.parse(sender, text, RECEIVED);
-        assertNotNull(r.txn(), () -> "expected a transaction, got: " + r.reason());
-        return r.txn();
+        SmsParser.Result result = parser.parse(sender, text, RECEIVED);
+        assertNotNull(result.txn(), () -> "expected a transaction, got: " + result.reason());
+        return result.txn();
     }
 
     private void skipped(String text) {

@@ -67,17 +67,17 @@ public class LearnedFormatReader {
         String flat = flat(text);
         Optional<Read> r = read(templates.findByChannelOrderByHitsDescIdAsc(channel), flat);
         if (r.isEmpty()) return Optional.empty();
-        LearnedFormat t = r.get().template();
-        t.setHits(t.getHits() + 1);
-        t.setLastUsedAt(Instant.now());
-        if (r.get().skip()) return Optional.of(new Match(null, t));
-        Matcher m = r.get().m();
-        SmsParser.When w = SmsParser.findWhen(flat, receivedAt);
-        ParsedTransaction p = new ParsedTransaction(t.getInstitution(), t.getAccountType(), t.getDirection(), r.get().amount(), "INR",
-                group(t, m, "l4"), w.date(), w.time(), r.get().payee(), group(t, m, "ref"),
-                t.getAccountType() == AccountType.CREDIT_CARD || group(t, m, "bal") == null ? null : SmsParser.toAmount(group(t, m, "bal")),
-                t.isCardPayment(), null);
-        return Optional.of(new Match(p, t));
+        LearnedFormat format = r.get().template();
+        format.setHits(format.getHits() + 1);
+        format.setLastUsedAt(Instant.now());
+        if (r.get().skip()) return Optional.of(new Match(null, format));
+        Matcher matcher = r.get().m();
+        SmsParser.When when = SmsParser.findWhen(flat, receivedAt);
+        ParsedTransaction parsed = new ParsedTransaction(format.getInstitution(), format.getAccountType(), format.getDirection(), r.get().amount(), "INR",
+                group(format, matcher, "l4"), when.date(), when.time(), r.get().payee(), group(format, matcher, "ref"),
+                format.getAccountType() == AccountType.CREDIT_CARD || group(format, matcher, "bal") == null ? null : SmsParser.toAmount(group(format, matcher, "bal")),
+                format.isCardPayment(), null);
+        return Optional.of(new Match(parsed, format));
     }
 
     /** The first of these formats (in the order given) that fits the whole message. */
@@ -87,16 +87,16 @@ public class LearnedFormatReader {
         Comparator<LearnedFormat> newestFirst = Comparator.comparing((LearnedFormat t) -> t.getId() == null ? Long.MAX_VALUE : t.getId()).reversed();
         List<LearnedFormat> ordered = new ArrayList<>(set.stream().filter(t -> t.isSkip() && !t.isPaused()).sorted(newestFirst).toList());
         set.stream().filter(t -> !t.isSkip() && !t.isPaused()).sorted(newestFirst).forEach(ordered::add);
-        for (LearnedFormat t : ordered) {
+        for (LearnedFormat format : ordered) {
             Matcher m;
             try {
-                m = Pattern.compile(t.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
+                m = Pattern.compile(format.getPattern(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(flat);
             } catch (PatternSyntaxException e) {
-                log.warn("Learned SMS format {} is unusable: {}", t.getId(), e.getMessage());
+                log.warn("Learned SMS format {} is unusable: {}", format.getId(), e.getMessage());
                 continue;
             }
             if (!m.matches()) continue;
-            if (t.isSkip()) return Optional.of(new Read(t, null, null, null, null, m));
+            if (format.isSkip()) return Optional.of(new Read(format, null, null, null, null, m));
             BigDecimal amount;
             try {
                 amount = SmsParser.toAmount(m.group("amt"));
@@ -104,13 +104,13 @@ public class LearnedFormatReader {
                 continue;
             }
             if (amount.signum() <= 0) continue;
-            return Optional.of(new Read(t, t.getDirection(), amount, t.getInstitution(), clean(group(t, m, "payee")), m));
+            return Optional.of(new Read(format, format.getDirection(), amount, format.getInstitution(), clean(group(format, m, "payee")), m));
         }
         return Optional.empty();
     }
 
-    private static String group(LearnedFormat t, Matcher m, String name) {
-        return t.getPattern().contains("(?<" + name + ">") ? m.group(name) : null;
+    private static String group(LearnedFormat format, Matcher matcher, String name) {
+        return format.getPattern().contains("(?<" + name + ">") ? matcher.group(name) : null;
     }
 
     /** A paused format that fits this message, if any (its messages wait for review instead). */

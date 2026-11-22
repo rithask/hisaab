@@ -88,10 +88,10 @@ public class DataApiController {
     public org.springframework.http.ResponseEntity<ApiTransactionResponse> add(HttpServletRequest req,
                                                                            @RequestBody(required = false) ApiTransactionRequest in,
                                                                            @RequestHeader(name = "Idempotency-Key", required = false) String key) {
-        DataApiService.Added a = api.add(token(req), in, key);
+        DataApiService.Added added = api.add(token(req), in, key);
         java.net.URI location = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequestUri()
-                .path("/{id}").buildAndExpand(a.transaction().id()).toUri();
-        return org.springframework.http.ResponseEntity.created(location).body(a.transaction());
+                .path("/{id}").buildAndExpand(added.transaction().id()).toUri();
+        return org.springframework.http.ResponseEntity.created(location).body(added.transaction());
     }
 
     @GetMapping("/balances")

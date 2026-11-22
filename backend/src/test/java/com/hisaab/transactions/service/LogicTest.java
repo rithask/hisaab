@@ -13,27 +13,27 @@ class LogicTest {
     @Test
     void cardCycleBeforeDueDate() {
         // statement on the 15th, due on the 5th of the following month
-        CardCycle c = CardCycle.of(15, 5, LocalDate.of(2026, 11, 10));
-        assertThat(c.lastStatement()).isEqualTo(LocalDate.of(2026, 10, 15));
-        assertThat(c.nextStatement()).isEqualTo(LocalDate.of(2026, 11, 15));
-        assertThat(c.cycleStart()).isEqualTo(LocalDate.of(2026, 10, 16));
+        CardCycle cardCycle = CardCycle.of(15, 5, LocalDate.of(2026, 11, 10));
+        assertThat(cardCycle.lastStatement()).isEqualTo(LocalDate.of(2026, 10, 15));
+        assertThat(cardCycle.nextStatement()).isEqualTo(LocalDate.of(2026, 11, 15));
+        assertThat(cardCycle.cycleStart()).isEqualTo(LocalDate.of(2026, 10, 16));
         // the Oct 15 statement was due Nov 5, which has passed → next due is for the Nov 15 statement
-        assertThat(c.dueDate()).isEqualTo(LocalDate.of(2026, 12, 5));
+        assertThat(cardCycle.dueDate()).isEqualTo(LocalDate.of(2026, 12, 5));
     }
 
     @Test
     void cardCycleDueStillAhead() {
-        CardCycle c = CardCycle.of(1, 20, LocalDate.of(2026, 11, 10));
-        assertThat(c.lastStatement()).isEqualTo(LocalDate.of(2026, 11, 1));
-        assertThat(c.dueDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+        CardCycle cardCycle = CardCycle.of(1, 20, LocalDate.of(2026, 11, 10));
+        assertThat(cardCycle.lastStatement()).isEqualTo(LocalDate.of(2026, 11, 1));
+        assertThat(cardCycle.dueDate()).isEqualTo(LocalDate.of(2026, 11, 20));
     }
 
     @Test
     void cardCycleClampsShortMonths() {
-        CardCycle c = CardCycle.of(31, 20, LocalDate.of(2026, 2, 28));
-        assertThat(c.lastStatement()).isEqualTo(LocalDate.of(2026, 2, 28));
-        assertThat(c.nextStatement()).isEqualTo(LocalDate.of(2026, 3, 31));
-        assertThat(c.dueDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+        CardCycle cardCycle = CardCycle.of(31, 20, LocalDate.of(2026, 2, 28));
+        assertThat(cardCycle.lastStatement()).isEqualTo(LocalDate.of(2026, 2, 28));
+        assertThat(cardCycle.nextStatement()).isEqualTo(LocalDate.of(2026, 3, 31));
+        assertThat(cardCycle.dueDate()).isEqualTo(LocalDate.of(2026, 3, 20));
     }
 
     @Test

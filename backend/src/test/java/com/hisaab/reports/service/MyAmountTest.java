@@ -8,8 +8,9 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MyAmountTest {
-    private static BigDecimal mine(Direction d, String amount, String shared, String repaidToMe, String iRepaid) {
-        return ReportService.myAmount(d, new BigDecimal(amount), new BigDecimal(shared), new BigDecimal(repaidToMe), new BigDecimal(iRepaid));
+    private static BigDecimal mine(Direction direction, String amount, String shared, String repaidToMe,
+            String iRepaid) {
+        return ReportService.myAmount(direction, new BigDecimal(amount), new BigDecimal(shared), new BigDecimal(repaidToMe), new BigDecimal(iRepaid));
     }
 
     @Test

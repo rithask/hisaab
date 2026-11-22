@@ -71,39 +71,39 @@ public class UnusualService {
         Map<String, List<BigDecimal>> before = new HashMap<>();
         List<UnusualItemResponse> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
-            Row t = rows.get(i);
-            List<BigDecimal> prior = t.key() == null ? List.of() : before.getOrDefault(t.key(), List.of());
-            if (!t.at().isBefore(recent)) {
+            Row row = rows.get(i);
+            List<BigDecimal> prior = row.key() == null ? List.of() : before.getOrDefault(row.key(), List.of());
+            if (!row.at().isBefore(recent)) {
                 List<UnusualReasonResponse> reasons = new ArrayList<>();
                 // Same amount, same payee, same account, within 30 minutes: often a payment that went through twice.
                 for (int j = i - 1; j >= 0; j--) {
                     Row o = rows.get(j);
-                    long mins = Duration.between(o.at(), t.at()).toMinutes();
+                    long mins = Duration.between(o.at(), row.at()).toMinutes();
                     if (mins > 30) break;
-                    if (t.timeEstimated() || o.timeEstimated()) continue;
-                    if (o.accountId() == t.accountId() && o.amount().compareTo(t.amount()) == 0 && Objects.equals(o.key(), t.key()) && t.key() != null) {
+                    if (row.timeEstimated() || o.timeEstimated()) continue;
+                    if (o.accountId() == row.accountId() && o.amount().compareTo(row.amount()) == 0 && Objects.equals(o.key(), row.key()) && row.key() != null) {
                         reasons.add(new UnusualReasonResponse("DOUBLE_CHARGE", o.id(), (int) mins, null, null, null, null));
                         break;
                     }
                 }
-                if (t.currency() != null && !t.currency().equalsIgnoreCase("INR"))
-                    reasons.add(new UnusualReasonResponse("FOREIGN", null, null, null, null, t.currency().toUpperCase(Locale.ROOT), t.originalAmount()));
-                if (prior.isEmpty() && t.key() != null && t.amount().compareTo(NEW_PAYEE_BIG) >= 0 && t.at().isAfter(historyWarm))
+                if (row.currency() != null && !row.currency().equalsIgnoreCase("INR"))
+                    reasons.add(new UnusualReasonResponse("FOREIGN", null, null, null, null, row.currency().toUpperCase(Locale.ROOT), row.originalAmount()));
+                if (prior.isEmpty() && row.key() != null && row.amount().compareTo(NEW_PAYEE_BIG) >= 0 && row.at().isAfter(historyWarm))
                     reasons.add(new UnusualReasonResponse("NEW_PAYEE_BIG", null, null, null, 0, null, null));
-                if (prior.size() >= 5 && t.amount().compareTo(MERCHANT_MIN) >= 0) {
+                if (prior.size() >= 5 && row.amount().compareTo(MERCHANT_MIN) >= 0) {
                     List<BigDecimal> sorted = new ArrayList<>(prior);
                     Collections.sort(sorted);
                     BigDecimal median = sorted.get(sorted.size() / 2);
-                    if (t.amount().compareTo(median.multiply(BigDecimal.valueOf(3))) > 0 && t.amount().compareTo(sorted.getLast()) > 0)
+                    if (row.amount().compareTo(median.multiply(BigDecimal.valueOf(3))) > 0 && row.amount().compareTo(sorted.getLast()) > 0)
                         reasons.add(new UnusualReasonResponse("BIG_FOR_MERCHANT", null, null, Money.r2(median), prior.size(), null, null));
                 }
-                int hour = ZonedDateTime.ofInstant(t.at(), Money.ZONE).getHour();
-                if (!t.timeEstimated() && hour < 5 && t.amount().compareTo(LATE_NIGHT_MIN) >= 0)
+                int hour = ZonedDateTime.ofInstant(row.at(), Money.ZONE).getHour();
+                if (!row.timeEstimated() && hour < 5 && row.amount().compareTo(LATE_NIGHT_MIN) >= 0)
                     reasons.add(new UnusualReasonResponse("LATE_NIGHT", null, null, null, null, null, null));
                 if (!reasons.isEmpty())
-                    out.add(new UnusualItemResponse("unusual:" + t.id(), t.id(), t.name(), t.accountId(), t.account(), t.amount(), t.at(), reasons));
+                    out.add(new UnusualItemResponse("unusual:" + row.id(), row.id(), row.name(), row.accountId(), row.account(), row.amount(), row.at(), reasons));
             }
-            if (t.key() != null) before.computeIfAbsent(t.key(), k -> new ArrayList<>()).add(t.amount());
+            if (row.key() != null) before.computeIfAbsent(row.key(), k -> new ArrayList<>()).add(row.amount());
         }
         return out;
     }
@@ -149,7 +149,7 @@ public class UnusualService {
      */
     private Match findRefund(long txnId, BigDecimal amount, Instant paid, String merchantKey, Set<Long> claimed) {
         var p = new MapSqlParameterSource("paid", Timestamp.from(paid)).addValue("amount", amount).addValue("key", merchantKey).addValue("id", txnId);
-        List<Match> m = jdbc.query("""
+        List<Match> matches = jdbc.query("""
                 select t.id, t.amount, t.occurred_at from txn t left join category c on c.id = t.category_id
                 where t.direction = 'CREDIT' and t.transfer = false and t.occurred_at >= :paid and t.id <> :id
                   and ((cast(:key as varchar) is not null and t.merchant_key = :key and t.amount <= :amount)
@@ -157,7 +157,7 @@ public class UnusualService {
                            or concat_ws(' ', t.counterparty, t.description) ~* '(refund|reversal|reversed|chargeback)')))
                 order by t.occurred_at, t.id
                 """, p, (rs, n) -> new Match(rs.getLong("id"), rs.getBigDecimal("amount"), rs.getTimestamp("occurred_at").toInstant()));
-        return m.stream().filter(x -> !claimed.contains(x.id())).findFirst().orElse(null);
+        return matches.stream().filter(x -> !claimed.contains(x.id())).findFirst().orElse(null);
     }
 
     public void expectRefund(long txnId, LocalDate expectedBy) {

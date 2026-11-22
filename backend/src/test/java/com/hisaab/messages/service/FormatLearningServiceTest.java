@@ -41,10 +41,10 @@ class FormatLearningServiceTest {
     void setUp() {
         LearnedFormatRepository repo = mock(LearnedFormatRepository.class);
         when(repo.save(any())).thenAnswer(i -> {
-            LearnedFormat t = i.getArgument(0);
-            if (t.getId() == null) t.setId((long) store.size() + 1 + store.stream().mapToLong(x -> x.getId() == null ? 0 : x.getId()).max().orElse(0));
-            if (!store.contains(t)) store.add(t);
-            return t;
+            LearnedFormat format = i.getArgument(0);
+            if (format.getId() == null) format.setId((long) store.size() + 1 + store.stream().mapToLong(x -> x.getId() == null ? 0 : x.getId()).max().orElse(0));
+            if (!store.contains(format)) store.add(format);
+            return format;
         });
         when(repo.findAllByOrderByHitsDescIdAsc()).thenAnswer(i -> new ArrayList<>(store));
         when(repo.findByChannelOrderByHitsDescIdAsc(any())).thenAnswer(i -> store.stream().filter(t -> t.getChannel() == i.getArgument(0)).collect(Collectors.toCollection(ArrayList::new)));
@@ -52,9 +52,9 @@ class FormatLearningServiceTest {
         when(repo.findBySkeleton(any())).thenAnswer(i -> store.stream().filter(t -> t.getSkeleton().equals(i.getArgument(0))).findFirst());
         LearnedExampleRepository examples = mock(LearnedExampleRepository.class);
         when(examples.save(any())).thenAnswer(i -> {
-            LearnedExample e = i.getArgument(0);
-            if (!lessons.contains(e)) lessons.add(e);
-            return e;
+            LearnedExample example = i.getArgument(0);
+            if (!lessons.contains(example)) lessons.add(example);
+            return example;
         });
         when(examples.findByChannel(any())).thenAnswer(i -> lessons.stream().filter(e -> e.getChannel() == i.getArgument(0)).toList());
         doAnswer(i -> lessons.remove(i.<LearnedExample>getArgument(0))).when(examples).delete(any());

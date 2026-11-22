@@ -44,11 +44,11 @@ public class BackupController {
     @GetMapping("/backups/{file}")
     @RequiresFeature(Feature.BACKUPS)
     public ResponseEntity<Resource> download(@PathVariable String file, jakarta.servlet.http.HttpServletRequest req) {
-        Path p = backups.file(file);
+        Path path = backups.file(file);
         // a full copy of the database leaving the server
-        Audit.log("Backup downloaded file={} ip={}", p.getFileName(), req.getRemoteAddr());
+        Audit.log("Backup downloaded file={} ip={}", path.getFileName(), req.getRemoteAddr());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file).build().toString())
-                .body(new FileSystemResource(p));
+                .body(new FileSystemResource(path));
     }
 }

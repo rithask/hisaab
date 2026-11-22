@@ -81,28 +81,29 @@ public class HoldingService {
     }
 
     @Transactional
-    public Holding save(Holding h, HoldingRequest in) {
+    public Holding save(Holding holding, HoldingRequest in) {
         if (in.assetType() == null) throw new BadRequestException("Asset type is required");
         if (in.symbol() == null || in.symbol().isBlank()) throw new BadRequestException("Symbol is required");
         if (in.quantity() == null || in.quantity().signum() <= 0) throw new BadRequestException("Quantity must be positive");
         if (in.avgPrice() == null || in.avgPrice().signum() < 0) throw new BadRequestException("Average price is required");
-        h.setAssetType(in.assetType());
-        h.setSymbol(in.assetType() == AssetType.STOCK ? in.symbol().trim().toUpperCase(Locale.ROOT) : in.symbol().trim());
-        h.setExchange(in.assetType() == AssetType.STOCK ? (in.exchange() == null ? "NSE" : in.exchange()) : null);
-        h.setQuantity(in.quantity());
-        h.setAvgPrice(in.avgPrice());
-        if (in.name() != null && !in.name().isBlank()) h.setName(in.name().trim());
+        holding.setAssetType(in.assetType());
+        holding.setSymbol(in.assetType() == AssetType.STOCK ? in.symbol().trim().toUpperCase(Locale.ROOT) : in.symbol().trim());
+        holding.setExchange(in.assetType() == AssetType.STOCK ? (in.exchange() == null ? "NSE" : in.exchange()) : null);
+        holding.setQuantity(in.quantity());
+        holding.setAvgPrice(in.avgPrice());
+        if (in.name() != null && !in.name().isBlank()) holding.setName(in.name().trim());
         if (in.assetType() == AssetType.MF) {
-            schemes.findById(h.getSymbol()).ifPresent(s -> {
-                if (h.getName() == null) h.setName(s.getName());
-                h.setLastPrice(s.getNav());
-                h.setPriceAsOf(s.getNavDate() == null ? null : s.getNavDate().atStartOfDay(Money.INDIA).toInstant());
+            schemes.findById(holding.getSymbol()).ifPresent(s -> {
+                if (holding.getName() == null) holding.setName(s.getName());
+                holding.setLastPrice(s.getNav());
+                holding.setPriceAsOf(s.getNavDate() == null ? null
+                        : s.getNavDate().atStartOfDay(Money.INDIA).toInstant());
             });
         }
-        if (h.getName() == null) h.setName(h.getSymbol());
-        holdings.save(h);
-        if (in.assetType() == AssetType.STOCK) refreshStock(h);
-        return h;
+        if (holding.getName() == null) holding.setName(holding.getSymbol());
+        holdings.save(holding);
+        if (in.assetType() == AssetType.STOCK) refreshStock(holding);
+        return holding;
     }
 
     /**

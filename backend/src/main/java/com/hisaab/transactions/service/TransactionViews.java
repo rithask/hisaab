@@ -35,8 +35,8 @@ public class TransactionViews {
         this.settlements = settlements;
     }
 
-    public TransactionResponse one(Transaction t) {
-        return page(List.of(t)).getFirst();
+    public TransactionResponse one(Transaction transaction) {
+        return page(List.of(transaction)).getFirst();
     }
 
     public List<TransactionResponse> page(List<Transaction> txns) {
@@ -64,8 +64,8 @@ public class TransactionViews {
                 people(repaid.stream().filter(s -> s.getDirection() == SettlementDirection.OUT).map(Settlement::getPerson)));
     }
 
-    private static BigDecimal sum(List<Settlement> list, SettlementDirection d) {
-        return list.stream().filter(s -> s.getDirection() == d).map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    private static BigDecimal sum(List<Settlement> list, SettlementDirection settlementDirection) {
+        return list.stream().filter(s -> s.getDirection() == settlementDirection).map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static List<PersonRefResponse> people(Stream<Person> s) {

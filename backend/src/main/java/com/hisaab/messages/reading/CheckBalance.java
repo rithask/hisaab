@@ -22,18 +22,18 @@ class CheckBalance implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        var p = r.parsed;
-        if (!r.sms() || p.balance() == null || r.account.isCard() || !"INR".equals(p.currency())) return;
-        BigDecimal now = balances.current(r.account);
+    public void apply(MessageReading reading) {
+        var p = reading.parsed;
+        if (!reading.sms() || p.balance() == null || reading.account.isCard() || !"INR".equals(p.currency())) return;
+        BigDecimal now = balances.current(reading.account);
         boolean asDebit = now.subtract(p.amount()).subtract(p.balance()).abs().compareTo(TOLERANCE) <= 0;
         boolean asCredit = now.add(p.amount()).subtract(p.balance()).abs().compareTo(TOLERANCE) <= 0;
         if (asDebit == asCredit) return;
-        r.balanceAddsUp = true;
+        reading.balanceAddsUp = true;
         Direction right = asDebit ? Direction.DEBIT : Direction.CREDIT;
         if (right != p.direction()) {
-            r.parsed = p.withDirection(right);
-            r.notes.append("Direction corrected using the balance in the message.");
+            reading.parsed = p.withDirection(right);
+            reading.notes.append("Direction corrected using the balance in the message.");
         }
     }
 }

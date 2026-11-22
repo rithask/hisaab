@@ -162,8 +162,8 @@ public class ResetService {
     private void deleteStatementFiles() {
         if (!Files.isDirectory(statementsDir)) return;
         try (Stream<Path> s = Files.walk(statementsDir)) {
-            for (Path p : s.sorted(Comparator.reverseOrder()).toList()) {
-                if (!p.equals(statementsDir)) Files.deleteIfExists(p);
+            for (Path path : s.sorted(Comparator.reverseOrder()).toList()) {
+                if (!path.equals(statementsDir)) Files.deleteIfExists(path);
             }
         } catch (IOException e) {
             // the database is already reset; leftover files only take space and are never shown

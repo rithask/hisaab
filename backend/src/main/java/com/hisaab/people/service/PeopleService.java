@@ -58,9 +58,9 @@ public class PeopleService {
         return dto(p, splits.balance(p));
     }
 
-    private static PersonResponse dto(Person p, PersonBalanceResponse b) {
-        return new PersonResponse(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), b.owed(), b.paid(),
-                b.paidForMe(), b.paidBack(), b.outstanding());
+    private static PersonResponse dto(Person p, PersonBalanceResponse personBalance) {
+        return new PersonResponse(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), personBalance.owed(), personBalance.paid(),
+                personBalance.paidForMe(), personBalance.paidBack(), personBalance.outstanding());
     }
 
     private Person person(Long id) {

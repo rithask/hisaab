@@ -56,8 +56,8 @@ public class AccountService {
         return list.stream().map(a -> view(a, current.get(a.getId()))).toList();
     }
 
-    public AccountResponse view(Account a) {
-        return view(a, balances.current(a));
+    public AccountResponse view(Account account) {
+        return view(account, balances.current(account));
     }
 
     private AccountResponse view(Account a, BigDecimal balance) {
@@ -72,13 +72,14 @@ public class AccountService {
             BigDecimal spent = null, paid = null;
             if (a.getStatementDay() != null && a.getDueDay() != null) {
                 LocalDate today = LocalDate.now(Money.INDIA);
-                CardCycle c = CardCycle.of(a.getStatementDay(), a.getDueDay(), today);
-                last = c.lastStatement();
-                next = c.nextStatement();
-                due = c.dueDate();
+                CardCycle cardCycle = CardCycle.of(a.getStatementDay(), a.getDueDay(), today);
+                last = cardCycle.lastStatement();
+                next = cardCycle.nextStatement();
+                due = cardCycle.dueDate();
                 days = ChronoUnit.DAYS.between(today, due);
-                Instant cycleStart = max(c.cycleStart().atStartOfDay(Money.INDIA).toInstant(), a.getOpeningDate());
-                Instant statementEnd = max(c.lastStatement().plusDays(1).atStartOfDay(Money.INDIA).toInstant(), a.getOpeningDate());
+                Instant cycleStart = max(cardCycle.cycleStart().atStartOfDay(Money.INDIA).toInstant(),
+                        a.getOpeningDate());
+                Instant statementEnd = max(cardCycle.lastStatement().plusDays(1).atStartOfDay(Money.INDIA).toInstant(), a.getOpeningDate());
                 spent = txns.sumSince(a, Direction.DEBIT, cycleStart);
                 paid = txns.sumSince(a, Direction.CREDIT, statementEnd);
             }

@@ -14,10 +14,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class WatchLogicTest {
     private static List<Payment> monthly(double... amounts) {
         List<Payment> out = new ArrayList<>();
-        LocalDate d = LocalDate.of(2026, 1, 14);
+        LocalDate date = LocalDate.of(2026, 1, 14);
         for (double a : amounts) {
-            out.add(new Payment(out.size() + 1, "netflix", "Netflix", 1, "Card", "Subscriptions", null, BigDecimal.valueOf(a), d));
-            d = d.plusMonths(1);
+            out.add(new Payment(out.size() + 1, "netflix", "Netflix", 1, "Card", "Subscriptions", null, BigDecimal.valueOf(a), date));
+            date = date.plusMonths(1);
         }
         return out;
     }

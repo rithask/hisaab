@@ -89,20 +89,20 @@ public class NetWorthService {
         });
 
         Map<Long, BigDecimal> running = new HashMap<>();
-        for (LocalDate d = first; d.isBefore(until); d = d.plusDays(1)) {
+        for (LocalDate date = first; date.isBefore(until); date = date.plusDays(1)) {
             BigDecimal cash = BigDecimal.ZERO, dues = BigDecimal.ZERO;
             for (var a : accts) {
                 long id = ((Number) a.get("id")).longValue();
                 LocalDate start = ((Date) a.get("start")).toLocalDate();
-                if (d.isBefore(start)) continue;
+                if (date.isBefore(start)) continue;
                 BigDecimal bal = running.getOrDefault(id, BigDecimal.ZERO)
-                        .add(nets.getOrDefault(id, Map.of()).getOrDefault(d, BigDecimal.ZERO));
+                        .add(nets.getOrDefault(id, Map.of()).getOrDefault(date, BigDecimal.ZERO));
                 running.put(id, bal);
                 BigDecimal opening = (BigDecimal) a.get("opening_balance");
                 if ("CREDIT_CARD".equals(a.get("type"))) dues = dues.add(opening.subtract(bal));
                 else cash = cash.add(opening.add(bal));
             }
-            upsert(d, cash, dues, inv, rec, true);
+            upsert(date, cash, dues, inv, rec, true);
         }
     }
 

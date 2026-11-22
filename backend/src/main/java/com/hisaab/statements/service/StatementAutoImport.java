@@ -38,35 +38,36 @@ public class StatementAutoImport {
 
     /** Runs after the email's own transaction has committed, so a problem here never loses the email. */
     @TransactionalEventListener(fallbackExecution = true)
-    public void onSaved(StatementSavedEvent e) {
+    public void onSaved(StatementSavedEvent statementSavedEvent) {
         try {
-            self.read(e.statementFileId());
+            self.read(statementSavedEvent.statementFileId());
         } catch (RuntimeException ex) {
-            log.error("Couldn't read statement {} for import", e.statementFileId(), ex);
-            self.mark(e.statementFileId(), "ERROR", "Couldn't read it: " + ex.getMessage());
+            log.error("Couldn't read statement {} for import", statementSavedEvent.statementFileId(), ex);
+            self.mark(statementSavedEvent.statementFileId(), "ERROR", "Couldn't read it: " + ex.getMessage());
         }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void read(Long fileId) {
-        StatementFile f = files.findById(fileId).orElse(null);
-        if (f == null) return;
-        if (imports.openReviewFor(f).isPresent()) return;
+        StatementFile statementFile = files.findById(fileId).orElse(null);
+        if (statementFile == null) return;
+        if (imports.openReviewFor(statementFile).isPresent()) return;
         try {
-            byte[] pdf = Files.readAllBytes(storage.resolve(f.getStoredPath()));
-            imports.start(pdf, f.getFileName(), null, false, f);
+            byte[] pdf = Files.readAllBytes(storage.resolve(statementFile.getStoredPath()));
+            imports.start(pdf, statementFile.getFileName(), null, false, statementFile);
         } catch (PasswordRequiredException ex) {
             log.info("Statement {} from email needs its password before it can be read", fileId);
-            f.setImportStatus("NEEDS_PASSWORD");
-            f.setImportNote("Needs its password once; after that, statements for this account open by themselves.");
+            statementFile.setImportStatus("NEEDS_PASSWORD");
+            statementFile.setImportNote("Needs its password once; after that, statements for this account open by themselves.");
         } catch (UnsupportedStatementException ex) {
             log.info("Statement {} from email isn't one the app can read: {}", fileId, ex.getMessage());
-            f.setImportStatus("UNSUPPORTED");
-            f.setImportNote(ex.getMessage());
+            statementFile.setImportStatus("UNSUPPORTED");
+            statementFile.setImportNote(ex.getMessage());
         } catch (java.io.IOException ex) {
-            log.warn("Saved statement {} ({}) couldn't be read: {}", fileId, f.getStoredPath(), ex.toString());
-            f.setImportStatus("ERROR");
-            f.setImportNote("The saved file couldn't be read: " + ex.getMessage());
+            log.warn("Saved statement {} ({}) couldn't be read: {}", fileId, statementFile.getStoredPath(),
+                    ex.toString());
+            statementFile.setImportStatus("ERROR");
+            statementFile.setImportNote("The saved file couldn't be read: " + ex.getMessage());
         }
     }
 

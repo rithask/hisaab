@@ -36,9 +36,9 @@ public class OidcLinkService {
                 id == null ? null : settings.get(AT).filter(s -> !s.isBlank()).map(Instant::parse).orElse(null));
     }
 
-    public void save(Pending p) {
-        settings.set(ID, p.id());
-        settings.set(EMAIL, p.email() == null ? "" : p.email());
+    public void save(Pending pending) {
+        settings.set(ID, pending.id());
+        settings.set(EMAIL, pending.email() == null ? "" : pending.email());
         settings.set(AT, Instant.now().toString());
     }
 

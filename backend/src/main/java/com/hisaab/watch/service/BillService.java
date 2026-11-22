@@ -75,11 +75,12 @@ public class BillService {
 
     private List<BillResponse> learned(LocalDate today) {
         List<BillResponse> out = new ArrayList<>();
-        for (Series x : recurring(today, true)) {
-            if (x.stopped()) continue;                                              // stopped paying it, apparently
-            Payment last = x.days().getLast();
-            out.add(new BillResponse(x.key(), x.payee(), x.accountId(), x.account(), x.category(), x.color(), x.amount(), x.varies(),
-                    x.due(), x.daysLeft(), x.daysLeft() < 0, x.every(), x.days().size(), last.day(), false));
+        for (Series series : recurring(today, true)) {
+            if (series.stopped()) continue;                                              // stopped paying it, apparently
+            Payment last = series.days().getLast();
+            out.add(new BillResponse(series.key(), series.payee(), series.accountId(), series.account(), series.category(), series.color(), series.amount(), series.varies(),
+                    series.due(), series.daysLeft(), series.daysLeft() < 0, series.every(), series.days().size(),
+                            last.day(), false));
         }
         return out;
     }
@@ -104,7 +105,7 @@ public class BillService {
                 rs.getBigDecimal("amount"), rs.getDate("d").toLocalDate()));
 
         Map<String, List<Payment>> byPayee = new LinkedHashMap<>();
-        for (Payment r : rows) byPayee.computeIfAbsent(r.key(), k -> new ArrayList<>()).add(r);
+        for (Payment payment : rows) byPayee.computeIfAbsent(payment.key(), k -> new ArrayList<>()).add(payment);
 
         List<Series> out = new ArrayList<>();
         for (List<Payment> ps : byPayee.values()) {

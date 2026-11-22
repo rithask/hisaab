@@ -148,9 +148,9 @@ public class BackupService {
     private static void addFiles(ZipOutputStream zip, Path root, String prefix) throws IOException {
         if (!Files.isDirectory(root)) return;
         try (Stream<Path> files = Files.walk(root)) {
-            for (Path f : files.filter(Files::isRegularFile).sorted().toList()) {
-                zip.putNextEntry(new ZipEntry(prefix + root.relativize(f).toString().replace('\\', '/')));
-                Files.copy(f, zip);
+            for (Path path : files.filter(Files::isRegularFile).sorted().toList()) {
+                zip.putNextEntry(new ZipEntry(prefix + root.relativize(path).toString().replace('\\', '/')));
+                Files.copy(path, zip);
                 zip.closeEntry();
             }
         }
@@ -197,9 +197,9 @@ public class BackupService {
 
     public Path file(String name) {
         if (!name.matches(PREFIX + "[0-9-]+\\.zip")) throw new BadRequestException("Not a backup file");
-        Path p = dir.resolve(name).normalize();
-        if (!p.startsWith(dir) || !Files.isRegularFile(p)) throw new NotFoundException("Backup not found");
-        return p;
+        Path path = dir.resolve(name).normalize();
+        if (!path.startsWith(dir) || !Files.isRegularFile(path)) throw new NotFoundException("Backup not found");
+        return path;
     }
 
     public BackupStatusResponse status() throws IOException {
@@ -214,9 +214,9 @@ public class BackupService {
     /** True when Home should nag: the feature is on and the last run failed or nothing succeeded in two days. */
     public boolean needsAttention() {
         try {
-            BackupStatusResponse s = status();
-            boolean failedLast = s.lastError() != null && (s.lastOk() == null || (s.lastErrorAt() != null && s.lastErrorAt().isAfter(s.lastOk())));
-            return s.enabled() && (failedLast || (s.stale() && s.lastOk() != null));
+            BackupStatusResponse backupStatus = status();
+            boolean failedLast = backupStatus.lastError() != null && (backupStatus.lastOk() == null || (backupStatus.lastErrorAt() != null && backupStatus.lastErrorAt().isAfter(backupStatus.lastOk())));
+            return backupStatus.enabled() && (failedLast || (backupStatus.stale() && backupStatus.lastOk() != null));
         } catch (IOException e) {
             return true;
         }

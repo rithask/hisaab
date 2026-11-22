@@ -43,14 +43,14 @@ class SplitServiceTest {
         when(settlements.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
-    private static Transaction money(Direction d, String amount, String from) {
-        Transaction t = new Transaction();
-        t.setDirection(d);
-        t.setAmount(new BigDecimal(amount));
-        t.setCounterparty(from);
-        t.setAccount(new Account());
-        t.setOccurredAt(Instant.now());
-        return t;
+    private static Transaction money(Direction direction, String amount, String from) {
+        Transaction transaction = new Transaction();
+        transaction.setDirection(direction);
+        transaction.setAmount(new BigDecimal(amount));
+        transaction.setCounterparty(from);
+        transaction.setAccount(new Account());
+        transaction.setOccurredAt(Instant.now());
+        return transaction;
     }
 
     private Settlement suggested() {
@@ -103,19 +103,19 @@ class SplitServiceTest {
     void moneyOutIsSuggestedAsPayingBackSomeoneIOwe() {
         given("0", "150", "0", "0"); // I owe him ₹150
         splits.suggestSettlement(money(Direction.DEBIT, "150", "UPI 4392"));
-        Settlement s = suggested();
-        assertThat(s.getDirection()).isEqualTo(SettlementDirection.OUT);
-        assertThat(s.getStatus()).isEqualTo(SettlementStatus.SUGGESTED);
-        assertThat(s.getAmount()).isEqualByComparingTo("150");
+        Settlement settlement = suggested();
+        assertThat(settlement.getDirection()).isEqualTo(SettlementDirection.OUT);
+        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.SUGGESTED);
+        assertThat(settlement.getAmount()).isEqualByComparingTo("150");
     }
 
     @Test
     void moneyInFromThemIsMatchedByNameWhateverTheAmount() {
         given("500", "200", "0", "0");
         splits.suggestSettlement(money(Direction.CREDIT, "1000", "RAHUL"));
-        Settlement s = suggested();
-        assertThat(s.getDirection()).isEqualTo(SettlementDirection.IN);
-        assertThat(s.getAmount()).isEqualByComparingTo("300"); // only what's open
+        Settlement settlement = suggested();
+        assertThat(settlement.getDirection()).isEqualTo(SettlementDirection.IN);
+        assertThat(settlement.getAmount()).isEqualByComparingTo("300"); // only what's open
     }
 
     @Test

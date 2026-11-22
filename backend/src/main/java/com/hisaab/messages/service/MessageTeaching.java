@@ -74,27 +74,29 @@ public class MessageTeaching {
     /** What the parser makes of a stored SMS right now, to pre-fill the correction form. */
     @Transactional(readOnly = true)
     public TeachPreviewResponse preview(InboxMessage raw) {
-        ParsedTransaction p = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(LearnedFormatReader.Match::txn)
+        ParsedTransaction parsed = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(LearnedFormatReader.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
         List<Transaction> existing = txns.forMessage(raw);
-        Direction direction = p == null ? null : p.direction();
-        BigDecimal amount = p == null ? null : p.amount();
-        Long accountId = p == null ? null : messageAccounts.learnedOrMatched(p).map(Account::getId).orElse(null);
-        String name = p == null ? null : p.counterparty();
+        Direction direction = parsed == null ? null : parsed.direction();
+        BigDecimal amount = parsed == null ? null : parsed.amount();
+        Long accountId = parsed == null ? null
+                : messageAccounts.learnedOrMatched(parsed).map(Account::getId).orElse(null);
+        String name = parsed == null ? null : parsed.counterparty();
         Long categoryId = null;
         if (!existing.isEmpty()) {
-            Transaction t = existing.get(0);
-            categoryId = t.getCategory() == null || t.isCategorySuggested() ? null : t.getCategory().getId();
-            direction = t.getDirection();
-            amount = t.getAmount();
-            accountId = t.getAccount().getId();
-            name = t.getCounterparty();
+            Transaction transaction = existing.get(0);
+            categoryId = transaction.getCategory() == null || transaction.isCategorySuggested() ? null
+                    : transaction.getCategory().getId();
+            direction = transaction.getDirection();
+            amount = transaction.getAmount();
+            accountId = transaction.getAccount().getId();
+            name = transaction.getCounterparty();
         }
         // Where those are in the text, so the form can show them marked.
         int[] amountAt = amount == null ? null : LearnedFormatReader.findAmount(flat, amount);
         int[] payeeAt = null;
-        for (String v : Arrays.asList(p == null ? null : p.counterparty(), name)) {
+        for (String v : Arrays.asList(parsed == null ? null : parsed.counterparty(), name)) {
             int at = v == null || v.isBlank() ? -1 : flat.toLowerCase(Locale.ROOT).indexOf(v.toLowerCase(Locale.ROOT));
             if (at >= 0) {
                 payeeAt = new int[]{at, at + v.length()};
@@ -164,16 +166,16 @@ public class MessageTeaching {
             learnedAccount = true;
         }
 
-        SmsParser.When w = SmsParser.findWhen(flat, raw.getReceivedAt());
+        SmsParser.When when = SmsParser.findWhen(flat, raw.getReceivedAt());
         int[] ref = SmsParser.findReference(flat);
         int[] bal = SmsParser.findBalance(flat);
-        ParsedTransaction p = new ParsedTransaction(account.getInstitution(),
+        ParsedTransaction parsed = new ParsedTransaction(account.getInstitution(),
                 account.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK, in.direction(), in.amount().setScale(2, RoundingMode.HALF_UP),
-                "INR", account.getLast4(), w.date(), w.time(), payee, ref == null ? null : flat.substring(ref[0], ref[1]),
+                "INR", account.getLast4(), when.date(), when.time(), payee, ref == null ? null : flat.substring(ref[0], ref[1]),
                 bal == null || account.isCard() ? null : SmsParser.toAmount(flat.substring(bal[0], bal[1])),
                 account.isCard() && in.direction() == Direction.CREDIT, null);
-        Optional<Transaction> created = recorded.isEmpty() ? txns.createFromEmail(p, account, raw)
-                : Optional.of(txns.correct(recorded.get(0), p, account));
+        Optional<Transaction> created = recorded.isEmpty() ? txns.createFromEmail(parsed, account, raw)
+                : Optional.of(txns.correct(recorded.get(0), parsed, account));
         boolean sms = raw.getChannel() == Channel.SMS;
         raw.setParser(sms ? "sms-taught" : "email-taught");
         raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
@@ -216,14 +218,15 @@ public class MessageTeaching {
         if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
         learning.corrected(raw.getTemplate(), raw.getBodyText(), null);
         raw.setTemplate(null);
-        FormatLearningService.LearnResult r = learning.skip(raw.getChannel(), raw.getBodyText(), raw);
-        for (Transaction t : txns.forMessage(raw)) txns.delete(t.getId());
+        FormatLearningService.LearnResult learnResult = learning.skip(raw.getChannel(), raw.getBodyText(), raw);
+        for (Transaction transaction : txns.forMessage(raw)) txns.delete(transaction.getId());
         txns.unpair(raw);
         raw.setStatus(EmailStatus.IGNORED);
         raw.setHold(null);
-        raw.setNote(r.template().isPresent() ? MessageReader.NOT_A_TXN_NOTE : "Not a transaction (you said so).");
+        raw.setNote(learnResult.template().isPresent() ? MessageReader.NOT_A_TXN_NOTE
+                : "Not a transaction (you said so).");
         int also = 0;
-        if (r.template().isPresent()) {
+        if (learnResult.template().isPresent()) {
             for (EmailStatus st : List.of(EmailStatus.NEEDS_REVIEW, EmailStatus.ERROR)) {
                 for (InboxMessage other : emails.findByStatus(st)) {
                     if (other.getChannel() != raw.getChannel() || other.getId().equals(raw.getId())) continue;
@@ -235,7 +238,7 @@ public class MessageTeaching {
                 }
             }
         }
-        return new SkipResult(raw, r.template().isPresent(), r.conflicts(), also);
+        return new SkipResult(raw, learnResult.template().isPresent(), learnResult.conflicts(), also);
     }
 
     private static final Set<String> FREE_MAIL = Set.of("gmail.com", "googlemail.com", "yahoo.com",

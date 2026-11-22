@@ -22,16 +22,16 @@ class ReadWithLearnedFormat implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        if (!r.sms()) {
-            read(r);
+    public void apply(MessageReading reading) {
+        if (!reading.sms()) {
+            read(reading);
             return;
         }
         try {
-            read(r);
+            read(reading);
         } catch (RuntimeException e) {   // an SMS that breaks reading is kept as an error, not lost
-            log.warn("SMS parser failed on message {}: {}", r.raw.getId(), e.toString());
-            r.stop(EmailStatus.ERROR, "Couldn't read it: " + e.getMessage());
+            log.warn("SMS parser failed on message {}: {}", reading.raw.getId(), e.toString());
+            reading.stop(EmailStatus.ERROR, "Couldn't read it: " + e.getMessage());
         }
     }
 

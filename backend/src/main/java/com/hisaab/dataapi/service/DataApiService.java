@@ -496,10 +496,11 @@ public class DataApiService {
         for (Account a : accounts.findByArchivedFalseOrderByTypeAscNameAsc()) {
             if (!token.allowsAccount(a.getId())) continue;
             AccountResponse v = accountViews.view(a);
-            CardInfoResponse c = v.card();
-            out.add(new ApiBalanceResponse(account(a), amount(v.balance()), c == null ? null
-                    : new ApiCardResponse(amount(c.creditLimit()), amount(c.available()),
-                    c.dueDate() == null ? null : c.dueDate().toString(), c.dueDate() == null ? null : c.daysToDue())));
+            CardInfoResponse cardInfo = v.card();
+            out.add(new ApiBalanceResponse(account(a), amount(v.balance()), cardInfo == null ? null
+                    : new ApiCardResponse(amount(cardInfo.creditLimit()), amount(cardInfo.available()),
+                    cardInfo.dueDate() == null ? null : cardInfo.dueDate().toString(), cardInfo.dueDate() == null
+                            ? null : cardInfo.daysToDue())));
         }
         return new ApiBalancesResponse(out, time(Instant.now()));
     }
@@ -525,15 +526,15 @@ public class DataApiService {
             // a phone whose clock runs ahead: it's being forwarded now anyway
             if (at.isAfter(now)) at = now;
         }
-        SmsOutcome o = processor.processSms(sender, in.text(), at);
-        if (o.alreadySeen()) return new ApiSmsReceivedResponse("duplicate", "Already received this SMS", null);
-        Transaction t = o.txn();
+        SmsOutcome smsOutcome = processor.processSms(sender, in.text(), at);
+        if (smsOutcome.alreadySeen()) return new ApiSmsReceivedResponse("duplicate", "Already received this SMS", null);
+        Transaction t = smsOutcome.txn();
         if (t != null) {
             txns.flush();
             em.refresh(t);
         }
-        return new ApiSmsReceivedResponse(o.message().getStatus().name().toLowerCase(Locale.ROOT),
-                t != null ? MessageProcessor.summary(t) : o.message().getNote(),
+        return new ApiSmsReceivedResponse(smsOutcome.message().getStatus().name().toLowerCase(Locale.ROOT),
+                t != null ? MessageProcessor.summary(t) : smsOutcome.message().getNote(),
                 t == null ? null : transaction(token, t));
     }
 }

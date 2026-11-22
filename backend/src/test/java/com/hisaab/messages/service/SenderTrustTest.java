@@ -34,20 +34,20 @@ class SenderTrustTest {
     @Test
     void onlyTheBanksDomainsOrTrustedOnesAreAccepted() {
         TrustedSenderRepository repo = Mockito.mock(TrustedSenderRepository.class);
-        SenderTrust t = new SenderTrust(repo);
-        assertTrue(t.judge("alerts@hdfcbank.bank.in", SenderTrust.NONE, Institution.HDFC).ok());
-        assertTrue(t.judge("Alerts@InstaAlerts.HDFCBank.net", SenderTrust.PASS, Institution.HDFC).ok());
-        var lookalike = t.judge("alerts@hdfcbank.net.evil.example", SenderTrust.PASS, Institution.HDFC);
+        SenderTrust senderTrust = new SenderTrust(repo);
+        assertTrue(senderTrust.judge("alerts@hdfcbank.bank.in", SenderTrust.NONE, Institution.HDFC).ok());
+        assertTrue(senderTrust.judge("Alerts@InstaAlerts.HDFCBank.net", SenderTrust.PASS, Institution.HDFC).ok());
+        var lookalike = senderTrust.judge("alerts@hdfcbank.net.evil.example", SenderTrust.PASS, Institution.HDFC);
         assertFalse(lookalike.ok());
         assertEquals(SenderTrust.UNKNOWN_SENDER, lookalike.hold());
         // an Axis domain doesn't vouch for an HDFC alert
-        assertFalse(t.judge("alerts@axis.bank.in", SenderTrust.PASS, Institution.HDFC).ok());
+        assertFalse(senderTrust.judge("alerts@axis.bank.in", SenderTrust.PASS, Institution.HDFC).ok());
         // a forged bank address is held even though the domain is right
-        var forged = t.judge("alerts@hdfcbank.bank.in", SenderTrust.FAIL, Institution.HDFC);
+        var forged = senderTrust.judge("alerts@hdfcbank.bank.in", SenderTrust.FAIL, Institution.HDFC);
         assertEquals(SenderTrust.UNVERIFIED_SENDER, forged.hold());
 
         Mockito.when(repo.existsById("mybank-alerts.example")).thenReturn(true);
-        assertTrue(t.judge("noreply@mail.mybank-alerts.example", SenderTrust.NONE, Institution.OTHER).ok());
-        assertFalse(t.judge("noreply@mail.mybank-alerts.example", SenderTrust.FAIL, Institution.OTHER).ok());
+        assertTrue(senderTrust.judge("noreply@mail.mybank-alerts.example", SenderTrust.NONE, Institution.OTHER).ok());
+        assertFalse(senderTrust.judge("noreply@mail.mybank-alerts.example", SenderTrust.FAIL, Institution.OTHER).ok());
     }
 }

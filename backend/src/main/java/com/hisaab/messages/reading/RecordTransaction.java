@@ -23,13 +23,13 @@ class RecordTransaction implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        Optional<Transaction> created = txns.createFromEmail(r.parsed, r.account, r.raw);
-        r.txn = created.orElse(null);
-        r.raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
-        if (!r.sms()) return;
-        if (created.isEmpty()) r.notes.append("Already recorded (from the alert email or an earlier SMS).");
-        else senders.rememberSender(r.raw.getSender(), r.account.getInstitution());
-        r.raw.setNote(r.notes.isEmpty() ? null : r.notes.toString());
+    public void apply(MessageReading reading) {
+        Optional<Transaction> created = txns.createFromEmail(reading.parsed, reading.account, reading.raw);
+        reading.txn = created.orElse(null);
+        reading.raw.setStatus(created.isPresent() ? EmailStatus.PARSED : EmailStatus.DUPLICATE);
+        if (!reading.sms()) return;
+        if (created.isEmpty()) reading.notes.append("Already recorded (from the alert email or an earlier SMS).");
+        else senders.rememberSender(reading.raw.getSender(), reading.account.getInstitution());
+        reading.raw.setNote(reading.notes.isEmpty() ? null : reading.notes.toString());
     }
 }

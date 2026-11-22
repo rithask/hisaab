@@ -28,14 +28,14 @@ public class MessageAccounts {
     }
 
     /** Learned account links first, then the number in the text, then the bank's only account of that kind. */
-    public Optional<Account> learnedOrMatched(ParsedTransaction p) {
-        Optional<Account> hinted = senders.hintedAccount(p.institution(), p.last4());
+    public Optional<Account> learnedOrMatched(ParsedTransaction parsed) {
+        Optional<Account> hinted = senders.hintedAccount(parsed.institution(), parsed.last4());
         if (hinted.isPresent()) return hinted;
         // The sender id identifies the bank reliably, so a last-4 match at a different bank is not accepted.
-        return byLast4(p)
-                .filter(a -> p.institution() == Institution.OTHER || a.getInstitution() == Institution.OTHER
-                        || a.getInstitution() == p.institution())
-                .or(() -> soleAccount(p));
+        return byLast4(parsed)
+                .filter(a -> parsed.institution() == Institution.OTHER || a.getInstitution() == Institution.OTHER
+                        || a.getInstitution() == parsed.institution())
+                .or(() -> soleAccount(parsed));
     }
 
     /** By the alert's last 4 digits; an account added without them learns them from its bank's first alert. */

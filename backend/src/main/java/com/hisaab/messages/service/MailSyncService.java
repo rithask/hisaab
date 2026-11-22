@@ -129,12 +129,13 @@ public class MailSyncService {
     }
 
     private void runImport(LocalDate since) {
-        MailSyncResponse r = withFolder(folder -> {
+        MailSyncResponse mailSync = withFolder(folder -> {
             Date d = Date.from(since.atStartOfDay(Money.ZONE).toInstant());
             long[] uids = uidsOf(folder, ((Folder) folder).search(new ReceivedDateTerm(ComparisonTerm.GE, d)));
             long validity = folder.getUIDValidity();
-            MailImportStatusResponse s = importStatus;
-            importStatus = new MailImportStatusResponse("RUNNING", since, uids.length, 0, 0, s.startedAt(), null, null);
+            MailImportStatusResponse mailImportStatus = importStatus;
+            importStatus = new MailImportStatusResponse("RUNNING", since, uids.length, 0, 0,
+                    mailImportStatus.startedAt(), null, null);
             int[] counts = new int[2];                                          // done, added
             fetchInBatches(folder, uids, validity, (uid, added) -> {
                 counts[0]++;
@@ -145,7 +146,7 @@ public class MailSyncService {
             return new MailSyncResponse(uids.length, counts[1], null);
         }, true);
         MailImportStatusResponse s = importStatus;
-        if (r.error() != null) importStatus = s.finish("FAILED", r.error());
+        if (mailSync.error() != null) importStatus = s.finish("FAILED", mailSync.error());
         else importStatus = s.finish(cancelImport.get() && s.done() < (s.total() == null ? 0 : s.total()) ? "CANCELLED" : "DONE", null);
         log.info("Mail import since {}: {} of {} looked at, {} new ({})", since, s.done(), s.total(), s.added(), importStatus.state());
     }
@@ -189,11 +190,12 @@ public class MailSyncService {
             Folder folder = store.getFolder(cfg.folder() == null ? "INBOX" : cfg.folder());
             folder.open(Folder.READ_ONLY);
             try {
-                MailSyncResponse r = work.run((UIDFolder) folder);
+                MailSyncResponse mailSync = work.run((UIDFolder) folder);
                 settings.set(SettingsService.MAIL_LAST_SYNC, Instant.now().toString());
                 settings.set(SettingsService.MAIL_LAST_ERROR, "");
-                if (r.fetched() > 0) log.info("Mail sync: {} fetched, {} new", r.fetched(), r.processed());
-                return r;
+                if (mailSync.fetched() > 0) log.info("Mail sync: {} fetched, {} new", mailSync.fetched(),
+                        mailSync.processed());
+                return mailSync;
             } finally {
                 folder.close(false);
             }
@@ -292,18 +294,18 @@ public class MailSyncService {
 
     // ---- MIME handling -----------------------------------------------------------------------------------
 
-    public static IncomingEmail toIncoming(Message m, long validity, long uid) throws Exception {
-        return toIncoming(m, validity, uid, null);
+    public static IncomingEmail toIncoming(Message mail, long validity, long uid) throws Exception {
+        return toIncoming(mail, validity, uid, null);
     }
 
     /** @param received when the mailbox received it (IMAP INTERNALDATE), if known; else the message's own dates */
     static IncomingEmail toIncoming(Message m, long validity, long uid, Date received) throws Exception {
         String[] ids = m.getHeader("Message-ID");
         String messageId = ids != null && ids.length > 0 ? ids[0].trim() : null;
-        Collector c = new Collector();
-        walk(m, c);
-        String text = c.html.length() > 0 ? HtmlText.toText(c.html.toString())
-                : HtmlText.normaliseLines(c.plain.toString());
+        Collector collector = new Collector();
+        walk(m, collector);
+        String text = collector.html.length() > 0 ? HtmlText.toText(collector.html.toString())
+                : HtmlText.normaliseLines(collector.plain.toString());
         if (messageId == null) messageId = "sha256:" + sha256(m.getSubject() + "|" + m.getSentDate() + "|" + text);
         String from = m.getFrom() != null && m.getFrom().length > 0
                 ? ((m.getFrom()[0] instanceof InternetAddress ia) ? ia.getAddress() : m.getFrom()[0].toString())
@@ -311,7 +313,8 @@ public class MailSyncService {
         Date when = received != null ? received : m.getReceivedDate() != null ? m.getReceivedDate() : m.getSentDate();
         String[] auth = m.getHeader("Authentication-Results");
         return new IncomingEmail(messageId, from, m.getSubject(), when == null ? Instant.now() : when.toInstant(),
-                text, c.attachments, SenderTrust.check(auth == null || auth.length == 0 ? null : auth[0], from));
+                text, collector.attachments, SenderTrust.check(auth == null || auth.length == 0 ? null : auth[0],
+                        from));
     }
 
     private static final class Collector {
@@ -320,22 +323,23 @@ public class MailSyncService {
         final List<IncomingEmail.Attachment> attachments = new ArrayList<>();
     }
 
-    private static void walk(Part part, Collector c) throws Exception {
+    private static void walk(Part part, Collector collector) throws Exception {
         String disposition = part.getDisposition();
         String fileName = part.getFileName() == null ? null : MimeUtility.decodeText(part.getFileName());
         if (part.isMimeType("multipart/*")) {
             Multipart mp = (Multipart) part.getContent();
-            for (int i = 0; i < mp.getCount(); i++) walk(mp.getBodyPart(i), c);
+            for (int i = 0; i < mp.getCount(); i++) walk(mp.getBodyPart(i), collector);
         } else if (part.isMimeType("message/rfc822")) {
-            walk((Part) part.getContent(), c); // forwarded-as-attachment
+            walk((Part) part.getContent(), collector); // forwarded-as-attachment
         } else if (Part.ATTACHMENT.equalsIgnoreCase(disposition) || fileName != null) {
             try (InputStream in = part.getInputStream()) {
-                c.attachments.add(new IncomingEmail.Attachment(fileName, part.getContentType(), in.readAllBytes()));
+                collector.attachments.add(new IncomingEmail.Attachment(fileName, part.getContentType(),
+                        in.readAllBytes()));
             }
         } else if (part.isMimeType("text/html")) {
-            c.html.append(content(part)).append('\n');
+            collector.html.append(content(part)).append('\n');
         } else if (part.isMimeType("text/plain")) {
-            c.plain.append(content(part)).append('\n');
+            collector.plain.append(content(part)).append('\n');
         }
     }
 

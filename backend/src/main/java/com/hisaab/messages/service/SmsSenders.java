@@ -35,11 +35,11 @@ public class SmsSenders {
     @Transactional
     public void rememberAccount(Institution institution, String last4, Account account) {
         String key = last4 == null ? "" : last4;
-        AccountHint h = hints.findByInstitutionAndLast4(institution, key).orElseGet(AccountHint::new);
-        h.setInstitution(institution);
-        h.setLast4(key);
-        h.setAccount(account);
-        hints.save(h);
+        AccountHint hint = hints.findByInstitutionAndLast4(institution, key).orElseGet(AccountHint::new);
+        hint.setInstitution(institution);
+        hint.setLast4(key);
+        hint.setAccount(account);
+        hints.save(hint);
     }
 
     /** "VM-HDFCBK-S" -> "HDFCBK": the part of a sender id that stays the same across operators and routes. */

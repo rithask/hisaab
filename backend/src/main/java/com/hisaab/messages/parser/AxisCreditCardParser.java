@@ -74,9 +74,9 @@ public class AxisCreditCardParser implements BankEmailParser {
                 amount(money.group(2)), currency(money.group(1)), card.group(1), date, time, merchant, null, null, false, null));
     }
 
-    private static Matcher match(Pattern p, String value) {
+    private static Matcher match(Pattern pattern, String value) {
         if (value == null) return null;
-        Matcher m = p.matcher(value.trim());
+        Matcher m = pattern.matcher(value.trim());
         return m.find() ? m : null;
     }
 }

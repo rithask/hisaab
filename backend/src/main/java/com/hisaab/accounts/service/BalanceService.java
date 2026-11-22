@@ -34,9 +34,9 @@ public class BalanceService {
     }
 
     /** Bank/cash: current balance. Credit card: current outstanding (positive = I owe the bank). */
-    public BigDecimal current(Account a) {
-        BigDecimal net = txns.netSince(a, a.getOpeningDate());
-        return a.isCard() ? a.getOpeningBalance().subtract(net) : a.getOpeningBalance().add(net);
+    public BigDecimal current(Account account) {
+        BigDecimal net = txns.netSince(account, account.getOpeningDate());
+        return account.isCard() ? account.getOpeningBalance().subtract(net) : account.getOpeningBalance().add(net);
     }
 
     /** {@link #current} for many accounts with one query, keyed by account id. */
@@ -52,9 +52,10 @@ public class BalanceService {
     }
 
     /** Balance the app expects right after the given transaction. */
-    public BigDecimal expectedAfter(Transaction t) {
-        Account a = t.getAccount();
-        return a.getOpeningBalance().add(txns.netUpTo(a, a.getOpeningDate(), t.getOccurredAt(), t.getId()));
+    public BigDecimal expectedAfter(Transaction transaction) {
+        Account a = transaction.getAccount();
+        return a.getOpeningBalance().add(txns.netUpTo(a, a.getOpeningDate(), transaction.getOccurredAt(),
+                transaction.getId()));
     }
 
     /** Compare the balance reported in a bank email with what the app calculated; raise an alert on mismatch. */

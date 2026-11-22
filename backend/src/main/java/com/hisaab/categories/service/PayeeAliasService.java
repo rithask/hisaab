@@ -50,20 +50,20 @@ public class PayeeAliasService {
         if (oldKey == null || newKey == null || newName.isBlank() || oldKey.equals(newKey) && oldName.equals(newName)) return 0;
         if (!FROM_ALERTS.contains(renamed.getSource())) return 0;
 
-        PayeeAlias a = aliases.findByRawKey(oldKey).orElseGet(PayeeAlias::new);
-        a.setRawKey(oldKey);
-        a.setDisplayName(newName.trim());
-        aliases.save(a);
+        PayeeAlias alias = aliases.findByRawKey(oldKey).orElseGet(PayeeAlias::new);
+        alias.setRawKey(oldKey);
+        alias.setDisplayName(newName.trim());
+        aliases.save(alias);
         // Earlier aliases that pointed at the old name now point at the new one.
         for (PayeeAlias other : aliases.findAll()) {
-            if (other != a && oldKey.equals(Names.merchantKey(other.getDisplayName()))) other.setDisplayName(newName.trim());
+            if (other != alias && oldKey.equals(Names.merchantKey(other.getDisplayName()))) other.setDisplayName(newName.trim());
         }
 
         int n = 0;
-        for (Transaction t : txns.findByMerchantKeyAndSourceIn(oldKey, FROM_ALERTS)) {
-            if (t.getId().equals(renamed.getId())) continue;
-            t.setCounterparty(newName.trim());
-            t.setMerchantKey(newKey);
+        for (Transaction transaction : txns.findByMerchantKeyAndSourceIn(oldKey, FROM_ALERTS)) {
+            if (transaction.getId().equals(renamed.getId())) continue;
+            transaction.setCounterparty(newName.trim());
+            transaction.setMerchantKey(newKey);
             n++;
         }
         return n;
@@ -74,10 +74,10 @@ public class PayeeAliasService {
     public void remember(String raw, String display) {
         String key = Names.merchantKey(raw);
         if (key == null || display == null || display.isBlank() || raw.trim().equals(display.trim())) return;
-        PayeeAlias a = aliases.findByRawKey(key).orElseGet(PayeeAlias::new);
-        a.setRawKey(key);
-        a.setDisplayName(display.trim());
-        aliases.save(a);
+        PayeeAlias alias = aliases.findByRawKey(key).orElseGet(PayeeAlias::new);
+        alias.setRawKey(key);
+        alias.setDisplayName(display.trim());
+        aliases.save(alias);
     }
 
     public List<PayeeAlias> all() {

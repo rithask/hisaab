@@ -6,8 +6,9 @@ import com.hisaab.categories.model.RuleSource;
 
 public record RuleResponse(Long id, RuleMatch matchType, String pattern, CategoryResponse category, RuleSource source,
                            int priority, int hits) {
-    public static RuleResponse of(CategoryRule r) {
-        return new RuleResponse(r.getId(), r.getMatchType(), r.getPattern(), CategoryResponse.of(r.getCategory()),
-                r.getSource(), r.getPriority(), r.getHits());
+    public static RuleResponse of(CategoryRule rule) {
+        return new RuleResponse(rule.getId(), rule.getMatchType(), rule.getPattern(),
+                CategoryResponse.of(rule.getCategory()),
+                rule.getSource(), rule.getPriority(), rule.getHits());
     }
 }

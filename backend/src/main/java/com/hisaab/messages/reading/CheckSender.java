@@ -14,11 +14,12 @@ class CheckSender implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        if (r.sms()) return;
-        SenderTrust.Verdict v = trust.judge(r.raw.getFromAddress(), r.raw.getSenderCheck(), r.parsed.institution());
-        if (v.ok()) return;
-        r.raw.setHold(v.hold());
-        r.stop(EmailStatus.NEEDS_REVIEW, v.note());
+    public void apply(MessageReading reading) {
+        if (reading.sms()) return;
+        SenderTrust.Verdict verdict = trust.judge(reading.raw.getFromAddress(), reading.raw.getSenderCheck(),
+                reading.parsed.institution());
+        if (verdict.ok()) return;
+        reading.raw.setHold(verdict.hold());
+        reading.stop(EmailStatus.NEEDS_REVIEW, verdict.note());
     }
 }

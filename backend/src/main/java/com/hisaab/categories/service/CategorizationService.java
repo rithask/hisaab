@@ -52,16 +52,16 @@ public class CategorizationService {
         this.votes = votes;
     }
 
-    public static CategoryKind kindFor(Direction d) {
-        return d == Direction.DEBIT ? CategoryKind.EXPENSE : CategoryKind.INCOME;
+    public static CategoryKind kindFor(Direction direction) {
+        return direction == Direction.DEBIT ? CategoryKind.EXPENSE : CategoryKind.INCOME;
     }
 
     @Transactional
-    public void categorize(Transaction t) {
-        if (t.isTransfer() || t.getCategory() != null) return;
-        suggest(t).ifPresent(c -> {
-            t.setCategory(c);
-            t.setCategorySuggested(true);
+    public void categorize(Transaction transaction) {
+        if (transaction.isTransfer() || transaction.getCategory() != null) return;
+        suggest(transaction).ifPresent(c -> {
+            transaction.setCategory(c);
+            transaction.setCategorySuggested(true);
         });
     }
 
@@ -247,11 +247,11 @@ public class CategorizationService {
      */
     static List<String[]> wordingKeys(Transaction t) {
         List<String[]> out = new ArrayList<>();
-        for (InboxMessage m : new InboxMessage[]{t.getRawEmail(), t.getTwinRawEmail()}) {
-            if (m == null) continue;
-            LearnedFormat f = m.getTemplate();
-            if (f != null && f.getId() != null && !f.isSkip()) out.add(new String[]{CategoryVote.FORMAT, f.getId().toString()});
-            String w = wording(m.getBodyText());
+        for (InboxMessage message : new InboxMessage[]{t.getRawEmail(), t.getTwinRawEmail()}) {
+            if (message == null) continue;
+            LearnedFormat format = message.getTemplate();
+            if (format != null && format.getId() != null && !format.isSkip()) out.add(new String[]{CategoryVote.FORMAT, format.getId().toString()});
+            String w = wording(message.getBodyText());
             if (w != null) out.add(new String[]{CategoryVote.WORDING, sha256(w)});
         }
         return out;
@@ -314,13 +314,13 @@ public class CategorizationService {
 
     /** I edited a payee rule by hand: that category is now the only one for the payee. */
     @Transactional
-    public void ruleSet(CategoryRule r) {
-        if (r.getMatchType() != RuleMatch.MERCHANT) return;
-        votes.deleteAll(votes.findByKeyTypeAndKey(CategoryVote.MERCHANT, r.getPattern()));
+    public void ruleSet(CategoryRule rule) {
+        if (rule.getMatchType() != RuleMatch.MERCHANT) return;
+        votes.deleteAll(votes.findByKeyTypeAndKey(CategoryVote.MERCHANT, rule.getPattern()));
         CategoryVote v = new CategoryVote();
         v.setKeyType(CategoryVote.MERCHANT);
-        v.setKey(r.getPattern());
-        v.setCategory(r.getCategory());
+        v.setKey(rule.getPattern());
+        v.setCategory(rule.getCategory());
         v.setVotes(1);
         votes.save(v);
     }

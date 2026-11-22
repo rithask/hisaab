@@ -19,23 +19,24 @@ class FindAccount implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        boolean learnedFirst = r.sms() || r.readByLearnedFormat();
-        Optional<Account> account = learnedFirst ? accounts.learnedOrMatched(r.parsed) : accounts.byLast4(r.parsed);
+    public void apply(MessageReading reading) {
+        boolean learnedFirst = reading.sms() || reading.readByLearnedFormat();
+        Optional<Account> account = learnedFirst ? accounts.learnedOrMatched(reading.parsed)
+                : accounts.byLast4(reading.parsed);
         if (account.isPresent()) {
-            r.account = account.get();
+            reading.account = account.get();
             return;
         }
         String note;
-        if (r.sms()) {
-            note = r.parsed.last4() == null
+        if (reading.sms()) {
+            note = reading.parsed.last4() == null
                     ? "Couldn't tell which account this is. Open it and pick the account once; it will be remembered."
-                    : "No %s account ending %s. Open it and pick the account once, or add the account.".formatted(r.parsed.institution(), r.parsed.last4());
-        } else if (r.readByLearnedFormat()) {
+                    : "No %s account ending %s. Open it and pick the account once, or add the account.".formatted(reading.parsed.institution(), reading.parsed.last4());
+        } else if (reading.readByLearnedFormat()) {
             note = "Read the way you taught, but no account matches. Open it and pick the account.";
         } else {
-            note = "No %s account ending %s. Add it under Accounts & cards, then tap Try again.".formatted(r.parsed.institution(), r.parsed.last4());
+            note = "No %s account ending %s. Add it under Accounts & cards, then tap Try again.".formatted(reading.parsed.institution(), reading.parsed.last4());
         }
-        r.stop(EmailStatus.NEEDS_REVIEW, note);
+        reading.stop(EmailStatus.NEEDS_REVIEW, note);
     }
 }

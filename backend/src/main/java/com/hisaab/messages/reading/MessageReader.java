@@ -44,13 +44,13 @@ public class MessageReader {
     /** @param content an email as it arrived (before what's stored was shortened); null for an SMS */
     public MessageReading read(InboxMessage raw, EmailContent content) {
         boolean sms = raw.getChannel() == Channel.SMS;
-        MessageReading r = new MessageReading(raw, content);
+        MessageReading reading = new MessageReading(raw, content);
         raw.setNote(null);
         if (!sms) raw.setHold(null);
         for (ReadingStep step : steps) {
-            step.apply(r);
-            if (r.done()) break;
+            step.apply(reading);
+            if (reading.done()) break;
         }
-        return r;
+        return reading;
     }
 }

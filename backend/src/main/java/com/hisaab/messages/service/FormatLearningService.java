@@ -150,13 +150,13 @@ public class FormatLearningService {
 
         overruled.forEach(templates::delete);
         check.apply(examples);
-        LearnedFormat t = same.orElseGet(LearnedFormat::new);
-        copy(candidate, t);
+        LearnedFormat format = same.orElseGet(LearnedFormat::new);
+        copy(candidate, format);
         // taught again in this exact wording: a fresh start, and it's mine now
-        t.setCorrections(0);
-        t.setPaused(false);
-        t.setOrigin(LearnedFormat.TAUGHT);
-        LearnedFormat saved = templates.save(t);
+        format.setCorrections(0);
+        format.setPaused(false);
+        format.setOrigin(LearnedFormat.TAUGHT);
+        LearnedFormat saved = templates.save(format);
         remember(channel, flat, text, truth, source);
         log.info("{} format taught: {} format {} ({}){}", channel, same.isPresent() ? "replaced" : "new", saved.getId(), saved.getInstitution(),
                 overruled.isEmpty() ? "" : ", " + overruled.size() + " \"not a transaction\" format(s) removed");
@@ -173,13 +173,13 @@ public class FormatLearningService {
         if (flat.isEmpty()) return LearnResult.none();
         FormatShape.Builder shape = new FormatShape.Builder();
         literal(flat, shape);
-        FormatShape f = shape.done();
+        FormatShape formatShape = shape.done();
         LearnedFormat candidate = new LearnedFormat();
         candidate.setChannel(channel);
         candidate.setKind(LearnedFormat.SKIP);
-        candidate.setSkeleton("skip: " + f.skeleton());
-        candidate.setPattern(f.pattern());
-        candidate.setParts(f.encode());
+        candidate.setSkeleton("skip: " + formatShape.skeleton());
+        candidate.setPattern(formatShape.pattern());
+        candidate.setParts(formatShape.encode());
         candidate.setSample(text.strip());
 
         List<LearnedFormat> before = templates.findByChannelOrderByHitsDescIdAsc(channel);
@@ -195,23 +195,23 @@ public class FormatLearningService {
         }
         check.apply(examples);
 
-        LearnedFormat t = same.orElseGet(LearnedFormat::new);
-        copy(candidate, t);
-        t.setOrigin(LearnedFormat.TAUGHT);
-        t.setKind(LearnedFormat.SKIP);
-        t.setInstitution(null);
-        t.setAccountType(null);
-        t.setDirection(null);
-        LearnedFormat saved = templates.save(t);
+        LearnedFormat format = same.orElseGet(LearnedFormat::new);
+        copy(candidate, format);
+        format.setOrigin(LearnedFormat.TAUGHT);
+        format.setKind(LearnedFormat.SKIP);
+        format.setInstitution(null);
+        format.setAccountType(null);
+        format.setDirection(null);
+        LearnedFormat saved = templates.save(format);
         for (LearnedExample old : examples.findByChannel(channel)) {
             if (LearnedFormatReader.flat(old.getText()).equals(flat)) examples.delete(old);
         }
-        LearnedExample e = new LearnedExample();
-        e.setRawEmail(source);
-        e.setChannel(channel);
-        e.setText(text.strip());
-        e.setKind(LearnedExample.SKIP);
-        examples.save(e);
+        LearnedExample example = new LearnedExample();
+        example.setRawEmail(source);
+        example.setChannel(channel);
+        example.setText(text.strip());
+        example.setKind(LearnedExample.SKIP);
+        examples.save(example);
         log.info("{} \"not a transaction\" learned: format {}", channel, saved.getId());
         return new LearnResult(Optional.of(saved), 0);
     }
@@ -257,9 +257,9 @@ public class FormatLearningService {
      * @return true if the format was paused now
      */
     @Transactional
-    public boolean corrected(LearnedFormat t, String text, Truth truth) {
-        if (t == null) return false;
-        Optional<LearnedFormatReader.Read> r = LearnedFormatReader.read(List.of(LearnedFormatReader.withoutPause(t)), LearnedFormatReader.flat(text));
+    public boolean corrected(LearnedFormat format, String text, Truth truth) {
+        if (format == null) return false;
+        Optional<LearnedFormatReader.Read> r = LearnedFormatReader.read(List.of(LearnedFormatReader.withoutPause(format)), LearnedFormatReader.flat(text));
         boolean wrong;
         if (truth == null) {
             wrong = r.isEmpty() || !r.get().skip();
@@ -267,16 +267,16 @@ public class FormatLearningService {
             wrong = !right(lessonOf(LearnedFormatReader.flat(text), truth), r);
         }
         if (!wrong) return false;
-        if (t.isAuto()) {
+        if (format.isAuto()) {
             // learned automatically and now corrected: it goes
-            log.info("Format {} ({}) learned automatically was corrected, so it's forgotten", t.getId(), t.getInstitution());
-            templates.delete(t);
+            log.info("Format {} ({}) learned automatically was corrected, so it's forgotten", format.getId(), format.getInstitution());
+            templates.delete(format);
             return false;
         }
-        t.setCorrections(t.getCorrections() + 1);
-        if (t.getCorrections() >= PAUSE_AFTER && !t.isPaused()) {
-            t.setPaused(true);
-            log.warn("Format {} ({}) paused after {} corrections: its messages now wait for review", t.getId(), t.getInstitution(), t.getCorrections());
+        format.setCorrections(format.getCorrections() + 1);
+        if (format.getCorrections() >= PAUSE_AFTER && !format.isPaused()) {
+            format.setPaused(true);
+            log.warn("Format {} ({}) paused after {} corrections: its messages now wait for review", format.getId(), format.getInstitution(), format.getCorrections());
             return true;
         }
         return false;
@@ -334,13 +334,13 @@ public class FormatLearningService {
 
     /** The lesson a correction makes, for checking a reading against it. */
     private static LearnedExample lessonOf(String flat, Truth truth) {
-        LearnedExample e = new LearnedExample();
-        e.setDirection(truth.direction());
-        e.setAmount(truth.amount());
-        e.setInstitution(truth.account().getInstitution());
+        LearnedExample example = new LearnedExample();
+        example.setDirection(truth.direction());
+        example.setAmount(truth.amount());
+        example.setInstitution(truth.account().getInstitution());
         int[] marked = span(truth.payeeAt(), flat);
-        e.setPayee(marked != null ? LearnedFormatReader.clean(flat.substring(marked[0], marked[1])) : null);
-        return e;
+        example.setPayee(marked != null ? LearnedFormatReader.clean(flat.substring(marked[0], marked[1])) : null);
+        return example;
     }
 
     /** How many lessons (other than {@code exceptText}) are read right by {@code before} but not by {@code after}. */
@@ -369,18 +369,19 @@ public class FormatLearningService {
         List<LearnedExample> outranked = new ArrayList<>();
         // a paused format still counts for the lessons it reads: pausing mustn't let a change slip past them
         List<LearnedFormat> was = before.stream().map(LearnedFormatReader::withoutPause).toList();
-        for (LearnedExample e : examples.findByChannel(channel)) {
-            String f = LearnedFormatReader.flat(e.getText());
+        for (LearnedExample example : examples.findByChannel(channel)) {
+            String f = LearnedFormatReader.flat(example.getText());
             if (f.equals(exceptText)) continue;
             Optional<LearnedFormatReader.Read> now = LearnedFormatReader.read(after, f);
-            boolean broken = right(e, LearnedFormatReader.read(was, f)) && !right(e, now);
+            boolean broken = right(example, LearnedFormatReader.read(was, f)) && !right(example, now);
             // never skip a message I said was a transaction, even one no format reads yet
-            boolean hidden = LearnedExample.TXN.equals(e.getKind()) && now.isPresent() && now.get().skip();
+            boolean hidden = LearnedExample.TXN.equals(example.getKind()) && now.isPresent() && now.get().skip();
             // something learned automatically may never misread a lesson I taught, even one nothing read before
-            boolean misread = auto && !LearnedFormat.AUTO.equals(e.getOrigin()) && now.isPresent() && !right(e, now);
+            boolean misread = auto && !LearnedFormat.AUTO.equals(example.getOrigin()) && now.isPresent()
+                    && !right(example, now);
             if (!(broken || hidden || misread)) continue;
-            if (!auto && LearnedFormat.AUTO.equals(e.getOrigin())) {
-                outranked.add(e);
+            if (!auto && LearnedFormat.AUTO.equals(example.getOrigin())) {
+                outranked.add(example);
                 continue;
             }
             n++;
@@ -388,13 +389,13 @@ public class FormatLearningService {
         return new Check(n, outranked);
     }
 
-    static boolean right(LearnedExample e, Optional<LearnedFormatReader.Read> r) {
-        if (LearnedExample.SKIP.equals(e.getKind())) return r.isPresent() && r.get().skip();
-        if (r.isEmpty() || r.get().skip()) return false;
-        LearnedFormatReader.Read x = r.get();
-        return x.direction() == e.getDirection() && x.amount().compareTo(e.getAmount()) == 0
-                && x.institution() == e.getInstitution()
-                && (e.getPayee() == null || e.getPayee().equalsIgnoreCase(x.payee()));
+    static boolean right(LearnedExample example, Optional<LearnedFormatReader.Read> read) {
+        if (LearnedExample.SKIP.equals(example.getKind())) return read.isPresent() && read.get().skip();
+        if (read.isEmpty() || read.get().skip()) return false;
+        LearnedFormatReader.Read x = read.get();
+        return x.direction() == example.getDirection() && x.amount().compareTo(example.getAmount()) == 0
+                && x.institution() == example.getInstitution()
+                && (example.getPayee() == null || example.getPayee().equalsIgnoreCase(x.payee()));
     }
 
     /** Keeps the message and its answer as a lesson, replacing any earlier lesson on the same text. */
@@ -471,11 +472,11 @@ public class FormatLearningService {
             }
             pos = s[1];
         }
-        FormatShape f = shape.done();
+        FormatShape formatShape = shape.done();
 
         Account a = truth.account();
         LearnedFormat t = new LearnedFormat();
-        shape(t, f);
+        shape(t, formatShape);
         t.setInstitution(a.getInstitution());
         t.setAccountType(a.isCard() ? AccountType.CREDIT_CARD : AccountType.BANK);
         t.setDirection(truth.direction());
@@ -492,10 +493,10 @@ public class FormatLearningService {
         spans.add(new int[]{span[0], span[1], kind});
     }
 
-    private static void shape(LearnedFormat t, FormatShape f) {
-        t.setSkeleton(f.skeleton());
-        t.setPattern(f.pattern());
-        t.setParts(f.encode());
+    private static void shape(LearnedFormat t, FormatShape formatShape) {
+        t.setSkeleton(formatShape.skeleton());
+        t.setPattern(formatShape.pattern());
+        t.setParts(formatShape.encode());
     }
 
     /**

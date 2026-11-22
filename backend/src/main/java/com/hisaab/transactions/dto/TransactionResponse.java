@@ -26,8 +26,8 @@ public record TransactionResponse(Long id, AccountRefResponse account, Direction
                                   List<PersonRefResponse> lentTo,
                                   /* confirmed repayments on it: who paid me back (money in), whom I paid back (money out) */
                                   List<PersonRefResponse> paidBackBy, List<PersonRefResponse> paidBackTo) {
-    public static TransactionResponse of(Transaction t, BigDecimal shared) {
-        return of(t, shared, null, List.of(), List.of(), List.of());
+    public static TransactionResponse of(Transaction transaction, BigDecimal shared) {
+        return of(transaction, shared, null, List.of(), List.of(), List.of());
     }
 
     public static TransactionResponse of(Transaction t, BigDecimal shared, BigDecimal myAmount, List<PersonRefResponse> lentTo,

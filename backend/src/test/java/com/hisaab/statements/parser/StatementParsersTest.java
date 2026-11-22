@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Layouts copied from real statements as PDFBox extracts them; names, numbers and amounts are made up. */
 class StatementParsersTest {
 
-    private static void allChecksPass(ParsedStatement s) {
-        assertFalse(s.checks().isEmpty(), "expected self-checks");
-        s.checks().forEach(c -> assertTrue(c.ok(), c.label() + ": " + c.detail()));
+    private static void allChecksPass(ParsedStatement parsed) {
+        assertFalse(parsed.checks().isEmpty(), "expected self-checks");
+        parsed.checks().forEach(c -> assertTrue(c.ok(), c.label() + ": " + c.detail()));
     }
 
     @Test

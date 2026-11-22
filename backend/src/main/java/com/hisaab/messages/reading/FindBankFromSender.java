@@ -16,9 +16,9 @@ class FindBankFromSender implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        if (!r.sms() || r.parsed.institution() != Institution.OTHER) return;
-        Optional<Institution> known = senders.senderInstitution(r.raw.getSender());
-        known.ifPresent(i -> r.parsed = r.parsed.withInstitution(i));
+    public void apply(MessageReading reading) {
+        if (!reading.sms() || reading.parsed.institution() != Institution.OTHER) return;
+        Optional<Institution> known = senders.senderInstitution(reading.raw.getSender());
+        known.ifPresent(i -> reading.parsed = reading.parsed.withInstitution(i));
     }
 }

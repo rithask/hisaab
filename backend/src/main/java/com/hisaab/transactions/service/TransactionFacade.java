@@ -55,8 +55,8 @@ public class TransactionFacade {
         this.views = views;
     }
 
-    private TransactionResponse dto(Transaction t) {
-        return views.one(t);
+    private TransactionResponse dto(Transaction transaction) {
+        return views.one(transaction);
     }
 
     @Transactional(readOnly = true)

@@ -53,9 +53,10 @@ public class ReportService {
      * The same rule as {@link #EFFECTIVE} for one transaction: money out less others' shares and what I paid back
      * to someone, money in less what was paid back to me. Never below zero.
      */
-    public static BigDecimal myAmount(Direction d, BigDecimal amount, BigDecimal shared,
+    public static BigDecimal myAmount(Direction direction, BigDecimal amount, BigDecimal shared,
                                       BigDecimal repaidToMe, BigDecimal iRepaid) {
-        BigDecimal m = d == Direction.DEBIT ? amount.subtract(shared).subtract(iRepaid) : amount.subtract(repaidToMe);
+        BigDecimal m = direction == Direction.DEBIT ? amount.subtract(shared).subtract(iRepaid)
+                : amount.subtract(repaidToMe);
         return m.signum() < 0 ? BigDecimal.ZERO.setScale(2) : m;
     }
 

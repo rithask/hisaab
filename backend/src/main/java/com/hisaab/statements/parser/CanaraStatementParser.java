@@ -124,15 +124,15 @@ public class CanaraStatementParser implements StatementParser {
             prev = bal;
 
             LocalDate d = date(m.group(1), "dd-MMM-yyyy");
-            LocalTime t = null;
+            LocalTime time = null;
             Matcher st = STAMP.matcher(n);
             if (st.find()) {
                 d = date(st.group(1), "dd/MM/yyyy");
-                t = LocalTime.parse(st.group(2));
+                time = LocalTime.parse(st.group(2));
             }
             String core = n.replaceAll("\\s*Cheque\\s*No\\.:.*$", "");
             String ref = find(n, "Cheque\\s*No\\.:\\s*(\\d{6,})").map(x -> x.group(1)).orElse(reference(core));
-            rows.add(new StatementRow(d, t, core, payee(core), ref, dir, amt, bal, false, uncertain));
+            rows.add(new StatementRow(d, time, core, payee(core), ref, dir, amt, bal, false, uncertain));
         }
 
         List<ParsedStatement.Check> checks = new ArrayList<>();

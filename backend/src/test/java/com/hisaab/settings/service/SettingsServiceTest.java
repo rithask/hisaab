@@ -16,10 +16,11 @@ class SettingsServiceTest {
     void readsTheTableOnceThenFromMemory() {
         AppSettingRepository repo = mock(AppSettingRepository.class);
         when(repo.findAll()).thenReturn(List.of(new AppSetting("feature.budgets", "false"), new AppSetting("statement.password.1", "x")));
-        SettingsService s = new SettingsService(repo);
-        assertThat(s.get("feature.budgets")).contains("false");
-        assertThat(s.get("owner.name")).isEmpty();
-        assertThat(s.withPrefix("statement.password.")).containsEntry("statement.password.1", "x").hasSize(1);
+        SettingsService settingsService = new SettingsService(repo);
+        assertThat(settingsService.get("feature.budgets")).contains("false");
+        assertThat(settingsService.get("owner.name")).isEmpty();
+        assertThat(settingsService.withPrefix("statement.password.")).containsEntry("statement.password.1",
+                "x").hasSize(1);
         verify(repo, times(1)).findAll();
     }
 
@@ -29,14 +30,14 @@ class SettingsServiceTest {
         AppSettingRepository repo = mock(AppSettingRepository.class);
         when(repo.findAll()).thenAnswer(i -> List.copyOf(table));
         when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
-        SettingsService s = new SettingsService(repo);
-        assertThat(s.get("feature.budgets")).contains("true");
+        SettingsService settingsService = new SettingsService(repo);
+        assertThat(settingsService.get("feature.budgets")).contains("true");
 
-        s.set("feature.budgets", "false"); // no transaction here, so it's remembered straight away
-        assertThat(s.get("feature.budgets")).contains("false");
+        settingsService.set("feature.budgets", "false"); // no transaction here, so it's remembered straight away
+        assertThat(settingsService.get("feature.budgets")).contains("false");
 
         table.clear(); // what Reset does behind its back
-        s.forget();
-        assertThat(s.get("feature.budgets")).isEmpty();
+        settingsService.forget();
+        assertThat(settingsService.get("feature.budgets")).isEmpty();
     }
 }

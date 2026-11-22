@@ -55,11 +55,11 @@ public final class FormatShape {
     public String pattern() {
         StringBuilder p = new StringBuilder("^");
         for (int i = 0; i < tokens.size(); i++) {
-            Token t = tokens.get(i);
+            Token token = tokens.get(i);
             if (i > 0) p.append("\\s+");
-            if (t.gapBefore()) p.append(GAP);
+            if (token.gapBefore()) p.append(GAP);
             boolean last = i == tokens.size() - 1 && !gapEnd;
-            String rx = t.rx().replace("(?<payee>.+)", "(?<payee>.+?)");
+            String rx = token.rx().replace("(?<payee>.+)", "(?<payee>.+?)");
             if (last && rx.endsWith("(?<payee>.+?)")) rx = rx.substring(0, rx.length() - "(?<payee>.+?)".length()) + "(?<payee>.+)";
             p.append(rx);
         }
@@ -70,10 +70,10 @@ public final class FormatShape {
     /** Readable form, e.g. {@code inr <AMT> debited from a/c *<L4> * on #}; {@code *} marks varying words. */
     public String skeleton() {
         StringBuilder s = new StringBuilder();
-        for (Token t : tokens) {
+        for (Token token : tokens) {
             if (!s.isEmpty()) s.append(' ');
-            if (t.gapBefore()) s.append("* ");
-            s.append(t.key());
+            if (token.gapBefore()) s.append("* ");
+            s.append(token.key());
         }
         if (gapEnd) s.append(" *");
         return s.toString();
@@ -83,7 +83,7 @@ public final class FormatShape {
 
     public String encode() {
         StringBuilder s = new StringBuilder(gapEnd ? "1" : "0");
-        for (Token t : tokens) s.append(TOK).append(t.gapBefore() ? '1' : '0').append(FIELD).append(t.key()).append(FIELD).append(t.rx());
+        for (Token token : tokens) s.append(TOK).append(token.gapBefore() ? '1' : '0').append(FIELD).append(token.key()).append(FIELD).append(token.rx());
         return s.toString();
     }
 
@@ -100,8 +100,8 @@ public final class FormatShape {
     }
 
     /** How alike two formats are, 0..1: twice the words they share in order, over all their words. */
-    static double similarity(FormatShape a, FormatShape b, int[][] lcs) {
-        int n = a.tokens.size(), m = b.tokens.size();
+    static double similarity(FormatShape formatShape, FormatShape b, int[][] lcs) {
+        int n = formatShape.tokens.size(), m = b.tokens.size();
         return n + m == 0 ? 0 : 2.0 * lcs[0][0] / (n + m);
     }
 
@@ -127,19 +127,20 @@ public final class FormatShape {
         int i = 0, j = 0;
         boolean gap = false;
         while (i < n && j < m) {
-            Token x = a.tokens.get(i), y = b.tokens.get(j);
-            if (x.key().equals(y.key())) {
-                boolean g = gap || x.gapBefore() || y.gapBefore();
+            Token token = a.tokens.get(i), y = b.tokens.get(j);
+            if (token.key().equals(y.key())) {
+                boolean g = gap || token.gapBefore() || y.gapBefore();
                 if (g && !out.isEmpty() && out.get(out.size() - 1).key().contains("<PAYEE>")) return Optional.empty();
-                String rx = x.rx().equals(y.rx()) || x.slot() ? x.rx() : "(?:" + x.rx() + "|" + y.rx() + ")";
-                out.add(new Token(x.key(), rx, g));
+                String rx = token.rx().equals(y.rx()) || token.slot() ? token.rx()
+                        : "(?:" + token.rx() + "|" + y.rx() + ")";
+                out.add(new Token(token.key(), rx, g));
                 gap = false;
                 i++;
                 j++;
             } else {
-                if (x.slot() && y.slot()) return Optional.empty();
+                if (token.slot() && y.slot()) return Optional.empty();
                 // skip the word that isn't part of the longest common run (a slot is never skipped)
-                if (!x.slot() && (y.slot() || l[i + 1][j] >= l[i][j + 1])) i++;
+                if (!token.slot() && (y.slot() || l[i + 1][j] >= l[i][j + 1])) i++;
                 else j++;
                 gap = true;
             }

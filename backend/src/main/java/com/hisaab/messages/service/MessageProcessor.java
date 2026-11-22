@@ -107,14 +107,15 @@ public class MessageProcessor {
     }
 
     /** One line saying what was recorded, e.g. "₹500.00 spent · Zomato · HDFC card · Food & Dining". */
-    public static String summary(Transaction t) {
+    public static String summary(Transaction transaction) {
         java.text.NumberFormat inr = java.text.NumberFormat.getCurrencyInstance(Locale.of("en", "IN"));
-        String verb = t.getDirection() == Direction.DEBIT ? (t.isTransfer() ? "moved" : "spent") : "received";
-        StringBuilder s = new StringBuilder(inr.format(t.getAmount())).append(' ').append(verb);
-        if (t.getCounterparty() != null) s.append(t.getDirection() == Direction.DEBIT ? " · " : " from ").append(t.getCounterparty());
-        s.append(" · ").append(t.getAccount().getName());
-        if (t.isTransfer()) s.append(" · transfer");
-        else if (t.getCategory() != null) s.append(" · ").append(t.getCategory().getName());
+        String verb = transaction.getDirection() == Direction.DEBIT ? (transaction.isTransfer() ? "moved" : "spent")
+                : "received";
+        StringBuilder s = new StringBuilder(inr.format(transaction.getAmount())).append(' ').append(verb);
+        if (transaction.getCounterparty() != null) s.append(transaction.getDirection() == Direction.DEBIT ? " · " : " from ").append(transaction.getCounterparty());
+        s.append(" · ").append(transaction.getAccount().getName());
+        if (transaction.isTransfer()) s.append(" · transfer");
+        else if (transaction.getCategory() != null) s.append(" · ").append(transaction.getCategory().getName());
         return s.toString();
     }
 
@@ -145,10 +146,10 @@ public class MessageProcessor {
         raw.setBodyText(body);
         raw.setStatus(EmailStatus.NEEDS_REVIEW);
         emails.save(raw);
-        MessageReading r = reader.read(raw);
+        MessageReading reading = reader.read(raw);
         log.info("SMS {} from {}: {}{}", raw.getId(), raw.getSender() == null ? "-" : raw.getSender(), raw.getStatus(),
-                r.txn() == null ? "" : " (transaction " + r.txn().getId() + ")");
-        return new SmsOutcome(raw, r.txn(), r.parsed(), false);
+                reading.txn() == null ? "" : " (transaction " + reading.txn().getId() + ")");
+        return new SmsOutcome(raw, reading.txn(), reading.parsed(), false);
     }
 
     private static String sha256(String s) {
@@ -190,22 +191,24 @@ public class MessageProcessor {
     private void saveStatements(InboxMessage raw, EmailContent content, List<IncomingEmail.Attachment> pdfs) {
         Account account = guessStatementAccount(content);
         StringBuilder note = new StringBuilder();
-        for (IncomingEmail.Attachment a : pdfs) {
+        for (IncomingEmail.Attachment attachment : pdfs) {
             try {
-                Path path = storage.save(account, raw.getReceivedAt(), a.fileName(), a.data());
-                StatementFile f = new StatementFile();
-                f.setAccount(account);
-                f.setRawEmail(raw);
-                f.setFileName(a.fileName() == null ? path.getFileName().toString() : a.fileName());
-                f.setStoredPath(storage.toStored(path));
-                f.setSizeBytes(a.data().length);
-                f.setReceivedAt(raw.getReceivedAt());
-                f.setPeriodLabel(StatementStorage.PERIOD.withZone(Money.ZONE).format(raw.getReceivedAt()));
-                statements.save(f);
-                events.publishEvent(new StatementSavedEvent(f.getId()));
+                Path path = storage.save(account, raw.getReceivedAt(), attachment.fileName(), attachment.data());
+                StatementFile statementFile = new StatementFile();
+                statementFile.setAccount(account);
+                statementFile.setRawEmail(raw);
+                statementFile.setFileName(attachment.fileName() == null ? path.getFileName().toString()
+                        : attachment.fileName());
+                statementFile.setStoredPath(storage.toStored(path));
+                statementFile.setSizeBytes(attachment.data().length);
+                statementFile.setReceivedAt(raw.getReceivedAt());
+                statementFile.setPeriodLabel(StatementStorage.PERIOD.withZone(Money.ZONE).format(raw.getReceivedAt()));
+                statements.save(statementFile);
+                events.publishEvent(new StatementSavedEvent(statementFile.getId()));
             } catch (Exception e) {
-                log.warn("Couldn't save statement {} from email {}: {}", a.fileName(), raw.getId(), e.toString());
-                note.append("Failed to save ").append(a.fileName()).append(": ").append(e.getMessage()).append('\n');
+                log.warn("Couldn't save statement {} from email {}: {}", attachment.fileName(), raw.getId(),
+                        e.toString());
+                note.append("Failed to save ").append(attachment.fileName()).append(": ").append(e.getMessage()).append('\n');
             }
         }
         raw.setStatus(note.isEmpty() ? EmailStatus.STATEMENT : EmailStatus.ERROR);

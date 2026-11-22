@@ -107,20 +107,20 @@ public class SplitService {
     }
 
     private SplitShare share(Transaction txn, Long personId, SplitMethod method, BigDecimal input, BigDecimal amount) {
-        Person p = people.findById(personId)
+        Person person = people.findById(personId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown person " + personId));
         SplitShare s = new SplitShare();
         s.setTxn(txn);
-        s.setPerson(p);
+        s.setPerson(person);
         s.setMethod(method);
         s.setInput(input);
         s.setAmount(amount);
         return s;
     }
 
-    public PersonBalanceResponse balance(Person p) {
-        BigDecimal owed = shares.totalOwed(p), paid = settlements.totalPaid(p);
-        BigDecimal forMe = txns.totalPaidBy(p), back = settlements.totalPaidBack(p);
+    public PersonBalanceResponse balance(Person person) {
+        BigDecimal owed = shares.totalOwed(person), paid = settlements.totalPaid(person);
+        BigDecimal forMe = txns.totalPaidBy(person), back = settlements.totalPaidBack(person);
         return new PersonBalanceResponse(owed, paid, forMe, back, owed.subtract(forMe).subtract(paid).add(back));
     }
 
@@ -176,11 +176,11 @@ public class SplitService {
      * with one person. Money already linked, or turned down before, is left alone.
      */
     @Transactional
-    public void suggestSettlement(Transaction t) {
-        if (t.isTransfer() || t.isPaidByPerson() || t.getAccount() == null) return;
-        if (!settlements.findByTxn(t).isEmpty()) return;
-        if (t.getId() != null && shares.totalForTxn(t).signum() > 0) return; // a bill I split isn't me paying someone back
-        boolean in = !t.isDebit();
+    public void suggestSettlement(Transaction transaction) {
+        if (transaction.isTransfer() || transaction.isPaidByPerson() || transaction.getAccount() == null) return;
+        if (!settlements.findByTxn(transaction).isEmpty()) return;
+        if (transaction.getId() != null && shares.totalForTxn(transaction).signum() > 0) return; // a bill I split isn't me paying someone back
+        boolean in = !transaction.isDebit();
         // what's open, from my side of this money: what they owe me (in) or what I owe them (out)
         Map<Person, BigDecimal> due = new LinkedHashMap<>();
         for (Person p : people.findAll()) {
@@ -189,21 +189,21 @@ public class SplitService {
         }
         if (due.isEmpty()) return;
 
-        List<Person> pick = due.keySet().stream().filter(p -> named(p, t.getCounterparty())).toList();
-        if (pick.isEmpty()) pick = due.keySet().stream().filter(p -> due.get(p).compareTo(t.getAmount()) == 0).toList();
+        List<Person> pick = due.keySet().stream().filter(p -> named(p, transaction.getCounterparty())).toList();
+        if (pick.isEmpty()) pick = due.keySet().stream().filter(p -> due.get(p).compareTo(transaction.getAmount()) == 0).toList();
         if (pick.size() != 1) return;
         Person p = pick.get(0);
         Settlement s = new Settlement();
         s.setPerson(p);
-        s.setTxn(t);
-        s.setAmount(t.getAmount().min(due.get(p)));
-        s.setSettledAt(t.getOccurredAt());
+        s.setTxn(transaction);
+        s.setAmount(transaction.getAmount().min(due.get(p)));
+        s.setSettledAt(transaction.getOccurredAt());
         s.setStatus(SettlementStatus.SUGGESTED);
         s.setDirection(in ? SettlementDirection.IN : SettlementDirection.OUT);
-        s.setNote("Auto-matched from " + (t.getCounterparty() == null ? (in ? "incoming payment" : "payment") : t.getCounterparty()));
+        s.setNote("Auto-matched from " + (transaction.getCounterparty() == null ? (in ? "incoming payment" : "payment") : transaction.getCounterparty()));
         settlements.save(s);
-        log.info("Repayment suggested: transaction {} as {} person {} (by {})", t.getId(), in ? "paid back by" : "paying back",
-                p.getId(), named(p, t.getCounterparty()) ? "name" : "exact amount");
+        log.info("Repayment suggested: transaction {} as {} person {} (by {})", transaction.getId(), in ? "paid back by" : "paying back",
+                p.getId(), named(p, transaction.getCounterparty()) ? "name" : "exact amount");
     }
 
     /** How far back to look again for money that settles up, when something about a balance changes. */
@@ -219,7 +219,7 @@ public class SplitService {
     }
 
     @EventListener
-    void onBalancesChanged(BalancesChangedEvent e) {
+    void onBalancesChanged(BalancesChangedEvent balancesChangedEvent) {
         rescan();
     }
 

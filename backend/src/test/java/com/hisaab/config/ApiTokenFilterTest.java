@@ -35,20 +35,20 @@ class ApiTokenFilterTest {
 
     @Test
     void limitsAllowOnlyWhatWasChosen() {
-        ApiToken t = new ApiToken();
-        assertThat(t.allowsCategory(5L)).isTrue();
-        assertThat(t.allowsCategory(null)).isTrue();
-        t.setCategoryIds(ApiToken.join(Set.of("5")));
-        assertThat(t.allowsCategory(5L)).isTrue();
-        assertThat(t.allowsCategory(6L)).isFalse();
-        assertThat(t.allowsCategory(null)).isFalse();
-        t.setCategoryIds("5,none");
-        assertThat(t.allowsCategory(null)).isTrue();
+        ApiToken token = new ApiToken();
+        assertThat(token.allowsCategory(5L)).isTrue();
+        assertThat(token.allowsCategory(null)).isTrue();
+        token.setCategoryIds(ApiToken.join(Set.of("5")));
+        assertThat(token.allowsCategory(5L)).isTrue();
+        assertThat(token.allowsCategory(6L)).isFalse();
+        assertThat(token.allowsCategory(null)).isFalse();
+        token.setCategoryIds("5,none");
+        assertThat(token.allowsCategory(null)).isTrue();
         // every chosen category gone: nothing, never everything
-        t.setCategoryIds("");
-        assertThat(t.allowsCategory(5L)).isFalse();
-        t.setAccountIds("3");
-        assertThat(t.allowsAccount(3L)).isTrue();
-        assertThat(t.allowsAccount(4L)).isFalse();
+        token.setCategoryIds("");
+        assertThat(token.allowsCategory(5L)).isFalse();
+        token.setAccountIds("3");
+        assertThat(token.allowsAccount(3L)).isTrue();
+        assertThat(token.allowsAccount(4L)).isFalse();
     }
 }

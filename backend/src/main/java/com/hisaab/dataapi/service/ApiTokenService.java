@@ -69,17 +69,17 @@ public class ApiTokenService {
     /** Changes a token's name or limits; its job stays (make a new token for another job). */
     @Transactional
     public TokenResponse update(Long id, TokenRequest in) {
-        ApiToken t = active(id);
-        apply(t, in);
-        log.info("API token changed id={} name=\"{}\" job={}", t.getId(), forLog(t.getName()), t.getJob());
-        return view(t);
+        ApiToken token = active(id);
+        apply(token, in);
+        log.info("API token changed id={} name=\"{}\" job={}", token.getId(), forLog(token.getName()), token.getJob());
+        return view(token);
     }
 
     @Transactional
     public void revoke(Long id) {
-        ApiToken t = active(id);
-        t.setRevokedAt(Instant.now());
-        log.info("API token revoked id={} name=\"{}\" job={}", t.getId(), forLog(t.getName()), t.getJob());
+        ApiToken token = active(id);
+        token.setRevokedAt(Instant.now());
+        log.info("API token revoked id={} name=\"{}\" job={}", token.getId(), forLog(token.getName()), token.getJob());
     }
 
     /** A name as it goes in the log: one line, no control characters. */
@@ -91,31 +91,31 @@ public class ApiTokenService {
     @Transactional
     public Optional<ApiToken> authenticate(String presented) {
         if (presented == null || !presented.startsWith(PREFIX) || presented.length() > 200) return Optional.empty();
-        Optional<ApiToken> t = tokens.findByTokenHashAndRevokedAtIsNull(sha256(presented));
-        t.ifPresent(x -> {
+        Optional<ApiToken> token = tokens.findByTokenHashAndRevokedAtIsNull(sha256(presented));
+        token.ifPresent(x -> {
             Instant now = Instant.now();
             // once a minute is enough, so busy apps don't write on every request
             if (x.getLastUsedAt() == null || x.getLastUsedAt().isBefore(now.minus(Duration.ofMinutes(1)))) x.setLastUsedAt(now);
         });
-        return t;
+        return token;
     }
 
     private ApiToken active(Long id) {
         return tokens.findById(id).filter(ApiToken::isActive).orElseThrow(notFound("Token"));
     }
 
-    private void apply(ApiToken t, TokenRequest in) {
+    private void apply(ApiToken token, TokenRequest in) {
         String name = in.name() == null ? "" : in.name().trim();
         if (name.isEmpty()) throw new BadRequestException("Give the token a name, like \"Mileage app\"");
         if (name.length() > 60) throw new BadRequestException("Keep the name under 60 characters");
-        t.setName(name);
-        TokenJob job = t.getJob();
+        token.setName(name);
+        TokenJob job = token.getJob();
         boolean usesCategories = job == TokenJob.READ_TRANSACTIONS || job == TokenJob.ADD_TRANSACTIONS || job == TokenJob.READ_TOTALS;
         boolean usesAccounts = job != TokenJob.SEND_SMS;
-        t.setCategoryIds(usesCategories ? categoryLimit(in.categories()) : null);
-        t.setAccountIds(usesAccounts ? accountLimit(in.accounts()) : null);
-        t.setMoneyIn(usesCategories && Boolean.TRUE.equals(in.moneyIn()));
-        t.setIncludeNotes(job != TokenJob.READ_TRANSACTIONS || !Boolean.FALSE.equals(in.includeNotes()));
+        token.setCategoryIds(usesCategories ? categoryLimit(in.categories()) : null);
+        token.setAccountIds(usesAccounts ? accountLimit(in.accounts()) : null);
+        token.setMoneyIn(usesCategories && Boolean.TRUE.equals(in.moneyIn()));
+        token.setIncludeNotes(job != TokenJob.READ_TRANSACTIONS || !Boolean.FALSE.equals(in.includeNotes()));
     }
 
     private String categoryLimit(List<String> ids) {

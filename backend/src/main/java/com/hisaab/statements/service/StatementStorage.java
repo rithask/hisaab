@@ -51,16 +51,16 @@ public class StatementStorage {
      */
     public Path resolve(String stored) {
         Path given = Path.of(stored);
-        Path p;
-        if (!given.isAbsolute()) p = root.resolve(given).normalize();
-        else if (given.normalize().startsWith(root)) p = given.normalize();
+        Path path;
+        if (!given.isAbsolute()) path = root.resolve(given).normalize();
+        else if (given.normalize().startsWith(root)) path = given.normalize();
         else {
             String s = given.toString();
             int i = s.indexOf("statements/");
-            p = i >= 0 ? root.resolve(s.substring(i)).normalize() : given.normalize();
+            path = i >= 0 ? root.resolve(s.substring(i)).normalize() : given.normalize();
         }
-        if (!p.startsWith(root)) throw new BadRequestException("Path outside storage");
-        return p;
+        if (!path.startsWith(root)) throw new BadRequestException("Path outside storage");
+        return path;
     }
 
     private static String slug(String s) {

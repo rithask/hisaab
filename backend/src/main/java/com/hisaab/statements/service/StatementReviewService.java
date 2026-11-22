@@ -63,11 +63,11 @@ public class StatementReviewService {
 
     /** Import a statement that arrived by email and was saved under Statements. */
     public StatementImportResponse fromSaved(Long id, ImportFromFileRequest in) throws IOException {
-        StatementFile f = statementFiles.findById(id).orElseThrow(notFound("Statement"));
-        var open = imports.openReviewFor(f);
+        StatementFile statementFile = statementFiles.findById(id).orElseThrow(notFound("Statement"));
+        var open = imports.openReviewFor(statementFile);
         if (open.isPresent()) return view(open.get());
-        byte[] pdf = Files.readAllBytes(storage.resolve(f.getStoredPath()));
-        return view(imports.start(pdf, f.getFileName(), in == null ? null : in.password(), in != null && Boolean.TRUE.equals(in.remember()), f));
+        byte[] pdf = Files.readAllBytes(storage.resolve(statementFile.getStoredPath()));
+        return view(imports.start(pdf, statementFile.getFileName(), in == null ? null : in.password(), in != null && Boolean.TRUE.equals(in.remember()), statementFile));
     }
 
     @Transactional(readOnly = true)

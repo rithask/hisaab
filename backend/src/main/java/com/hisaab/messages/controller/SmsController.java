@@ -38,25 +38,26 @@ public class SmsController {
         if (text == null || text.isBlank()) throw new BadRequestException("SMS text is empty (send it as \"text\")");
         if (text.length() > MAX_LENGTH) throw new BadRequestException("SMS text is too long (max " + MAX_LENGTH + " characters)");
         if (sender != null && sender.length() > 100) sender = sender.substring(0, 100);
-        SmsOutcome o = processor.processSms(sender, text, Instant.now());
+        SmsOutcome smsOutcome = processor.processSms(sender, text, Instant.now());
 
-        if (o.alreadySeen()) {
-            return new SmsResponse(EmailStatus.DUPLICATE.name(), "Already received this SMS", o.message().getId(), null, null);
+        if (smsOutcome.alreadySeen()) {
+            return new SmsResponse(EmailStatus.DUPLICATE.name(), "Already received this SMS", smsOutcome.message().getId(), null, null);
         }
-        EmailStatus st = o.message().getStatus();
-        Transaction t = o.txn();
+        EmailStatus st = smsOutcome.message().getStatus();
+        Transaction transaction = smsOutcome.txn();
         String msg;
-        if (t != null) {
-            msg = MessageProcessor.summary(t);
+        if (transaction != null) {
+            msg = MessageProcessor.summary(transaction);
         } else {
-            msg = o.message().getNote();
+            msg = smsOutcome.message().getNote();
         }
-        SmsTransactionResponse ts = t == null ? null : new SmsTransactionResponse(t.getId(), t.getDirection(), t.getAmount(),
-                t.getOriginalCurrency() == null ? "INR" : t.getOriginalCurrency(), t.getAccount().getName(), t.getCounterparty(),
-                t.getCategory() == null ? null : t.getCategory().getName(), t.getOccurredAt());
-        ParsedTransaction p = o.parsed();
+        SmsTransactionResponse ts = transaction == null ? null : new SmsTransactionResponse(transaction.getId(), transaction.getDirection(), transaction.getAmount(),
+                transaction.getOriginalCurrency() == null ? "INR" : transaction.getOriginalCurrency(), transaction.getAccount().getName(), transaction.getCounterparty(),
+                transaction.getCategory() == null ? null : transaction.getCategory().getName(),
+                        transaction.getOccurredAt());
+        ParsedTransaction p = smsOutcome.parsed();
         SmsParsedResponse ps = p == null ? null : new SmsParsedResponse(p.institution().name(), p.accountType().name(), p.direction(),
                 p.amount(), p.currency(), p.last4(), p.date(), p.time(), p.counterparty(), p.reference(), p.balance());
-        return new SmsResponse(st.name(), msg, o.message().getId(), ts, ps);
+        return new SmsResponse(st.name(), msg, smsOutcome.message().getId(), ts, ps);
     }
 }

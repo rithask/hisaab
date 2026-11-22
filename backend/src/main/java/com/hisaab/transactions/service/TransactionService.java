@@ -105,17 +105,17 @@ public class TransactionService {
      * payment already reported through the other channel (in which case missing details are filled in).
      */
     @Transactional
-    public Optional<Transaction> createFromEmail(ParsedTransaction p, Account account, InboxMessage email) {
-        Instant at = occurredAt(p.date(), p.time(), email.getReceivedAt());
-        boolean timeGuessed = p.time() == null;
+    public Optional<Transaction> createFromEmail(ParsedTransaction parsed, Account account, InboxMessage email) {
+        Instant at = occurredAt(parsed.date(), parsed.time(), email.getReceivedAt());
+        boolean timeGuessed = parsed.time() == null;
         TransactionSource source = email.getChannel() == Channel.SMS ? TransactionSource.SMS : TransactionSource.EMAIL;
-        Transaction t = new Transaction();
-        t.setAccount(account);
-        t.setDirection(p.direction());
-        t.setOccurredAt(at);
-        applyAmount(t, p.amount(), p.currency());
-        if (p.reference() != null) {
-            Optional<Transaction> same = txns.findFirstByAccountAndReferenceNoAndAmountAndDirection(account, p.reference(), t.getAmount(), p.direction());
+        Transaction transaction = new Transaction();
+        transaction.setAccount(account);
+        transaction.setDirection(parsed.direction());
+        transaction.setOccurredAt(at);
+        applyAmount(transaction, parsed.amount(), parsed.currency());
+        if (parsed.reference() != null) {
+            Optional<Transaction> same = txns.findFirstByAccountAndReferenceNoAndAmountAndDirection(account, parsed.reference(), transaction.getAmount(), parsed.direction());
             if (same.isPresent()) {
                 // the same payment's alert from the other channel: it's now paired and can't absorb another one
                 if (same.get().getSource() != source && same.get().getTwinRawEmail() == null) same.get().setTwinRawEmail(email);
@@ -123,31 +123,32 @@ public class TransactionService {
                 return Optional.empty();
             }
         }
-        Optional<Transaction> twin = crossChannelTwin(t, source, p.time() != null, p.reference(), email);
+        Optional<Transaction> twin = crossChannelTwin(transaction, source, parsed.time() != null, parsed.reference(),
+                email);
         if (twin.isPresent()) {
             Transaction existing = twin.get();
             existing.setTwinRawEmail(email);
-            if (existing.getCounterparty() == null && p.counterparty() != null) {
-                existing.setCounterparty(aliases.apply(p.counterparty()));
+            if (existing.getCounterparty() == null && parsed.counterparty() != null) {
+                existing.setCounterparty(aliases.apply(parsed.counterparty()));
                 existing.setMerchantKey(Names.merchantKey(existing.getCounterparty()));
             }
-            if (existing.getReferenceNo() == null) existing.setReferenceNo(p.reference());
-            if (existing.getReportedBalance() == null) existing.setReportedBalance(p.balance());
+            if (existing.getReferenceNo() == null) existing.setReferenceNo(parsed.reference());
+            if (existing.getReportedBalance() == null) existing.setReportedBalance(parsed.balance());
             log.info("Alert {} not recorded: it's transaction {}'s alert from the other channel ({})", email.getId(), existing.getId(), existing.getSource());
             return Optional.empty();
         }
-        String payee = aliases.apply(p.counterparty());
-        t.setCounterparty(payee);
-        t.setMerchantKey(Names.merchantKey(payee));
-        t.setDescription(p.description());
-        t.setReferenceNo(p.reference());
-        t.setReportedBalance(p.balance());
-        t.setSource(source);
-        t.setTimeEstimated(timeGuessed);
-        t.setRawEmail(email);
-        txns.save(t);
-        afterCreate(t, p.cardPayment());
-        return Optional.of(t);
+        String payee = aliases.apply(parsed.counterparty());
+        transaction.setCounterparty(payee);
+        transaction.setMerchantKey(Names.merchantKey(payee));
+        transaction.setDescription(parsed.description());
+        transaction.setReferenceNo(parsed.reference());
+        transaction.setReportedBalance(parsed.balance());
+        transaction.setSource(source);
+        transaction.setTimeEstimated(timeGuessed);
+        transaction.setRawEmail(email);
+        txns.save(transaction);
+        afterCreate(transaction, parsed.cardPayment());
+        return Optional.of(transaction);
     }
 
     /**
@@ -157,15 +158,15 @@ public class TransactionService {
      * Different reference numbers mean different payments; one with the same reference is preferred, then the
      * closest in time.
      */
-    private Optional<Transaction> crossChannelTwin(Transaction t, TransactionSource source, boolean timed, String reference, InboxMessage email) {
+    private Optional<Transaction> crossChannelTwin(Transaction transaction, TransactionSource source, boolean timed, String reference, InboxMessage email) {
         TransactionSource other = source == TransactionSource.SMS ? TransactionSource.EMAIL : TransactionSource.SMS;
         Duration window = timed ? Duration.ofMinutes(20) : Duration.ofHours(24);
-        List<Transaction> candidates = txns.findCrossChannelTwins(t.getAccount(), t.getDirection(), t.getAmount(), other,
-                t.getOccurredAt().minus(window), t.getOccurredAt().plus(window)).stream()
+        List<Transaction> candidates = txns.findCrossChannelTwins(transaction.getAccount(), transaction.getDirection(), transaction.getAmount(), other,
+                transaction.getOccurredAt().minus(window), transaction.getOccurredAt().plus(window)).stream()
                 .filter(x -> x.getTwinRawEmail() == null || x.getTwinRawEmail().getId().equals(email.getId()))
                 .filter(x -> reference == null || x.getReferenceNo() == null || sameRef(reference, x.getReferenceNo()))
                 .toList();
-        Comparator<Transaction> byGap = Comparator.comparing(x -> Duration.between(x.getOccurredAt(), t.getOccurredAt()).abs());
+        Comparator<Transaction> byGap = Comparator.comparing(x -> Duration.between(x.getOccurredAt(), transaction.getOccurredAt()).abs());
         Comparator<Transaction> sameRefFirst = Comparator.comparing(x -> !(reference != null && x.getReferenceNo() != null));
         return candidates.stream().min(sameRefFirst.thenComparing(byGap));
     }
@@ -377,13 +378,13 @@ public class TransactionService {
             t.setCategory(null);
             t.setCategorySuggested(false);
         } else if (u.categoryId() != null) {
-            Category c = categories.findById(u.categoryId())
+            Category category = categories.findById(u.categoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Unknown category"));
-            t.setCategory(c);
+            t.setCategory(category);
             t.setCategorySuggested(false);
             t.setTransfer(false);
             if (!Boolean.FALSE.equals(u.learn())) {
-                similar = categorizer.learn(t, c);
+                similar = categorizer.learn(t, category);
                 learnedWording = categorizer.learnsByWording(t);
             }
         }
@@ -446,11 +447,11 @@ public class TransactionService {
         }
     }
 
-    public Page<Transaction> search(Filter f, Pageable pageable) {
+    public Page<Transaction> search(Filter filter, Pageable pageable) {
         Specification<Transaction> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
-            if (f.accountId() != null) ps.add(cb.equal(root.get("account").get("id"), f.accountId()));
-            if (Boolean.TRUE.equals(f.uncategorized())) {
+            if (filter.accountId() != null) ps.add(cb.equal(root.get("account").get("id"), filter.accountId()));
+            if (Boolean.TRUE.equals(filter.uncategorized())) {
                 ps.add(cb.isNull(root.get("category")));
                 ps.add(cb.isFalse(root.get("transfer")));
                 // Nothing of it is mine (money I lent, a repayment either way): it needs no category.
@@ -462,21 +463,21 @@ public class TransactionService {
                 repaid.select(cb.coalesce(cb.sum(st.<BigDecimal>get("amount")), BigDecimal.ZERO))
                         .where(cb.equal(st.get("txn"), root), cb.equal(st.get("status"), SettlementStatus.CONFIRMED));
                 ps.add(cb.gt(cb.diff(cb.diff(root.<BigDecimal>get("amount"), shared), repaid), BigDecimal.ZERO));
-            } else if (f.categoryId() != null) {
-                ps.add(cb.equal(root.get("category").get("id"), f.categoryId()));
+            } else if (filter.categoryId() != null) {
+                ps.add(cb.equal(root.get("category").get("id"), filter.categoryId()));
             }
-            if (!f.includeTransfers()) ps.add(cb.isFalse(root.get("transfer")));
-            if (f.direction() != null) ps.add(cb.equal(root.get("direction"), f.direction()));
-            if (f.from() != null) ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), f.from()));
-            if (f.to() != null) ps.add(cb.lessThan(root.get("occurredAt"), f.to()));
-            if (f.tag() != null && !f.tag().isBlank()) {
+            if (!filter.includeTransfers()) ps.add(cb.isFalse(root.get("transfer")));
+            if (filter.direction() != null) ps.add(cb.equal(root.get("direction"), filter.direction()));
+            if (filter.from() != null) ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), filter.from()));
+            if (filter.to() != null) ps.add(cb.lessThan(root.get("occurredAt"), filter.to()));
+            if (filter.tag() != null && !filter.tag().isBlank()) {
                 var tagJoin = root.join("tags", JoinType.INNER);
-                ps.add(cb.equal(cb.lower(tagJoin.get("name")), f.tag().toLowerCase(Locale.ROOT)));
+                ps.add(cb.equal(cb.lower(tagJoin.get("name")), filter.tag().toLowerCase(Locale.ROOT)));
             }
-            if (f.minAmount() != null) ps.add(cb.greaterThanOrEqualTo(root.get("amount"), f.minAmount()));
-            if (f.maxAmount() != null) ps.add(cb.lessThanOrEqualTo(root.get("amount"), f.maxAmount()));
-            if (f.q() != null && !f.q().isBlank()) {
-                String like = "%" + f.q().toLowerCase(Locale.ROOT) + "%";
+            if (filter.minAmount() != null) ps.add(cb.greaterThanOrEqualTo(root.get("amount"), filter.minAmount()));
+            if (filter.maxAmount() != null) ps.add(cb.lessThanOrEqualTo(root.get("amount"), filter.maxAmount()));
+            if (filter.q() != null && !filter.q().isBlank()) {
+                String like = "%" + filter.q().toLowerCase(Locale.ROOT) + "%";
                 ps.add(cb.or(
                         cb.like(cb.lower(cb.coalesce(root.get("counterparty"), "")), like),
                         cb.like(cb.lower(cb.coalesce(root.get("description"), "")), like),

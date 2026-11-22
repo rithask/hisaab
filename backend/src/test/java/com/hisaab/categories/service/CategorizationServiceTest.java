@@ -32,9 +32,9 @@ class CategorizationServiceTest {
     void setUp() {
         CategoryVoteRepository votes = mock(CategoryVoteRepository.class);
         when(votes.save(any())).thenAnswer(i -> {
-            CategoryVote v = i.getArgument(0);
-            if (!store.contains(v)) store.add(v);
-            return v;
+            CategoryVote vote = i.getArgument(0);
+            if (!store.contains(vote)) store.add(vote);
+            return vote;
         });
         when(votes.findByKeyTypeAndKey(any(), any())).thenAnswer(i -> store.stream()
                 .filter(v -> v.getKeyType().equals(i.getArgument(0)) && v.getKey().equals(i.getArgument(1))).toList());
@@ -52,26 +52,26 @@ class CategorizationServiceTest {
     }
 
     private static Category cat(long id, String name, CategoryKind kind) {
-        Category c = new Category();
-        c.setId(id);
-        c.setName(name);
-        c.setKind(kind);
-        return c;
+        Category category = new Category();
+        category.setId(id);
+        category.setName(name);
+        category.setKind(kind);
+        return category;
     }
 
     private static Transaction txn(String payee, String amount, String description) {
-        Transaction t = new Transaction();
-        t.setDirection(Direction.DEBIT);
-        t.setCounterparty(payee);
-        t.setMerchantKey(Names.merchantKey(payee));
-        t.setAmount(new BigDecimal(amount));
-        t.setDescription(description);
-        return t;
+        Transaction transaction = new Transaction();
+        transaction.setDirection(Direction.DEBIT);
+        transaction.setCounterparty(payee);
+        transaction.setMerchantKey(Names.merchantKey(payee));
+        transaction.setAmount(new BigDecimal(amount));
+        transaction.setDescription(description);
+        return transaction;
     }
 
-    private Category suggested(Transaction t) {
-        cats.categorize(t);
-        return t.getCategory();
+    private Category suggested(Transaction transaction) {
+        cats.categorize(transaction);
+        return transaction.getCategory();
     }
 
     @Test
@@ -138,14 +138,14 @@ class CategorizationServiceTest {
 
     private static Transaction fromMessage(String text, Long formatId, String amount) {
         Transaction t = txn(null, amount, null);
-        InboxMessage m = new InboxMessage();
-        m.setBodyText(text);
+        InboxMessage message = new InboxMessage();
+        message.setBodyText(text);
         if (formatId != null) {
-            LearnedFormat f = new LearnedFormat();
-            f.setId(formatId);
-            m.setTemplate(f);
+            LearnedFormat format = new LearnedFormat();
+            format.setId(formatId);
+            message.setTemplate(format);
         }
-        t.setRawEmail(m);
+        t.setRawEmail(message);
         return t;
     }
 

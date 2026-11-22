@@ -46,10 +46,10 @@ class ReadWithParsers implements ReadingStep {
     }
 
     @Override
-    public void apply(MessageReading r) {
-        if (r.parsed != null) return;
-        if (r.sms()) readSms(r);
-        else readEmail(r);
+    public void apply(MessageReading reading) {
+        if (reading.parsed != null) return;
+        if (reading.sms()) readSms(reading);
+        else readEmail(reading);
     }
 
     private void readSms(MessageReading r) {

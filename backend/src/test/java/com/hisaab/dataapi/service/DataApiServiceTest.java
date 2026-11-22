@@ -15,19 +15,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DataApiServiceTest {
-    private static Transaction txn(Direction d, Long categoryId, long accountId, boolean transfer) {
-        Transaction t = new Transaction();
-        t.setDirection(d);
-        t.setTransfer(transfer);
-        Account a = new Account();
-        a.setId(accountId);
-        t.setAccount(a);
+    private static Transaction txn(Direction direction, Long categoryId, long accountId, boolean transfer) {
+        Transaction transaction = new Transaction();
+        transaction.setDirection(direction);
+        transaction.setTransfer(transfer);
+        Account account = new Account();
+        account.setId(accountId);
+        transaction.setAccount(account);
         if (categoryId != null) {
-            Category c = new Category();
-            c.setId(categoryId);
-            t.setCategory(c);
+            Category category = new Category();
+            category.setId(categoryId);
+            transaction.setCategory(category);
         }
-        return t;
+        return transaction;
     }
 
     @Test
@@ -49,10 +49,10 @@ class DataApiServiceTest {
 
     @Test
     void whatAFriendPaidForMeIsNotInTheApi() {
-        Transaction t = txn(Direction.DEBIT, 5L, 1, false);
-        t.setAccount(null);
-        t.setPaidBy(new Person());
-        assertThat(DataApiService.visible(new ApiToken(), t)).isFalse();
+        Transaction transaction = txn(Direction.DEBIT, 5L, 1, false);
+        transaction.setAccount(null);
+        transaction.setPaidBy(new Person());
+        assertThat(DataApiService.visible(new ApiToken(), transaction)).isFalse();
     }
 
     @Test

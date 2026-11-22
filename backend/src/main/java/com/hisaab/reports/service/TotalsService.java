@@ -38,12 +38,13 @@ public class TotalsService {
 
     public TotalsResponse of(List<AccountResponse> list) {
         BigDecimal cash = BigDecimal.ZERO, owed = BigDecimal.ZERO, limit = BigDecimal.ZERO;
-        for (AccountResponse a : list) {
-            if (a.type() == AccountType.CREDIT_CARD) {
-                owed = owed.add(a.balance());
-                if (a.card() != null && a.card().creditLimit() != null) limit = limit.add(a.card().creditLimit());
+        for (AccountResponse account : list) {
+            if (account.type() == AccountType.CREDIT_CARD) {
+                owed = owed.add(account.balance());
+                if (account.card() != null
+                        && account.card().creditLimit() != null) limit = limit.add(account.card().creditLimit());
             } else {
-                cash = cash.add(a.balance());
+                cash = cash.add(account.balance());
             }
         }
         PortfolioResponse pf = PortfolioResponse.of(holdings.findAll().stream().map(HoldingResponse::of).toList());
