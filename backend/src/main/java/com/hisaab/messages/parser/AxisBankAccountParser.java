@@ -17,8 +17,9 @@ import static com.hisaab.messages.parser.ParseUtil.*;
  * Axis Bank savings/current account alerts.
  * <p>Verified format (an HTML table): "Amount Debited: INR 6000.00 | Account Number: XX2286 |
  * Date &amp; Time: 03-11-26, 08:54:07 IST | Transaction Info: UPI/P2A/612345678901/ARJUN RAVI K".
- * <p>The older one-line "INR 500.00 was debited from your A/c no. XX1234 on 01-01-24 ..." format is
- * handled on a best-effort basis.
+ * <p>Credits come as a sentence with the account first (verified Oct 2026): "your A/c no. XX1234 has been
+ * credited with INR 2,500.00 on 30-10-2026 at 14:06:24 IST by IFT/…". The older one-line "INR 500.00 was debited
+ * from your A/c no. XX1234 on 01-01-24 ..." format is handled on a best-effort basis.
  */
 @Component
 public class AxisBankAccountParser implements BankEmailParser {
@@ -35,6 +36,11 @@ public class AxisBankAccountParser implements BankEmailParser {
     private static final Pattern LEGACY = Pattern.compile(
             "(?i)(INR|Rs\\.?|₹)\\s*" + AMOUNT + "\\s+(?:has\\s+been|was|is)\\s+(debited|credited)\\s+(?:from|to)\\s+your\\s+"
                     + "A/c\\s+(?:no\\.?\\s*)?X*(\\d{4})\\s+on\\s+(\\d{2}-\\d{2}-\\d{2,4})(?:,?\\s+(?:at\\s+)?(\\d{2}:\\d{2}:\\d{2}))?");
+    /** "your A/c no. XX1234 has been credited with INR 2,500.00 on 30-10-2026 at 14:06:24 IST by IFT/…" (the account first). */
+    private static final Pattern SENTENCE = Pattern.compile(
+            "(?i)A/c\\s+(?:no\\.?\\s*)?X*(\\d{4})\\s+(?:has\\s+been|was|is)\\s+(debited|credited)\\s+(?:with|by|for)\\s+(INR|Rs\\.?|₹)\\s*" + AMOUNT
+                    + "\\s+on\\s+(\\d{2}-\\d{2}-\\d{2,4})(?:\\s+at\\s+(\\d{1,2}:\\d{2}(?::\\d{2})?))?(?:\\s+IST)?"
+                    + "(?:\\s+(?:by|to|from|towards)\\s+(.+?))?(?=\\.\\s|\\.?$)");
     private static final Pattern LEGACY_INFO = Pattern.compile("(?i)Info\\s*[-:]\\s*(\\S+(?: \\S+){0,4})");
 
     @Override
@@ -66,6 +72,16 @@ public class AxisBankAccountParser implements BankEmailParser {
             return Optional.of(new ParsedTransaction(Institution.AXIS, AccountType.BANK, dir,
                     amount(am.group(3)), currency(am.group(2)), acm.group(1),
                     date(dm.group(1)), time(dm.group(2)), rp.counterparty(), rp.reference(), balance, false, info));
+        }
+
+        Matcher sm = SENTENCE.matcher(flat);
+        if (sm.find()) {
+            Direction dir = sm.group(2).equalsIgnoreCase("debited") ? Direction.DEBIT : Direction.CREDIT;
+            String info = clean(sm.group(7));
+            RefAndParty rp = splitNarration(info);
+            return Optional.of(new ParsedTransaction(Institution.AXIS, AccountType.BANK, dir,
+                    amount(sm.group(4)), currency(sm.group(3)), sm.group(1),
+                    date(sm.group(5)), time(sm.group(6)), rp.counterparty(), rp.reference(), balance, false, info));
         }
 
         Matcher lm = LEGACY.matcher(flat);

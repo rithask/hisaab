@@ -13,6 +13,9 @@ must do when upgrading (marked **Upgrade:**).
 - **Axis Bank credit card** alert emails are now read ("Here's the summary of your Axis Bank Credit Card
   Transaction"): amount, merchant, card, date and time. Refunds and bill payments from the card aren't read yet and
   wait for review.
+- **Axis Bank account credits** are now read: "your A/c no. XX… has been credited with INR … on … by …" (the
+  account comes first in these, so they used to wait for review). An internal transfer's codes are kept as its
+  reference instead of being shown as the payee.
 
 ## [0.14.0] - 2026-11-21
 

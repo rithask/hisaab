@@ -123,6 +123,61 @@ class BankParsersTest {
         assertThat(p.direction()).isEqualTo(Direction.CREDIT);
     }
 
+    /** Axis account credits are a sentence with the account first (layout from Oct 2026; every detail made up). */
+    private static String axisSentence(String what) {
+        return "<html><body><table><tr><td><p>30-11-2026 <br /><br />Dear Priya Sharma, <br /><br />Thank you for banking with us. <br /><br />"
+                + "We wish to inform you that your A/c no. XX2286 " + what + ". <br /><br />To check your available balance, please "
+                + "<a href=\"https://example.com\">click here</a>. <br /><br />Should you wish to reach us, please call 18000000000. <br /><br />"
+                + "Regards, <br />Axis Bank Ltd. </p></td></tr></table></body></html>";
+    }
+
+    @Test
+    void axisAccountCreditFromAnotherAxisAccount() {
+        var p = new AxisBankAccountParser().parse(html("alerts@axis.bank.in", "Credit transaction alert for Axis Bank A/c",
+                axisSentence("has been credited with INR 18,450.00 on 30-11-2026 at 10:12:45 IST by IFT/ABCDE12345-11223344/77"))).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.CREDIT);
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("18450.00"));
+        assertThat(p.last4()).isEqualTo("2286");
+        assertThat(p.date()).isEqualTo(LocalDate.of(2026, 11, 30));
+        assertThat(p.time()).isEqualTo(LocalTime.of(10, 12, 45));
+        // an internal transfer carries codes, not a name
+        assertThat(p.reference()).isEqualTo("ABCDE12345-11223344");
+        assertThat(p.counterparty()).isNull();
+        assertThat(p.description()).isEqualTo("IFT/ABCDE12345-11223344/77");
+    }
+
+    @Test
+    void axisAccountSalaryCreditByNeft() {
+        var p = new AxisBankAccountParser().parse(html("alerts@axis.bank.in", "Credit transaction alert for Axis Bank A/c",
+                axisSentence("has been credited with INR 85000.00 on 01-12-2026 at 09:00:03 IST by NEFT/N123456789012/EXAMPLE TECH PVT LTD"))).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.CREDIT);
+        assertThat(p.counterparty()).isEqualTo("EXAMPLE TECH PVT LTD");
+        assertThat(p.reference()).isEqualTo("N123456789012");
+    }
+
+    @Test
+    void axisAccountUpiCreditFromAPerson() {
+        var p = new AxisBankAccountParser().parse(html("alerts@axis.bank.in", "Credit transaction alert for Axis Bank A/c",
+                axisSentence("has been credited with INR 450.00 on 02-12-2026 at 21:30:00 IST by UPI/P2A/612398765432/RAHUL KUMAR"))).orElseThrow();
+        assertThat(p.counterparty()).isEqualTo("RAHUL KUMAR");
+        assertThat(p.reference()).isEqualTo("612398765432");
+    }
+
+    @Test
+    void axisAccountDebitAsASentence() {
+        var p = new AxisBankAccountParser().parse(html("alerts@axis.bank.in", "Debit transaction alert for Axis Bank A/c",
+                axisSentence("has been debited with INR 1,200.00 on 03-12-2026 at 07:45:10 IST to UPI/P2M/612311112222/CHAI POINT"))).orElseThrow();
+        assertThat(p.direction()).isEqualTo(Direction.DEBIT);
+        assertThat(p.amount()).isEqualByComparingTo(new BigDecimal("1200.00"));
+        assertThat(p.counterparty()).isEqualTo("CHAI POINT");
+    }
+
+    @Test
+    void narrationWithOnlyCodesHasNoPayee() {
+        assertThat(ParseUtil.splitNarration("IFT/ABCDE12345-11223344/77")).isEqualTo(new ParseUtil.RefAndParty("ABCDE12345-11223344", null));
+        assertThat(ParseUtil.splitNarration("UPI/P2A/612345678901/ARJUN RAVI K")).isEqualTo(new ParseUtil.RefAndParty("612345678901", "ARJUN RAVI K"));
+    }
+
     @Test
     void parsersDoNotClaimEachOthersEmails() {
         var hdfc = html("x", "s", HDFC_DEBIT);

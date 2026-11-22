@@ -104,7 +104,7 @@ public final class ParseUtil {
         if (parts.length >= 3 && RAILS.contains(parts[0].trim().toUpperCase(Locale.ROOT))) {
             int refIdx = -1;
             for (int i = 1; i < parts.length; i++) {
-                if (parts[i].trim().matches("[A-Za-z0-9]*[0-9]{6,}[A-Za-z0-9]*")) {
+                if (parts[i].trim().matches("[A-Za-z0-9-]*[0-9]{6,}[A-Za-z0-9-]*")) {
                     refIdx = i;
                     break;
                 }
@@ -112,7 +112,8 @@ public final class ParseUtil {
             String party = null;
             for (int i = (refIdx >= 0 ? refIdx + 1 : 1); i < parts.length; i++) {
                 String p = parts[i].trim();
-                if (!p.isEmpty() && !UPI_TYPES.contains(p.toUpperCase(Locale.ROOT))) {
+                // a payee has letters: "IFT/CODE-123456/91" has none, only codes
+                if (!p.isEmpty() && !UPI_TYPES.contains(p.toUpperCase(Locale.ROOT)) && p.matches(".*[A-Za-z].*")) {
                     party = p;
                     break;
                 }
