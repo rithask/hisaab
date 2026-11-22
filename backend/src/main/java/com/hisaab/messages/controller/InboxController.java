@@ -1,7 +1,15 @@
 package com.hisaab.messages.controller;
 
+import com.hisaab.messages.dto.InboxMessageResponse;
+import com.hisaab.messages.dto.MailImportRequest;
+import com.hisaab.messages.dto.MailImportStatusResponse;
+import com.hisaab.messages.dto.MailSyncResponse;
+import com.hisaab.messages.dto.SkipResponse;
+import com.hisaab.messages.dto.TeachPreviewResponse;
+import com.hisaab.messages.dto.TeachRequest;
+import com.hisaab.messages.dto.TeachResponse;
+import com.hisaab.messages.dto.TrustResponse;
 import com.hisaab.messages.model.EmailStatus;
-import com.hisaab.common.dto.Dtos.EmailDto;
 import com.hisaab.messages.model.RawEmail;
 import com.hisaab.messages.repository.RawEmailRepository;
 import com.hisaab.messages.service.EmailProcessor;
@@ -17,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.hisaab.common.exception.BadRequestException;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -51,22 +58,22 @@ public class InboxController {
     // ---- messages ---------------------------------------------------------------------------------------
 
     @GetMapping("/emails")
-    public List<EmailDto> emails(@RequestParam(required = false) EmailStatus status,
+    public List<InboxMessageResponse> emails(@RequestParam(required = false) EmailStatus status,
                                  @RequestParam(defaultValue = "0") int page) {
         PageRequest pr = PageRequest.of(page, 50);
         Page<RawEmail> p = status == null ? emails.findAllByOrderByReceivedAtDesc(pr)
                 : emails.findByStatusOrderByReceivedAtDesc(status, pr);
-        return p.getContent().stream().map(e -> EmailDto.of(e, false)).toList();
+        return p.getContent().stream().map(e -> InboxMessageResponse.of(e, false)).toList();
     }
 
     @GetMapping("/emails/{id}")
-    public EmailDto email(@PathVariable Long id) {
-        return EmailDto.of(message(id), true);
+    public InboxMessageResponse email(@PathVariable Long id) {
+        return InboxMessageResponse.of(message(id), true);
     }
 
     @PostMapping("/emails/{id}/reprocess")
-    public EmailDto reprocess(@PathVariable Long id) {
-        return EmailDto.of(processor.reprocess(message(id)), false);
+    public InboxMessageResponse reprocess(@PathVariable Long id) {
+        return InboxMessageResponse.of(processor.reprocess(message(id)), false);
     }
 
     /** Retry every message waiting for review (handy right after adding an account). */
@@ -84,41 +91,34 @@ public class InboxController {
 
     @PostMapping("/emails/{id}/ignore")
     @Transactional
-    public EmailDto ignore(@PathVariable Long id) {
+    public InboxMessageResponse ignore(@PathVariable Long id) {
         RawEmail e = message(id);
         e.setStatus(EmailStatus.IGNORED);
-        return EmailDto.of(e, false);
+        return InboxMessageResponse.of(e, false);
     }
 
     // ---- what I tell the app about a message ------------------------------------------------------------
 
     /** What the parser currently reads from a stored message, to pre-fill the correction form. */
     @GetMapping("/emails/{id}/preview")
-    public MessageTeaching.Preview preview(@PathVariable Long id) {
+    public TeachPreviewResponse preview(@PathVariable Long id) {
         return teaching.preview(message(id));
     }
 
-    public record TeachResponse(EmailDto message, Long txnId, boolean learnedFormat, boolean learnedAccount, int alsoFixed, int conflicts,
-                                boolean pausedFormat, boolean mergedFormat, String category, boolean categoryByWording) {}
-
     /** Correct a message; the parser learns its format and account from the correction. */
     @PostMapping("/emails/{id}/teach")
-    public TeachResponse teach(@PathVariable Long id, @RequestBody MessageTeaching.Teaching in) {
+    public TeachResponse teach(@PathVariable Long id, @RequestBody TeachRequest in) {
         MessageTeaching.TeachResult r = teaching.teach(message(id), in);
-        return new TeachResponse(EmailDto.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
+        return new TeachResponse(InboxMessageResponse.of(r.message(), false), r.txn() == null ? null : r.txn().getId(),
                 r.learnedFormat(), r.learnedAccount(), r.alsoFixed(), r.conflicts(), r.pausedFormat(), r.mergedFormat(), r.category(), r.categoryByWording());
     }
-
-    public record SkipResponse(EmailDto message, boolean learned, int conflicts, int alsoSkipped) {}
 
     /** "Not a transaction": ignore it and skip messages worded like it from now on. */
     @PostMapping("/emails/{id}/not-a-transaction")
     public SkipResponse notATransaction(@PathVariable Long id) {
         MessageTeaching.SkipResult r = teaching.notATransaction(message(id));
-        return new SkipResponse(EmailDto.of(r.message(), false), r.learned(), r.conflicts(), r.alsoSkipped());
+        return new SkipResponse(InboxMessageResponse.of(r.message(), false), r.learned(), r.conflicts(), r.alsoSkipped());
     }
-
-    public record TrustResponse(String domain, int recorded) {}
 
     /** Alerts from this email's domain are genuine: remember that and record the held ones. */
     @PostMapping("/emails/{id}/trust-sender")
@@ -131,7 +131,7 @@ public class InboxController {
     // ---- the mailbox ------------------------------------------------------------------------------------
 
     @PostMapping("/mail/sync")
-    public MailSyncService.SyncResult sync() {
+    public MailSyncResponse sync() {
         return mail.sync();
     }
 
@@ -142,21 +142,19 @@ public class InboxController {
         return Map.of("added", added);
     }
 
-    public record ImportRequest(LocalDate since) {}
-
     /** Starts importing older mail in the background; poll GET /mail/import for progress. */
     @PostMapping("/mail/import")
-    public MailSyncService.ImportStatus startImport(@RequestBody ImportRequest req) {
+    public MailImportStatusResponse startImport(@RequestBody MailImportRequest req) {
         return mail.startImport(req.since());
     }
 
     @GetMapping("/mail/import")
-    public MailSyncService.ImportStatus importStatus() {
+    public MailImportStatusResponse importStatus() {
         return mail.importStatus();
     }
 
     @PostMapping("/mail/import/cancel")
-    public MailSyncService.ImportStatus cancelImport() {
+    public MailImportStatusResponse cancelImport() {
         return mail.cancelImport();
     }
 }

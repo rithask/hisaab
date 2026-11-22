@@ -1,11 +1,19 @@
 package com.hisaab.reports.controller;
 
+import com.hisaab.accounts.dto.AccountResponse;
+import com.hisaab.reports.dto.DashboardCountsResponse;
+import com.hisaab.reports.dto.DashboardResponse;
+import com.hisaab.reports.dto.DashboardTotalsResponse;
+import com.hisaab.reports.dto.MonthTotalResponse;
+import com.hisaab.reports.dto.NetWorthPointResponse;
+import com.hisaab.reports.dto.ReportResponse;
+import com.hisaab.reports.dto.ReviewResponse;
+import com.hisaab.reports.dto.TotalsResponse;
 import com.hisaab.messages.model.EmailStatus;
 import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.statements.model.ImportStatus;
 import com.hisaab.accounts.repository.AlertRepository;
 import com.hisaab.accounts.service.AccountService;
-import com.hisaab.accounts.service.AccountService.AccountView;
 import com.hisaab.common.util.Money;
 import com.hisaab.investments.repository.HoldingRepository;
 import com.hisaab.messages.repository.RawEmailRepository;
@@ -23,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -66,22 +73,13 @@ public class DashboardController {
         this.settlements = settlements;
     }
 
-    public record Totals(BigDecimal cash, BigDecimal cardOutstanding, BigDecimal cardLimit, BigDecimal investments,
-                         BigDecimal invested, BigDecimal receivable, BigDecimal netWorth) {}
-
-    /** @param statementsToReview statements read and waiting for my review; @param statementsLocked ones that need a password */
-    public record Counts(long alerts, long emailsToReview, long suggestedSettlements, long statementsToReview, long statementsLocked) {}
-
-    public record Dashboard(Totals totals, List<AccountView> accounts, ReportService.Report month,
-                            List<ReportService.MonthTotal> trend, Counts counts) {}
-
     @GetMapping("/dashboard")
-    public Dashboard dashboard(@RequestParam(required = false) String month) {
-        List<AccountView> list = accounts.list(false);
-        TotalsService.Totals t = totals.of(list);
-        return new Dashboard(new Totals(t.cash(), t.cardOutstanding(), t.cardLimit(), t.investments(), t.invested(), t.receivable(), t.netWorth()),
+    public DashboardResponse dashboard(@RequestParam(required = false) String month) {
+        List<AccountResponse> list = accounts.list(false);
+        TotalsResponse t = totals.of(list);
+        return new DashboardResponse(new DashboardTotalsResponse(t.cash(), t.cardOutstanding(), t.cardLimit(), t.investments(), t.invested(), t.receivable(), t.netWorth()),
                 list, report(month), reports.monthly(6),
-                new Counts(alerts.countByDismissedFalse(),
+                new DashboardCountsResponse(alerts.countByDismissedFalse(),
                         emails.countByStatus(EmailStatus.NEEDS_REVIEW) + emails.countByStatus(EmailStatus.ERROR),
                         settlements.countByStatus(SettlementStatus.SUGGESTED),
                         statementImports.countByStatus(ImportStatus.REVIEW),
@@ -90,7 +88,7 @@ public class DashboardController {
 
     /** Month-by-month income and spending, ending at {@code until} (yyyy-MM, default this month). */
     @GetMapping("/reports/monthly")
-    public List<ReportService.MonthTotal> monthly(@RequestParam(required = false) String until,
+    public List<MonthTotalResponse> monthly(@RequestParam(required = false) String until,
                                                   @RequestParam(defaultValue = "6") int months) {
         YearMonth end = until == null ? YearMonth.now(Money.ZONE) : YearMonth.parse(until);
         return reports.monthly(end, Math.max(1, Math.min(months, 24)));
@@ -98,14 +96,14 @@ public class DashboardController {
 
     /** Income/expense breakdown. {@code month} is yyyy-MM; alternatively pass from/to. */
     @GetMapping("/reports")
-    public ReportService.Report report(@RequestParam(required = false) String month,
+    public ReportResponse report(@RequestParam(required = false) String month,
                                       @RequestParam(required = false) Instant from,
                                       @RequestParam(required = false) Instant to) {
         if (from != null && to != null) return reports.report(from, to);
         return report(month);
     }
 
-    private ReportService.Report report(String month) {
+    private ReportResponse report(String month) {
         YearMonth ym = month == null || month.isBlank() ? YearMonth.now(Money.ZONE) : YearMonth.parse(month);
         return reports.report(ym.atDay(1).atStartOfDay(Money.ZONE).toInstant(),
                 ym.plusMonths(1).atDay(1).atStartOfDay(Money.ZONE).toInstant());
@@ -113,7 +111,7 @@ public class DashboardController {
 
     // ---- net worth
     @GetMapping("/networth")
-    public List<NetWorthService.Point> networth(@RequestParam(defaultValue = "6m") String range) {
+    public List<NetWorthPointResponse> networth(@RequestParam(defaultValue = "6m") String range) {
         LocalDate today = LocalDate.now(Money.ZONE);
         LocalDate from = switch (range) {
             case "1m" -> today.minusMonths(1);
@@ -127,7 +125,7 @@ public class DashboardController {
 
     // ---- year in review
     @GetMapping("/review")
-    public ReviewService.Review review(@RequestParam(required = false) Integer year) {
+    public ReviewResponse review(@RequestParam(required = false) Integer year) {
         return review.year(year == null ? LocalDate.now(Money.ZONE).getYear() : year);
     }
 }

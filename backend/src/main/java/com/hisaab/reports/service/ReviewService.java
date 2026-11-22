@@ -1,5 +1,9 @@
 package com.hisaab.reports.service;
 
+import com.hisaab.reports.dto.NetWorthPointResponse;
+import com.hisaab.reports.dto.ReviewBiggestResponse;
+import com.hisaab.reports.dto.ReviewMonthResponse;
+import com.hisaab.reports.dto.ReviewResponse;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -31,18 +35,7 @@ public class ReviewService {
         this.networth = networth;
     }
 
-    public record Month(String month, BigDecimal income, BigDecimal expense) {}
-
-    public record Biggest(String payee, String category, BigDecimal amount, LocalDate day) {}
-
-    public record Review(int year, List<Integer> years, BigDecimal income, BigDecimal expense, BigDecimal saved, Integer savingsRate,
-                         long transactions, BigDecimal perDay, List<Month> months, String bestMonth, String costliestMonth,
-                         List<ReportService.CategoryTotal> categories, List<ReportService.MerchantTotal> merchants,
-                         String mostVisited, long mostVisitedCount, Biggest biggest, String busiestWeekday, long noSpendDays,
-                         BigDecimal lastYearExpense, BigDecimal lastYearIncome, BigDecimal networthStart, BigDecimal networthEnd,
-                         boolean partial) {}
-
-    public Review year(int year) {
+    public ReviewResponse year(int year) {
         LocalDate today = LocalDate.now(Money.ZONE);
         LocalDate start = LocalDate.of(year, 1, 1), end = LocalDate.of(year + 1, 1, 1);
         LocalDate until = end.isAfter(today) ? today.plusDays(1) : end;
@@ -50,15 +43,15 @@ public class ReviewService {
         var r = reports.report(from, to);
         var last = reports.report(LocalDate.of(year - 1, 1, 1).atStartOfDay(Money.ZONE).toInstant(), from);
 
-        List<Month> months = reports.monthly(YearMonth.of(year, 12), 12).stream()
+        List<ReviewMonthResponse> months = reports.monthly(YearMonth.of(year, 12), 12).stream()
                 .filter(m -> !YearMonth.parse(m.month()).isAfter(YearMonth.from(today)))
-                .map(m -> new Month(m.month(), m.income(), m.expense())).toList();
+                .map(m -> new ReviewMonthResponse(m.month(), m.income(), m.expense())).toList();
         // The month in progress isn't over yet, so it can't be the best or the costliest.
         YearMonth running = YearMonth.from(today);
         String best = months.stream().filter(m -> !YearMonth.parse(m.month()).equals(running))
                 .filter(m -> m.income().signum() > 0 || m.expense().signum() > 0)
-                .max((a, b) -> a.income().subtract(a.expense()).compareTo(b.income().subtract(b.expense()))).map(Month::month).orElse(null);
-        String costliest = months.stream().filter(m -> !YearMonth.parse(m.month()).equals(running)).filter(m -> m.expense().signum() > 0).max((a, b) -> a.expense().compareTo(b.expense())).map(Month::month).orElse(null);
+                .max((a, b) -> a.income().subtract(a.expense()).compareTo(b.income().subtract(b.expense()))).map(ReviewMonthResponse::month).orElse(null);
+        String costliest = months.stream().filter(m -> !YearMonth.parse(m.month()).equals(running)).filter(m -> m.expense().signum() > 0).max((a, b) -> a.expense().compareTo(b.expense())).map(ReviewMonthResponse::month).orElse(null);
 
         var p = new MapSqlParameterSource("from", Timestamp.from(from)).addValue("to", Timestamp.from(to));
         String eff = """
@@ -76,7 +69,7 @@ public class ReviewService {
                 select e.counterparty, c.name category, e.amt, (e.occurred_at at time zone current_setting('TimeZone'))::date d
                 from eff e left join category c on c.id = e.category_id where e.direction = 'DEBIT'
                 order by e.amt desc limit 1""", p,
-                (rs, i) -> new Biggest(rs.getString("counterparty"), rs.getString("category"), Money.r2(rs.getBigDecimal("amt")), rs.getDate("d").toLocalDate()));
+                (rs, i) -> new ReviewBiggestResponse(rs.getString("counterparty"), rs.getString("category"), Money.r2(rs.getBigDecimal("amt")), rs.getDate("d").toLocalDate()));
         var weekday = jdbc.queryForList(eff + """
                 select extract(isodow from e.occurred_at at time zone current_setting('TimeZone'))::int dow, sum(e.amt) s
                 from eff e where e.direction = 'DEBIT' group by 1 order by s desc limit 1""", p);
@@ -93,7 +86,7 @@ public class ReviewService {
         List<Integer> years = new ArrayList<>();
         for (int y = today.getYear(); y >= (firstYear == null ? today.getYear() : firstYear); y--) years.add(y);
 
-        return new Review(year, years, r.income(), r.expense(), saved, rate, count,
+        return new ReviewResponse(year, years, r.income(), r.expense(), saved, rate, count,
                 Money.r2(r.expense().divide(BigDecimal.valueOf(days), 2, RoundingMode.HALF_UP)), months, best, costliest,
                 r.expenseByCategory().stream().limit(6).toList(), r.topMerchants().stream().limit(5).toList(),
                 visited.isEmpty() ? null : (String) visited.getFirst().get("counterparty"),
@@ -101,8 +94,8 @@ public class ReviewService {
                 biggest.isEmpty() ? null : biggest.getFirst(),
                 weekday.isEmpty() ? null : DayOfWeek.of(((Number) weekday.getFirst().get("dow")).intValue()).getDisplayName(TextStyle.FULL, Locale.ENGLISH),
                 Math.max(0, days - spendDays), last.expense(), last.income(),
-                networth.on(start.minusDays(1)).or(() -> networth.series(start).stream().findFirst()).map(NetWorthService.Point::netWorth).orElse(null),
-                networth.on(until.minusDays(1)).map(NetWorthService.Point::netWorth).orElse(null),
+                networth.on(start.minusDays(1)).or(() -> networth.series(start).stream().findFirst()).map(NetWorthPointResponse::netWorth).orElse(null),
+                networth.on(until.minusDays(1)).map(NetWorthPointResponse::netWorth).orElse(null),
                 end.isAfter(today));
     }
 }

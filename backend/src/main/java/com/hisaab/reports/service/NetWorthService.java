@@ -1,5 +1,6 @@
 package com.hisaab.reports.service;
 
+import com.hisaab.reports.dto.NetWorthPointResponse;
 import com.hisaab.common.util.Money;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +33,6 @@ public class NetWorthService {
         this.jdbc = jdbc;
         this.totals = totals;
     }
-
-    public record Point(LocalDate day, BigDecimal netWorth, BigDecimal cash, BigDecimal cardDues, BigDecimal investments,
-                        BigDecimal receivable, boolean estimated) {}
 
     @EventListener(ApplicationReadyEvent.class)
     public void atStartup() {
@@ -120,15 +118,15 @@ public class NetWorthService {
                 .addValue("i", Money.r2(inv)).addValue("r", Money.r2(rec)).addValue("n", Money.r2(net)).addValue("e", estimated));
     }
 
-    public List<Point> series(LocalDate from) {
+    public List<NetWorthPointResponse> series(LocalDate from) {
         return jdbc.query("select * from networth_snapshot where day >= :f order by day", new MapSqlParameterSource("f", Date.valueOf(from)),
-                (rs, i) -> new Point(rs.getDate("day").toLocalDate(), rs.getBigDecimal("net_worth"), rs.getBigDecimal("cash"),
+                (rs, i) -> new NetWorthPointResponse(rs.getDate("day").toLocalDate(), rs.getBigDecimal("net_worth"), rs.getBigDecimal("cash"),
                         rs.getBigDecimal("card_dues"), rs.getBigDecimal("investments"), rs.getBigDecimal("receivable"), rs.getBoolean("estimated")));
     }
 
-    public Optional<Point> on(LocalDate day) {
+    public Optional<NetWorthPointResponse> on(LocalDate day) {
         var l = jdbc.query("select * from networth_snapshot where day <= :d order by day desc limit 1", new MapSqlParameterSource("d", Date.valueOf(day)),
-                (rs, i) -> new Point(rs.getDate("day").toLocalDate(), rs.getBigDecimal("net_worth"), rs.getBigDecimal("cash"),
+                (rs, i) -> new NetWorthPointResponse(rs.getDate("day").toLocalDate(), rs.getBigDecimal("net_worth"), rs.getBigDecimal("cash"),
                         rs.getBigDecimal("card_dues"), rs.getBigDecimal("investments"), rs.getBigDecimal("receivable"), rs.getBoolean("estimated")));
         return l.stream().findFirst();
     }

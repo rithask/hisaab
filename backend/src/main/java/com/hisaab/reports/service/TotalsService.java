@@ -1,10 +1,12 @@
 package com.hisaab.reports.service;
 
+import com.hisaab.accounts.dto.AccountResponse;
+import com.hisaab.investments.dto.HoldingResponse;
+import com.hisaab.investments.dto.PortfolioResponse;
+import com.hisaab.people.dto.PersonBalanceResponse;
+import com.hisaab.reports.dto.TotalsResponse;
 import com.hisaab.common.model.AccountType;
 import com.hisaab.accounts.service.AccountService;
-import com.hisaab.accounts.service.AccountService.AccountView;
-import com.hisaab.common.dto.Dtos.HoldingDto;
-import com.hisaab.common.dto.Dtos.PortfolioDto;
 import com.hisaab.investments.repository.HoldingRepository;
 import com.hisaab.people.repository.PersonRepository;
 import com.hisaab.people.service.SplitService;
@@ -29,17 +31,14 @@ public class TotalsService {
         this.splits = splits;
     }
 
-    public record Totals(BigDecimal cash, BigDecimal cardOutstanding, BigDecimal cardLimit, BigDecimal investments,
-                         BigDecimal invested, BigDecimal receivable, BigDecimal netWorth) {}
-
     @Transactional(readOnly = true)
-    public Totals now() {
+    public TotalsResponse now() {
         return of(accounts.list(false));
     }
 
-    public Totals of(List<AccountView> list) {
+    public TotalsResponse of(List<AccountResponse> list) {
         BigDecimal cash = BigDecimal.ZERO, owed = BigDecimal.ZERO, limit = BigDecimal.ZERO;
-        for (AccountView a : list) {
+        for (AccountResponse a : list) {
             if (a.type() == AccountType.CREDIT_CARD) {
                 owed = owed.add(a.balance());
                 if (a.card() != null && a.card().creditLimit() != null) limit = limit.add(a.card().creditLimit());
@@ -47,11 +46,11 @@ public class TotalsService {
                 cash = cash.add(a.balance());
             }
         }
-        PortfolioDto pf = PortfolioDto.of(holdings.findAll().stream().map(HoldingDto::of).toList());
-        List<BigDecimal> balances = splits.balances(people.findAll()).values().stream().map(SplitService.Balance::outstanding).toList();
+        PortfolioResponse pf = PortfolioResponse.of(holdings.findAll().stream().map(HoldingResponse::of).toList());
+        List<BigDecimal> balances = splits.balances(people.findAll()).values().stream().map(PersonBalanceResponse::outstanding).toList();
         BigDecimal receivable = balances.stream().filter(v -> v.signum() > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal payable = balances.stream().filter(v -> v.signum() < 0).reduce(BigDecimal.ZERO, BigDecimal::add); // negative
         BigDecimal net = cash.add(pf.currentValue()).add(receivable).add(payable).subtract(owed);
-        return new Totals(cash, owed, limit, pf.currentValue(), pf.invested(), receivable, net);
+        return new TotalsResponse(cash, owed, limit, pf.currentValue(), pf.invested(), receivable, net);
     }
 }

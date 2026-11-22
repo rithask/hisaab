@@ -1,5 +1,8 @@
 package com.hisaab.messages.service;
 
+import com.hisaab.messages.dto.TeachPreviewResponse;
+import com.hisaab.messages.dto.TeachRequest;
+import com.hisaab.transactions.dto.TransactionUpdateRequest;
 import com.hisaab.common.model.AccountType;
 import com.hisaab.common.model.Direction;
 import com.hisaab.messages.model.Channel;
@@ -20,7 +23,6 @@ import com.hisaab.messages.reading.MessageReader;
 import com.hisaab.messages.repository.RawEmailRepository;
 import com.hisaab.transactions.model.Txn;
 import com.hisaab.transactions.service.TransactionService;
-import com.hisaab.transactions.service.TransactionService.TxnUpdate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,7 +73,7 @@ public class MessageTeaching {
 
     /** What the parser makes of a stored SMS right now, to pre-fill the correction form. */
     @Transactional(readOnly = true)
-    public Preview preview(RawEmail raw) {
+    public TeachPreviewResponse preview(RawEmail raw) {
         ParsedTransaction p = smsReader.match(raw.getChannel(), raw.getBodyText(), raw.getReceivedAt()).map(SmsReader.Match::txn)
                 .orElseGet(() -> smsParser.parse(raw.getSender(), raw.getBodyText(), raw.getReceivedAt()).txn());
         String flat = raw.getBodyText() == null ? "" : raw.getBodyText().replaceAll("\\s+", " ").trim();
@@ -99,25 +101,8 @@ public class MessageTeaching {
                 break;
             }
         }
-        return new Preview(direction, amount, accountId, name, flat, amountAt, payeeAt, categoryId);
+        return new TeachPreviewResponse(direction, amount, accountId, name, flat, amountAt, payeeAt, categoryId);
     }
-
-    /**
-     * @param flat       the message with whitespace collapsed; {@code amountAt}/{@code payeeAt} are {start, end} in it
-     * @param categoryId the category I already chose for its transaction, if any
-     */
-    public record Preview(Direction direction, BigDecimal amount, Long accountId, String counterparty,
-                          String flat, int[] amountAt, int[] payeeAt, Long categoryId) {}
-
-    /**
-     * @param counterparty the name to show for the payee
-     * @param amountAt     where I marked the amount ({start, end} in the collapsed text), if I did
-     * @param payeeAt      where I marked the payee, if I did
-     * @param categoryId   the category it belongs in, if I picked one (learned for its payee, or for its wording
-     *                     when it has no payee)
-     */
-    public record Teaching(Direction direction, BigDecimal amount, Long accountId, String counterparty,
-                           int[] amountAt, int[] payeeAt, Long categoryId) {}
 
     /**
      * @param alsoFixed other waiting messages that could be recorded thanks to what was just learned
@@ -135,7 +120,7 @@ public class MessageTeaching {
      * (not a free mail domain, and not one the provider flagged as forged), since I've said its alerts are real.
      */
     @Transactional
-    public TeachResult teach(RawEmail raw, Teaching in) {
+    public TeachResult teach(RawEmail raw, TeachRequest in) {
         if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
         if (in.direction() == null) throw new BadRequestException("Say whether money went out or came in");
         if (in.amount() == null || in.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
@@ -201,7 +186,7 @@ public class MessageTeaching {
         Optional<Txn> target = created.isPresent() ? created : txns.pairedWith(raw).stream().findFirst();
         boolean byWording = false;
         if (category != null && target.isPresent()) {
-            byWording = txns.update(target.get().getId(), new TxnUpdate(
+            byWording = txns.update(target.get().getId(), new TransactionUpdateRequest(
                     category.getId(), null, null, null, null, null, null, null, true)).learnedWording();
         }
 

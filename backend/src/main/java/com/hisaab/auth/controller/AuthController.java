@@ -1,8 +1,13 @@
 package com.hisaab.auth.controller;
 
+import com.hisaab.auth.dto.LinkRequest;
+import com.hisaab.auth.dto.LoginOptionsResponse;
+import com.hisaab.auth.dto.LoginRequest;
+import com.hisaab.auth.dto.OidcLinkResponse;
+import com.hisaab.auth.dto.OidcOptionResponse;
+import com.hisaab.auth.dto.PendingLinkResponse;
 import com.hisaab.auth.service.LoginThrottle;
 import com.hisaab.auth.service.OidcLinkService;
-import com.hisaab.auth.service.OidcLinkService.Link;
 import com.hisaab.auth.service.OidcLinkService.Pending;
 import com.hisaab.auth.service.OidcSupport;
 import com.hisaab.auth.service.OidcSupport.LazyRegistrations;
@@ -47,16 +52,11 @@ public class AuthController {
         this.oidc = oidc;
     }
 
-    public record OidcOption(String name, String startUrl) {}
-
-    /** What the sign-in screen should offer. */
-    public record Options(boolean passwordLogin, OidcOption oidc, boolean autoRedirect) {}
-
     @GetMapping("/auth/options")
-    public Options options() {
+    public LoginOptionsResponse options() {
         boolean on = oidc.getIfAvailable() != null;
-        return new Options(SecurityConfig.passwordLoginEnabled(props),
-                on ? new OidcOption(props.oidc().name(), "/api/auth/oidc") : null,
+        return new LoginOptionsResponse(SecurityConfig.passwordLoginEnabled(props),
+                on ? new OidcOptionResponse(props.oidc().name(), "/api/auth/oidc") : null,
                 on && !Boolean.FALSE.equals(props.oidc().autoRedirect()));
     }
 
@@ -73,10 +73,8 @@ public class AuthController {
         }
     }
 
-    public record Login(String username, String password) {}
-
     @PostMapping("/auth/login")
-    public ResponseEntity<?> login(@RequestBody Login body, HttpServletRequest req, HttpServletResponse res) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest body, HttpServletRequest req, HttpServletResponse res) {
         if (!SecurityConfig.passwordLoginEnabled(props)) {
             AuthLog.signInFailed(req, body.username(), "password (turned off)");
             return ResponseEntity.status(403).body(Map.of("error", "Password sign-in is turned off. Use " + props.oidc().name() + "."));
@@ -117,22 +115,18 @@ public class AuthController {
 
     // ---- linking a first-time OIDC sign-in to this app's account ----------------------------------------------
 
-    public record PendingLink(String email, String name, String provider, String username, boolean passwordRequired) {}
-
     /** The provider account waiting to be linked, if the last OIDC sign-in stopped to ask. */
     @GetMapping("/auth/link")
     public ResponseEntity<?> pendingLink(HttpServletRequest req) {
         var p = pending(req);
         if (p == null) return ResponseEntity.status(404).body(Map.of("error", "Nothing is waiting to be linked"));
-        return ResponseEntity.ok(new PendingLink(p.email(), p.name(), props.oidc().name(), props.auth().username(),
+        return ResponseEntity.ok(new PendingLinkResponse(p.email(), p.name(), props.oidc().name(), props.auth().username(),
                 SecurityConfig.passwordLoginEnabled(props)));
     }
 
-    public record LinkIn(String password) {}
-
     /** Links the waiting provider account and signs in. Needs the app password while password sign-in is on. */
     @PostMapping("/auth/link")
-    public ResponseEntity<?> confirmLink(@RequestBody(required = false) LinkIn in, HttpServletRequest req, HttpServletResponse res) {
+    public ResponseEntity<?> confirmLink(@RequestBody(required = false) LinkRequest in, HttpServletRequest req, HttpServletResponse res) {
         var p = pending(req);
         if (p == null) return ResponseEntity.status(400).body(Map.of("error", "Nothing is waiting to be linked. Sign in with " + props.oidc().name() + " again."));
         if (links.linkedId() != null) return ResponseEntity.status(409).body(Map.of("error", "Another account is already linked."));
@@ -170,12 +164,12 @@ public class AuthController {
 
     /** For Settings: which provider account is linked. */
     @GetMapping("/oidc-link")
-    public Link linkStatus() {
+    public OidcLinkResponse linkStatus() {
         return links.link();
     }
 
     @DeleteMapping("/oidc-link")
-    public Link unlink(HttpServletRequest req, Authentication who) {
+    public OidcLinkResponse unlink(HttpServletRequest req, Authentication who) {
         links.unlink();
         org.slf4j.LoggerFactory.getLogger("com.hisaab.security").info("OIDC account unlinked by user=\"{}\" ip={}", who.getName(), req.getRemoteAddr());
         return links.link();

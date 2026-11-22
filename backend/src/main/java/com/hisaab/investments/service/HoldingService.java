@@ -1,5 +1,7 @@
 package com.hisaab.investments.service;
 
+import com.hisaab.investments.dto.HoldingImportResponse;
+import com.hisaab.investments.dto.HoldingRequest;
 import com.hisaab.investments.model.AssetType;
 import com.hisaab.common.util.Money;
 import com.hisaab.config.AppProperties;
@@ -53,11 +55,8 @@ public class HoldingService {
         this.enabled = props.prices() == null || props.prices().enabled();
     }
 
-    public record HoldingInput(AssetType assetType, String symbol, String exchange, String name,
-                               BigDecimal quantity, BigDecimal avgPrice) {}
-
     @Transactional
-    public Holding save(Holding h, HoldingInput in) {
+    public Holding save(Holding h, HoldingRequest in) {
         if (in.assetType() == null) throw new BadRequestException("Asset type is required");
         if (in.symbol() == null || in.symbol().isBlank()) throw new BadRequestException("Symbol is required");
         if (in.quantity() == null || in.quantity().signum() <= 0) throw new BadRequestException("Quantity must be positive");
@@ -81,14 +80,12 @@ public class HoldingService {
         return h;
     }
 
-    public record ImportResult(int imported, int removed, List<String> skipped) {}
-
     /**
      * Import holdings exported from Zerodha (Kite "Holdings → Download" CSV or Console holdings CSV).
      * Columns are detected by name. With {@code replace}, stocks missing from the file are removed (full sync).
      */
     @Transactional
-    public ImportResult importCsv(InputStream in, boolean replace) throws java.io.IOException {
+    public HoldingImportResponse importCsv(InputStream in, boolean replace) throws java.io.IOException {
         Reader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
         CSVFormat fmt = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)
                 .setIgnoreEmptyLines(true).setTrim(true).setAllowMissingColumnNames(true).build();
@@ -140,7 +137,7 @@ public class HoldingService {
             }
         }
         log.info("Holdings CSV imported: {} imported, {} removed, {} rows skipped", imported, removed, skipped.size());
-        return new ImportResult(imported, removed, skipped);
+        return new HoldingImportResponse(imported, removed, skipped);
     }
 
     private static Integer col(Map<String, Integer> header, String... names) {

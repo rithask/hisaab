@@ -1,11 +1,18 @@
 package com.hisaab.people.controller;
 
+import com.hisaab.people.dto.ConfirmSettlementRequest;
+import com.hisaab.people.dto.PersonBalanceResponse;
+import com.hisaab.people.dto.PersonDetailResponse;
+import com.hisaab.people.dto.PersonRequest;
+import com.hisaab.people.dto.PersonResponse;
+import com.hisaab.people.dto.SettlementRecordedResponse;
+import com.hisaab.people.dto.SettlementRequest;
+import com.hisaab.people.dto.SettlementResponse;
+import com.hisaab.people.dto.ShareLineResponse;
+import com.hisaab.transactions.dto.TransactionResponse;
 import com.hisaab.common.model.Direction;
 import com.hisaab.people.model.SettlementDirection;
 import com.hisaab.people.model.SettlementStatus;
-import com.hisaab.common.dto.Dtos.PersonDto;
-import com.hisaab.common.dto.Dtos.SettlementDto;
-import com.hisaab.common.dto.Dtos.TxnDto;
 import com.hisaab.common.util.Audit;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
@@ -46,12 +53,12 @@ public class PeopleController {
         this.txns = txns;
     }
 
-    PersonDto dto(Person p) {
+    PersonResponse dto(Person p) {
         return dto(p, splits.balance(p));
     }
 
-    private static PersonDto dto(Person p, SplitService.Balance b) {
-        return new PersonDto(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), b.owed(), b.paid(),
+    private static PersonResponse dto(Person p, PersonBalanceResponse b) {
+        return new PersonResponse(p.getId(), p.getName(), p.getUpiName(), p.getPhone(), p.getNotes(), b.owed(), b.paid(),
                 b.paidForMe(), b.paidBack(), b.outstanding());
     }
 
@@ -60,24 +67,22 @@ public class PeopleController {
     }
 
     @GetMapping("/people")
-    public List<PersonDto> list() {
+    public List<PersonResponse> list() {
         List<Person> all = people.findAllByOrderByNameAsc();
         var balances = splits.balances(all);
         return all.stream().map(p -> dto(p, balances.get(p.getId()))).toList();
     }
 
-    public record PersonInput(String name, String upiName, String phone, String notes) {}
-
     @PostMapping("/people")
     @Transactional
-    public PersonDto create(@RequestBody PersonInput in) {
+    public PersonResponse create(@RequestBody PersonRequest in) {
         Person p = splits.savePerson(apply(new Person(), in));
         return dto(p);
     }
 
     @PutMapping("/people/{id}")
     @Transactional
-    public PersonDto update(@PathVariable Long id, @RequestBody PersonInput in) {
+    public PersonResponse update(@PathVariable Long id, @RequestBody PersonRequest in) {
         Person p = splits.savePerson(apply(person(id), in));
         return dto(p);
     }
@@ -88,7 +93,7 @@ public class PeopleController {
      */
     @GetMapping("/people/{id}/open-payments")
     @Transactional(readOnly = true)
-    public List<TxnDto> openPayments(@PathVariable Long id, @RequestParam SettlementDirection direction) {
+    public List<TransactionResponse> openPayments(@PathVariable Long id, @RequestParam SettlementDirection direction) {
         Person p = person(id);
         var dir = direction == SettlementDirection.OUT ? Direction.DEBIT : Direction.CREDIT;
         BigDecimal due = splits.outstanding(p).abs();
@@ -97,7 +102,7 @@ public class PeopleController {
                 .sorted(Comparator.comparing((Txn t) -> !SplitService.named(p, t.getCounterparty()))
                         .thenComparing(t -> t.getAmount().subtract(due).abs())
                         .thenComparing(Txn::getOccurredAt, Comparator.reverseOrder()))
-                .limit(30).map(t -> TxnDto.of(t, null)).toList();
+                .limit(30).map(t -> TransactionResponse.of(t, null)).toList();
     }
 
     @DeleteMapping("/people/{id}")
@@ -111,7 +116,7 @@ public class PeopleController {
         Audit.log("Person deleted id={} with their split history", id);
     }
 
-    private static Person apply(Person p, PersonInput in) {
+    private static Person apply(Person p, PersonRequest in) {
         if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
         p.setName(in.name().trim());
         p.setUpiName(in.upiName() == null || in.upiName().isBlank() ? null : in.upiName().trim());
@@ -120,72 +125,57 @@ public class PeopleController {
         return p;
     }
 
-    public record ShareLine(Long shareId, BigDecimal amount, TxnDto txn) {}
-
-    /** @param paidForMe things they paid for, with my share as the amount */
-    public record PersonDetail(PersonDto person, List<ShareLine> shares, List<SettlementDto> settlements,
-                               List<TxnDto> paidForMe) {}
-
     @GetMapping("/people/{id}")
     @Transactional(readOnly = true)
-    public PersonDetail detail(@PathVariable Long id) {
+    public PersonDetailResponse detail(@PathVariable Long id) {
         Person p = person(id);
-        return new PersonDetail(dto(p),
+        return new PersonDetailResponse(dto(p),
                 shares.findByPersonOrderByTxnOccurredAtDesc(p).stream()
-                        .map(s -> new ShareLine(s.getId(), s.getAmount(), TxnDto.of(s.getTxn(), null))).toList(),
-                settlements.findByPersonOrderBySettledAtDesc(p).stream().map(SettlementDto::of).toList(),
-                txns.findByPaidByOrderByOccurredAtDesc(p).stream().map(t -> TxnDto.of(t, null)).toList());
+                        .map(s -> new ShareLineResponse(s.getId(), s.getAmount(), TransactionResponse.of(s.getTxn(), null))).toList(),
+                settlements.findByPersonOrderBySettledAtDesc(p).stream().map(SettlementResponse::of).toList(),
+                txns.findByPaidByOrderByOccurredAtDesc(p).stream().map(t -> TransactionResponse.of(t, null)).toList());
     }
 
     // ---- settlements -------------------------------------------------------------------------------------
 
     @GetMapping("/settlements/suggested")
     @Transactional(readOnly = true)
-    public List<SettlementDto> suggested() {
+    public List<SettlementResponse> suggested() {
         return settlements.findByStatusOrderBySettledAtDesc(SettlementStatus.SUGGESTED).stream()
-                .map(SettlementDto::of).toList();
+                .map(SettlementResponse::of).toList();
     }
-
-    /** @param direction IN (default): they paid me back; OUT: I paid them back */
-    public record SettlementInput(Long personId, SettlementDirection direction, BigDecimal amount, Instant settledAt,
-                                  Long txnId, String note) {}
-
-    /** @param rememberedName the sender's name, saved as the person's UPI name so the next one matches */
-    public record Recorded(SettlementDto settlement, String rememberedName) {}
 
     @PostMapping("/settlements")
     @Transactional
-    public Recorded record(@RequestBody SettlementInput in) {
+    public SettlementRecordedResponse record(@RequestBody SettlementRequest in) {
         var txn = in.txnId() == null ? null : txns.findById(in.txnId()).orElseThrow(notFound("Transaction"));
         var r = splits.record(person(in.personId()), in.direction(), in.amount(), in.settledAt(), txn, in.note());
-        return new Recorded(SettlementDto.of(r.settlement()), r.rememberedName());
+        return new SettlementRecordedResponse(SettlementResponse.of(r.settlement()), r.rememberedName());
     }
 
     /** Repayments linked to a payment (not the ones I turned down). */
     @GetMapping("/transactions/{id}/repayments")
     @Transactional(readOnly = true)
-    public List<SettlementDto> repayments(@PathVariable Long id) {
+    public List<SettlementResponse> repayments(@PathVariable Long id) {
         var t = txns.findById(id).orElseThrow(notFound("Transaction"));
-        return settlements.findByTxn(t).stream().filter(s -> s.getStatus() != SettlementStatus.REJECTED).map(SettlementDto::of).toList();
+        return settlements.findByTxn(t).stream().filter(s -> s.getStatus() != SettlementStatus.REJECTED).map(SettlementResponse::of).toList();
     }
-
-    public record ConfirmInput(BigDecimal amount) {}
 
     @PostMapping("/settlements/{id}/confirm")
     @Transactional
-    public Recorded confirm(@PathVariable Long id, @RequestBody(required = false) ConfirmInput in) {
+    public SettlementRecordedResponse confirm(@PathVariable Long id, @RequestBody(required = false) ConfirmSettlementRequest in) {
         Settlement s = settlements.findById(id).orElseThrow();
         String remembered = splits.confirm(s, in == null ? null : in.amount());
-        return new Recorded(SettlementDto.of(s), remembered);
+        return new SettlementRecordedResponse(SettlementResponse.of(s), remembered);
     }
 
     @PostMapping("/settlements/{id}/reject")
     @Transactional
-    public SettlementDto reject(@PathVariable Long id) {
+    public SettlementResponse reject(@PathVariable Long id) {
         Settlement s = settlements.findById(id).orElseThrow();
         s.setStatus(SettlementStatus.REJECTED);
         org.slf4j.LoggerFactory.getLogger(SplitService.class).info("Repayment suggestion {} turned down", id);
-        return SettlementDto.of(s);
+        return SettlementResponse.of(s);
     }
 
     @DeleteMapping("/settlements/{id}")

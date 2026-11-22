@@ -1,18 +1,23 @@
 package com.hisaab.transactions.controller;
 
+import com.hisaab.people.dto.ShareResponse;
+import com.hisaab.transactions.dto.NewTransactionRequest;
+import com.hisaab.transactions.dto.PaidByRequest;
+import com.hisaab.transactions.dto.SplitRequest;
+import com.hisaab.transactions.dto.SplitResponse;
+import com.hisaab.transactions.dto.TransactionResponse;
+import com.hisaab.transactions.dto.TransactionUpdateRequest;
+import com.hisaab.transactions.dto.TransactionUpdateResponse;
+import com.hisaab.transactions.dto.TransferLinkRequest;
 import com.hisaab.common.model.Direction;
 import com.hisaab.people.model.SplitMethod;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.categories.service.CategorizationService;
-import com.hisaab.common.dto.Dtos.ShareDto;
-import com.hisaab.common.dto.Dtos.TxnDto;
 import com.hisaab.people.repository.SplitShareRepository;
 import com.hisaab.people.service.SplitService;
 import com.hisaab.transactions.model.Txn;
 import com.hisaab.transactions.service.TransactionService;
 import com.hisaab.transactions.service.TransactionService.Filter;
-import com.hisaab.transactions.service.TransactionService.ManualTxn;
-import com.hisaab.transactions.service.TransactionService.TxnUpdate;
 import com.hisaab.transactions.service.TransactionViews;
 import com.hisaab.transactions.service.TransferService;
 import org.springframework.data.domain.Page;
@@ -50,7 +55,7 @@ public class TransactionController {
         this.views = views;
     }
 
-    TxnDto dto(Txn t) {
+    TransactionResponse dto(Txn t) {
         return views.one(t);
     }
 
@@ -58,7 +63,7 @@ public class TransactionController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public PageDto<TxnDto> list(@RequestParam(required = false) Long accountId,
+    public PageDto<TransactionResponse> list(@RequestParam(required = false) Long accountId,
                                 @RequestParam(required = false) Long categoryId,
                                 @RequestParam(required = false) Boolean uncategorized,
                                 @RequestParam(required = false) String tag,
@@ -86,13 +91,13 @@ public class TransactionController {
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
-    public TxnDto get(@PathVariable Long id) {
+    public TransactionResponse get(@PathVariable Long id) {
         return dto(service.get(id));
     }
 
     @PostMapping
     @Transactional
-    public TxnDto create(@RequestBody ManualTxn req) {
+    public TransactionResponse create(@RequestBody NewTransactionRequest req) {
         if (req.accountId() == null) throw new BadRequestException("Account is required");
         if (req.direction() == null) throw new BadRequestException("Direction is required");
         return dto(service.createManual(req, accounts.get(req.accountId())));
@@ -101,25 +106,23 @@ public class TransactionController {
     /** My share of something a friend paid for (see TransactionService#createPaidBy). */
     @PostMapping("/paid-by")
     @Transactional
-    public TxnDto createPaidBy(@RequestBody TransactionService.PaidByInput in) {
+    public TransactionResponse createPaidBy(@RequestBody PaidByRequest in) {
         Txn t = service.createPaidBy(in);
         return dto(t);
     }
 
     @PutMapping("/{id}/paid-by")
     @Transactional
-    public TxnDto updatePaidBy(@PathVariable Long id, @RequestBody TransactionService.PaidByInput in) {
+    public TransactionResponse updatePaidBy(@PathVariable Long id, @RequestBody PaidByRequest in) {
         Txn t = service.updatePaidBy(id, in);
         return dto(t);
     }
 
-    public record UpdateResponse(TxnDto txn, int similarCount, int renamedCount, boolean learnedWording) {}
-
     @PatchMapping("/{id}")
     @Transactional
-    public UpdateResponse update(@PathVariable Long id, @RequestBody TxnUpdate u) {
+    public TransactionUpdateResponse update(@PathVariable Long id, @RequestBody TransactionUpdateRequest u) {
         var r = service.update(id, u);
-        return new UpdateResponse(dto(r.txn()), r.similarCount(), r.renamedCount(), r.learnedWording());
+        return new TransactionUpdateResponse(dto(r.txn()), r.similarCount(), r.renamedCount(), r.learnedWording());
     }
 
     @DeleteMapping("/{id}")
@@ -136,11 +139,9 @@ public class TransactionController {
         return Map.of("updated", categorizer.applyToSimilar(t));
     }
 
-    public record LinkRequest(Long otherId) {}
-
     @PostMapping("/{id}/link")
     @Transactional
-    public TxnDto link(@PathVariable Long id, @RequestBody LinkRequest req) {
+    public TransactionResponse link(@PathVariable Long id, @RequestBody TransferLinkRequest req) {
         Txn t = service.get(id), other = service.get(req.otherId());
         if (t.isPaidByPerson() || other.isPaidByPerson()) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         transfers.link(t, other);
@@ -149,7 +150,7 @@ public class TransactionController {
 
     @PostMapping("/{id}/unlink")
     @Transactional
-    public TxnDto unlink(@PathVariable Long id) {
+    public TransactionResponse unlink(@PathVariable Long id) {
         Txn t = service.get(id);
         transfers.unlink(t);
         return dto(t);
@@ -157,31 +158,27 @@ public class TransactionController {
 
     // ---- splits -----------------------------------------------------------------------------------------
 
-    public record SplitRequest(SplitMethod method, Boolean includeMe, List<SplitService.Participant> participants) {}
-
-    public record SplitDto(BigDecimal total, BigDecimal othersOwe, BigDecimal myShare, List<ShareDto> shares) {}
-
     @GetMapping("/{id}/split")
     @Transactional(readOnly = true)
-    public SplitDto getSplit(@PathVariable Long id) {
+    public SplitResponse getSplit(@PathVariable Long id) {
         Txn t = service.get(id);
-        return splitDto(t, shares.findByTxn(t).stream().map(ShareDto::of).toList());
+        return splitDto(t, shares.findByTxn(t).stream().map(ShareResponse::of).toList());
     }
 
     @PutMapping("/{id}/split")
     @Transactional
-    public SplitDto setSplit(@PathVariable Long id, @RequestBody SplitRequest req) {
+    public SplitResponse setSplit(@PathVariable Long id, @RequestBody SplitRequest req) {
         Txn t = service.get(id);
         if (!t.isDebit()) throw new BadRequestException("Only money I paid out can be split");
         if (t.isPaidByPerson()) throw new BadRequestException("Someone else paid for this; change your share instead");
         var saved = splits.setSplit(t, req.method() == null ? SplitMethod.EQUAL : req.method(),
                 Boolean.TRUE.equals(req.includeMe()),
                 req.participants());
-        return splitDto(t, saved.stream().map(ShareDto::of).toList());
+        return splitDto(t, saved.stream().map(ShareResponse::of).toList());
     }
 
-    private static SplitDto splitDto(Txn t, List<ShareDto> list) {
-        BigDecimal others = list.stream().map(ShareDto::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new SplitDto(t.getAmount(), others, t.getAmount().subtract(others), list);
+    private static SplitResponse splitDto(Txn t, List<ShareResponse> list) {
+        BigDecimal others = list.stream().map(ShareResponse::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new SplitResponse(t.getAmount(), others, t.getAmount().subtract(others), list);
     }
 }

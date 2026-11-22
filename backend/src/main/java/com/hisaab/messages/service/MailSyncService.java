@@ -1,5 +1,7 @@
 package com.hisaab.messages.service;
 
+import com.hisaab.messages.dto.MailImportStatusResponse;
+import com.hisaab.messages.dto.MailSyncResponse;
 import com.hisaab.common.util.Money;
 import com.hisaab.config.AppProperties;
 import com.hisaab.messages.model.IncomingEmail;
@@ -50,39 +52,12 @@ public class MailSyncService {
         return t;
     });
     private final AtomicBoolean cancelImport = new AtomicBoolean();
-    private volatile ImportStatus importStatus = ImportStatus.IDLE;
+    private volatile MailImportStatusResponse importStatus = MailImportStatusResponse.IDLE;
 
     public MailSyncService(AppProperties props, SettingsService settings, EmailProcessor processor) {
         this.cfg = props.mail();
         this.settings = settings;
         this.processor = processor;
-    }
-
-    public record SyncResult(int fetched, int processed, String error) {}
-
-    /**
-     * Where an older-mail import has got to.
-     *
-     * @param state IDLE, CONNECTING (signing in and searching), RUNNING, DONE, CANCELLED or FAILED
-     * @param total emails found since the date (known once the search finishes)
-     * @param done  emails looked at so far
-     * @param added of those, how many were new
-     */
-    public record ImportStatus(String state, LocalDate since, Integer total, int done, int added, Instant startedAt,
-                               Instant finishedAt, String error) {
-        static final ImportStatus IDLE = new ImportStatus("IDLE", null, null, 0, 0, null, null, null);
-
-        public boolean active() {
-            return state.equals("CONNECTING") || state.equals("RUNNING");
-        }
-
-        ImportStatus progress(int done, int added) {
-            return new ImportStatus(state, since, total, done, added, startedAt, null, null);
-        }
-
-        ImportStatus finish(String state, String error) {
-            return new ImportStatus(state, since, total, done, added, startedAt, Instant.now(), error);
-        }
     }
 
     public boolean configured() {
@@ -101,7 +76,7 @@ public class MailSyncService {
     }
 
     /** Fetch messages that arrived since the last sync. The first ever sync just bookmarks the mailbox. */
-    public SyncResult sync() {
+    public MailSyncResponse sync() {
         return withFolder(folder -> {
             long validity = folder.getUIDValidity();
             long next = folder.getUIDNext();
@@ -111,10 +86,10 @@ public class MailSyncService {
                 settings.set(SettingsService.IMAP_UID_VALIDITY, String.valueOf(validity));
                 settings.set(SettingsService.IMAP_LAST_UID, String.valueOf(next - 1));
                 log.info("Mailbox bookmarked at UID {}; only new mail will be processed from now on", next - 1);
-                return new SyncResult(0, 0, null);
+                return new MailSyncResponse(0, 0, null);
             }
             long last = Long.parseLong(storedLast);
-            if (next - 1 <= last) return new SyncResult(0, 0, null);
+            if (next - 1 <= last) return new MailSyncResponse(0, 0, null);
             long[] uids = uidsOf(folder, folder.getMessagesByUID(last + 1, UIDFolder.MAXUID));
             int[] counts = new int[2];                                          // fetched, processed
             fetchInBatches(folder, uids, validity, (uid, added) -> {
@@ -124,11 +99,11 @@ public class MailSyncService {
                 settings.set(SettingsService.IMAP_LAST_UID, String.valueOf(uid));
                 return true;
             });
-            return new SyncResult(counts[0], counts[1], null);
+            return new MailSyncResponse(counts[0], counts[1], null);
         });
     }
 
-    public ImportStatus importStatus() {
+    public MailImportStatusResponse importStatus() {
         return importStatus;
     }
 
@@ -136,30 +111,30 @@ public class MailSyncService {
      * Starts a one-off import of older mail in the background and returns straight away; follow it with
      * {@link #importStatus()}. Emails already seen are skipped (by Message-ID). Only one import runs at a time.
      */
-    public synchronized ImportStatus startImport(LocalDate since) {
+    public synchronized MailImportStatusResponse startImport(LocalDate since) {
         if (!configured()) throw new NotAllowedException("The mailbox isn't set up (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
         if (since == null) throw new BadRequestException("Pick a start date");
         if (since.isAfter(LocalDate.now(Money.ZONE))) throw new BadRequestException("Pick a date that isn't in the future");
         if (importStatus.active()) throw new NotAllowedException("An import is already running");
         cancelImport.set(false);
-        importStatus = new ImportStatus("CONNECTING", since, null, 0, 0, Instant.now(), null, null);
+        importStatus = new MailImportStatusResponse("CONNECTING", since, null, 0, 0, Instant.now(), null, null);
         importer.submit(() -> runImport(since));
         return importStatus;
     }
 
     /** Stops a running import after the email it's on. What was imported so far stays. */
-    public ImportStatus cancelImport() {
+    public MailImportStatusResponse cancelImport() {
         if (importStatus.active()) cancelImport.set(true);
         return importStatus;
     }
 
     private void runImport(LocalDate since) {
-        SyncResult r = withFolder(folder -> {
+        MailSyncResponse r = withFolder(folder -> {
             Date d = Date.from(since.atStartOfDay(Money.ZONE).toInstant());
             long[] uids = uidsOf(folder, ((Folder) folder).search(new ReceivedDateTerm(ComparisonTerm.GE, d)));
             long validity = folder.getUIDValidity();
-            ImportStatus s = importStatus;
-            importStatus = new ImportStatus("RUNNING", since, uids.length, 0, 0, s.startedAt(), null, null);
+            MailImportStatusResponse s = importStatus;
+            importStatus = new MailImportStatusResponse("RUNNING", since, uids.length, 0, 0, s.startedAt(), null, null);
             int[] counts = new int[2];                                          // done, added
             fetchInBatches(folder, uids, validity, (uid, added) -> {
                 counts[0]++;
@@ -167,9 +142,9 @@ public class MailSyncService {
                 importStatus = importStatus.progress(counts[0], counts[1]);
                 return !cancelImport.get();
             });
-            return new SyncResult(uids.length, counts[1], null);
+            return new MailSyncResponse(uids.length, counts[1], null);
         }, true);
-        ImportStatus s = importStatus;
+        MailImportStatusResponse s = importStatus;
         if (r.error() != null) importStatus = s.finish("FAILED", r.error());
         else importStatus = s.finish(cancelImport.get() && s.done() < (s.total() == null ? 0 : s.total()) ? "CANCELLED" : "DONE", null);
         log.info("Mail import since {}: {} of {} looked at, {} new ({})", since, s.done(), s.total(), s.added(), importStatus.state());
@@ -188,18 +163,18 @@ public class MailSyncService {
     }
 
     private interface FolderWork {
-        SyncResult run(UIDFolder folder) throws Exception;
+        MailSyncResponse run(UIDFolder folder) throws Exception;
     }
 
-    private SyncResult withFolder(FolderWork work) {
+    private MailSyncResponse withFolder(FolderWork work) {
         return withFolder(work, false);
     }
 
     /** @param wait wait for a sync that's already running (imports), rather than giving up (the scheduled sync) */
-    private SyncResult withFolder(FolderWork work, boolean wait) {
-        if (!configured()) return new SyncResult(0, 0, "Mailbox is not configured (set MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
+    private MailSyncResponse withFolder(FolderWork work, boolean wait) {
+        if (!configured()) return new MailSyncResponse(0, 0, "Mailbox is not configured (set MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
         if (wait) lock.lock();
-        else if (!lock.tryLock()) return new SyncResult(0, 0, "A sync is already running");
+        else if (!lock.tryLock()) return new MailSyncResponse(0, 0, "A sync is already running");
         Store store = null;
         try {
             Properties p = new Properties();
@@ -214,7 +189,7 @@ public class MailSyncService {
             Folder folder = store.getFolder(cfg.folder() == null ? "INBOX" : cfg.folder());
             folder.open(Folder.READ_ONLY);
             try {
-                SyncResult r = work.run((UIDFolder) folder);
+                MailSyncResponse r = work.run((UIDFolder) folder);
                 settings.set(SettingsService.MAIL_LAST_SYNC, Instant.now().toString());
                 settings.set(SettingsService.MAIL_LAST_ERROR, "");
                 if (r.fetched() > 0) log.info("Mail sync: {} fetched, {} new", r.fetched(), r.processed());
@@ -225,7 +200,7 @@ public class MailSyncService {
         } catch (Exception e) {
             log.warn("Mail sync failed: {}", e.toString());
             settings.set(SettingsService.MAIL_LAST_ERROR, Instant.now() + " " + e.getMessage());
-            return new SyncResult(0, 0, e.getMessage());
+            return new MailSyncResponse(0, 0, e.getMessage());
         } finally {
             if (store != null) {
                 try {

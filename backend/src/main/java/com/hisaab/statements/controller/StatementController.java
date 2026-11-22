@@ -1,7 +1,8 @@
 package com.hisaab.statements.controller;
 
+import com.hisaab.statements.dto.AssignAccountRequest;
+import com.hisaab.statements.dto.StatementFileResponse;
 import com.hisaab.accounts.repository.AccountRepository;
-import com.hisaab.common.dto.Dtos.StatementDto;
 import com.hisaab.statements.model.StatementFile;
 import com.hisaab.statements.repository.StatementFileRepository;
 import com.hisaab.statements.service.StatementStorage;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import com.hisaab.common.exception.NotFoundException;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.hisaab.common.exception.NotFound.notFound;
 
@@ -36,8 +36,8 @@ public class StatementController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public List<StatementDto> statements() {
-        return statements.findAllByOrderByReceivedAtDesc().stream().map(StatementDto::of).toList();
+    public List<StatementFileResponse> statements() {
+        return statements.findAllByOrderByReceivedAtDesc().stream().map(StatementFileResponse::of).toList();
     }
 
     @GetMapping("/{id}/file")
@@ -51,13 +51,11 @@ public class StatementController {
                 .body(file);
     }
 
-    public record AssignRequest(Long accountId) {}
-
     @PatchMapping("/{id}")
     @Transactional
-    public StatementDto assign(@PathVariable Long id, @RequestBody AssignRequest req) {
+    public StatementFileResponse assign(@PathVariable Long id, @RequestBody AssignAccountRequest req) {
         StatementFile s = statements.findById(id).orElseThrow(notFound("Statement"));
         s.setAccount(req.accountId() == null ? null : accounts.findById(req.accountId()).orElseThrow(notFound("Account")));
-        return StatementDto.of(s);
+        return StatementFileResponse.of(s);
     }
 }

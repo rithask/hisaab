@@ -1,10 +1,10 @@
 package com.hisaab.transactions.service;
 
+import com.hisaab.common.dto.PersonRefResponse;
+import com.hisaab.transactions.dto.TransactionResponse;
 import com.hisaab.common.model.Direction;
 import com.hisaab.people.model.SettlementDirection;
 import com.hisaab.people.model.SettlementStatus;
-import com.hisaab.common.dto.Dtos.PersonRef;
-import com.hisaab.common.dto.Dtos.TxnDto;
 import com.hisaab.people.model.Person;
 import com.hisaab.people.model.Settlement;
 import com.hisaab.people.model.SplitShare;
@@ -35,11 +35,11 @@ public class TransactionViews {
         this.settlements = settlements;
     }
 
-    public TxnDto one(Txn t) {
+    public TransactionResponse one(Txn t) {
         return page(List.of(t)).getFirst();
     }
 
-    public List<TxnDto> page(List<Txn> txns) {
+    public List<TransactionResponse> page(List<Txn> txns) {
         if (txns.isEmpty()) return List.of();
         Map<Long, List<SplitShare>> split = shares.findByTxnInOrderById(txns).stream()
                 .collect(Collectors.groupingBy(s -> s.getTxn().getId()));
@@ -53,13 +53,13 @@ public class TransactionViews {
      * One row: a payment that's all someone else's is money I lent ("Lent to Fabis"); a confirmed repayment says who
      * paid me back or whom I paid back.
      */
-    static TxnDto view(Txn t, List<SplitShare> split, List<Settlement> repaid) {
+    static TransactionResponse view(Txn t, List<SplitShare> split, List<Settlement> repaid) {
         BigDecimal shared = split.stream().map(SplitShare::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal in = sum(repaid, SettlementDirection.IN), out = sum(repaid, SettlementDirection.OUT);
         BigDecimal mine = ReportService.myAmount(t.getDirection(), t.getAmount(), shared, in, out);
-        List<PersonRef> lentTo = t.getDirection() == Direction.DEBIT && mine.signum() == 0 && out.signum() == 0
+        List<PersonRefResponse> lentTo = t.getDirection() == Direction.DEBIT && mine.signum() == 0 && out.signum() == 0
                 ? people(split.stream().map(SplitShare::getPerson)) : List.of();
-        return TxnDto.of(t, shared.signum() == 0 ? null : shared, mine, lentTo,
+        return TransactionResponse.of(t, shared.signum() == 0 ? null : shared, mine, lentTo,
                 people(repaid.stream().filter(s -> s.getDirection() == SettlementDirection.IN).map(Settlement::getPerson)),
                 people(repaid.stream().filter(s -> s.getDirection() == SettlementDirection.OUT).map(Settlement::getPerson)));
     }
@@ -68,7 +68,7 @@ public class TransactionViews {
         return list.stream().filter(s -> s.getDirection() == d).map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private static List<PersonRef> people(Stream<Person> s) {
-        return s.distinct().map(p -> new PersonRef(p.getId(), p.getName())).toList();
+    private static List<PersonRefResponse> people(Stream<Person> s) {
+        return s.distinct().map(p -> new PersonRefResponse(p.getId(), p.getName())).toList();
     }
 }

@@ -1,6 +1,9 @@
 package com.hisaab.categories.controller;
 
-import com.hisaab.categories.model.CategoryKind;
+import com.hisaab.categories.dto.CategoryRequest;
+import com.hisaab.categories.dto.CategoryResponse;
+import com.hisaab.categories.dto.RuleRequest;
+import com.hisaab.categories.dto.RuleResponse;
 import com.hisaab.categories.model.RuleMatch;
 import com.hisaab.categories.model.RuleSource;
 import com.hisaab.auth.util.AuthLog;
@@ -9,8 +12,6 @@ import com.hisaab.categories.model.CategoryRule;
 import com.hisaab.categories.repository.CategoryRepository;
 import com.hisaab.categories.repository.CategoryRuleRepository;
 import com.hisaab.categories.service.CategorizationService;
-import com.hisaab.common.dto.Dtos.CategoryDto;
-import com.hisaab.common.dto.Dtos.RuleDto;
 import com.hisaab.common.util.Audit;
 import com.hisaab.transactions.model.Tag;
 import com.hisaab.transactions.repository.TagRepository;
@@ -40,20 +41,18 @@ public class CategoryController {
     }
 
     @GetMapping("/categories")
-    public List<CategoryDto> categories() {
-        return categories.findAllByOrderByKindAscNameAsc().stream().map(CategoryDto::of).toList();
+    public List<CategoryResponse> categories() {
+        return categories.findAllByOrderByKindAscNameAsc().stream().map(CategoryResponse::of).toList();
     }
 
-    public record CategoryInput(String name, CategoryKind kind, String color) {}
-
     @PostMapping("/categories")
-    public CategoryDto createCategory(@RequestBody CategoryInput in) {
-        return CategoryDto.of(categories.save(apply(new Category(), in)));
+    public CategoryResponse createCategory(@RequestBody CategoryRequest in) {
+        return CategoryResponse.of(categories.save(apply(new Category(), in)));
     }
 
     @PutMapping("/categories/{id}")
-    public CategoryDto updateCategory(@PathVariable Long id, @RequestBody CategoryInput in) {
-        return CategoryDto.of(categories.save(apply(categories.findById(id).orElseThrow(), in)));
+    public CategoryResponse updateCategory(@PathVariable Long id, @RequestBody CategoryRequest in) {
+        return CategoryResponse.of(categories.save(apply(categories.findById(id).orElseThrow(), in)));
     }
 
     @DeleteMapping("/categories/{id}")
@@ -62,7 +61,7 @@ public class CategoryController {
         categories.deleteById(id);
     }
 
-    private static Category apply(Category c, CategoryInput in) {
+    private static Category apply(Category c, CategoryRequest in) {
         if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
         if (in.kind() == null) throw new BadRequestException("Kind is required");
         c.setName(in.name().trim());
@@ -78,30 +77,28 @@ public class CategoryController {
 
     @GetMapping("/rules")
     @Transactional(readOnly = true)
-    public List<RuleDto> rules() {
-        return rules.findAllByOrderBySourceAscPatternAsc().stream().map(RuleDto::of).toList();
+    public List<RuleResponse> rules() {
+        return rules.findAllByOrderBySourceAscPatternAsc().stream().map(RuleResponse::of).toList();
     }
-
-    public record RuleInput(RuleMatch matchType, String pattern, Long categoryId, Integer priority) {}
 
     @PostMapping("/rules")
     @Transactional
-    public RuleDto createRule(@RequestBody RuleInput in) {
+    public RuleResponse createRule(@RequestBody RuleRequest in) {
         CategoryRule r = new CategoryRule();
         r.setSource(RuleSource.MANUAL);
         CategoryRule saved = rules.save(apply(r, in));
         categorizer.ruleSet(saved);
-        return RuleDto.of(saved);
+        return RuleResponse.of(saved);
     }
 
     @PutMapping("/rules/{id}")
     @Transactional
-    public RuleDto updateRule(@PathVariable Long id, @RequestBody RuleInput in) {
+    public RuleResponse updateRule(@PathVariable Long id, @RequestBody RuleRequest in) {
         CategoryRule r = rules.findById(id).orElseThrow(notFound("Rule"));
         categorizer.ruleDeleted(r);
         CategoryRule saved = rules.save(apply(r, in));
         categorizer.ruleSet(saved);
-        return RuleDto.of(saved);
+        return RuleResponse.of(saved);
     }
 
     @DeleteMapping("/rules/{id}")
@@ -114,7 +111,7 @@ public class CategoryController {
         });
     }
 
-    private CategoryRule apply(CategoryRule r, RuleInput in) {
+    private CategoryRule apply(CategoryRule r, RuleRequest in) {
         if (in.pattern() == null || in.pattern().isBlank()) throw new BadRequestException("Pattern is required");
         r.setMatchType(in.matchType() == null ? RuleMatch.CONTAINS : in.matchType());
         r.setPattern(in.pattern().trim().toLowerCase(Locale.ROOT));

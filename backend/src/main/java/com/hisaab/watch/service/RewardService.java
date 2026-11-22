@@ -1,5 +1,13 @@
 package com.hisaab.watch.service;
 
+import com.hisaab.watch.dto.CardRewardsResponse;
+import com.hisaab.watch.dto.RewardCycleResponse;
+import com.hisaab.watch.dto.RewardLineResponse;
+import com.hisaab.watch.dto.RewardPointsResponse;
+import com.hisaab.watch.dto.RewardProgramRequest;
+import com.hisaab.watch.dto.RewardProgramResponse;
+import com.hisaab.watch.dto.RewardRuleRequest;
+import com.hisaab.watch.dto.RewardRuleResponse;
 import com.hisaab.common.model.AccountType;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
@@ -35,75 +43,47 @@ public class RewardService {
         this.accounts = accounts;
     }
 
-    public record Rule(Long id, String label, String merchantMatch, Long categoryId, String category, BigDecimal rate, BigDecimal cycleCap) {}
-
-    public record Program(String kind, BigDecimal baseRate, BigDecimal cycleCap, BigDecimal pointValue,
-                          BigDecimal pointsBalance, LocalDate pointsAsOf, List<Rule> rules) {}
-
-    public record RuleInput(String label, String merchantMatch, Long categoryId, BigDecimal rate, BigDecimal cycleCap) {}
-
-    public record ProgramInput(String kind, BigDecimal baseRate, BigDecimal cycleCap, BigDecimal pointValue,
-                               BigDecimal pointsBalance, LocalDate pointsAsOf, List<RuleInput> rules) {}
-
-    /** One rate within a cycle: what was spent under it, what it earned, and whether its cap was hit. */
-    public record Line(String label, BigDecimal rate, BigDecimal spent, BigDecimal earned, BigDecimal cap, boolean capped) {}
-
-    /**
-     * @param earned   ₹ for cashback, points for points cards
-     * @param value    the ₹ value of what was earned (points × point value), when known
-     * @param received cashback or reward credits the card actually got during these dates
-     */
-    public record Cycle(LocalDate from, LocalDate to, boolean current, BigDecimal spent, BigDecimal earned, BigDecimal value,
-                        BigDecimal received, boolean capped, List<Line> lines) {}
-
-    /** Points: the bank's balance as of a date, plus what's been earned since. */
-    public record Points(BigDecimal balance, LocalDate asOf, BigDecimal earnedSince, BigDecimal estimate, BigDecimal value) {}
-
-    public record CardRewards(long accountId, String account, String last4, boolean statementCycles, Program program,
-                              List<Cycle> cycles, BigDecimal yearEarned, BigDecimal yearValue, BigDecimal yearReceived,
-                              Points points) {}
-
     private record Spend(long id, BigDecimal amount, LocalDate day, String text, Long categoryId, String category) {}
 
-    public List<CardRewards> all() {
-        List<CardRewards> out = new ArrayList<>();
+    public List<CardRewardsResponse> all() {
+        List<CardRewardsResponse> out = new ArrayList<>();
         for (Account a : accounts.findByArchivedFalseOrderByTypeAscNameAsc())
             if (a.getType() == AccountType.CREDIT_CARD) out.add(card(a));
         return out;
     }
 
-    private CardRewards card(Account a) {
-        Program p = program(a.getId()).orElse(null);
-        if (p == null) return new CardRewards(a.getId(), a.getName(), a.getLast4(), a.getStatementDay() != null, null, List.of(), null, null, null, null);
+    private CardRewardsResponse card(Account a) {
+        RewardProgramResponse p = program(a.getId()).orElse(null);
+        if (p == null) return new CardRewardsResponse(a.getId(), a.getName(), a.getLast4(), a.getStatementDay() != null, null, List.of(), null, null, null, null);
         LocalDate today = LocalDate.now(Money.INDIA);
         List<LocalDate[]> ranges = cycles(a.getStatementDay(), today, 13);
         LocalDate from = ranges.getLast()[0];
         List<Spend> spends = spends(a.getId(), from);
         Map<Long, BigDecimal> earnedById = new HashMap<>();
-        List<Cycle> cycles = new ArrayList<>();
+        List<RewardCycleResponse> cycles = new ArrayList<>();
         for (LocalDate[] r : ranges) cycles.add(cycle(p, r[0], r[1], r == ranges.getFirst(),
                 spends.stream().filter(s -> !s.day().isBefore(r[0]) && !s.day().isAfter(r[1])).toList(), earnedById,
                 received(a.getId(), r[0], r[1])));
 
         boolean points = p.kind().equals("POINTS");
         int year = today.getYear();
-        BigDecimal yearEarned = cycles.stream().filter(c -> c.to().getYear() == year || c.current()).map(Cycle::earned).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal yearEarned = cycles.stream().filter(c -> c.to().getYear() == year || c.current()).map(RewardCycleResponse::earned).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal yearReceived = received(a.getId(), LocalDate.of(year, 1, 1), today);
-        Points pts = null;
+        RewardPointsResponse pts = null;
         if (points && p.pointsBalance() != null && p.pointsAsOf() != null) {
             BigDecimal since = spends.stream().filter(s -> s.day().isAfter(p.pointsAsOf()))
                     .map(s -> earnedById.getOrDefault(s.id(), BigDecimal.ZERO)).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal est = p.pointsBalance().add(since);
-            pts = new Points(p.pointsBalance(), p.pointsAsOf(), since, est, p.pointValue() == null ? null : Money.r2(est.multiply(p.pointValue())));
+            pts = new RewardPointsResponse(p.pointsBalance(), p.pointsAsOf(), since, est, p.pointValue() == null ? null : Money.r2(est.multiply(p.pointValue())));
         }
         // The running cycle always; past ones only if something happened in them (not before my data starts).
-        List<Cycle> shown = new ArrayList<>();
-        for (Cycle cy : cycles) if (shown.size() < 6 && (cy.current() || cy.spent().signum() != 0 || cy.received().signum() != 0)) shown.add(cy);
-        return new CardRewards(a.getId(), a.getName(), a.getLast4(), a.getStatementDay() != null, p, shown, yearEarned, value(p, yearEarned), Money.r2(yearReceived), pts);
+        List<RewardCycleResponse> shown = new ArrayList<>();
+        for (RewardCycleResponse cy : cycles) if (shown.size() < 6 && (cy.current() || cy.spent().signum() != 0 || cy.received().signum() != 0)) shown.add(cy);
+        return new CardRewardsResponse(a.getId(), a.getName(), a.getLast4(), a.getStatementDay() != null, p, shown, yearEarned, value(p, yearEarned), Money.r2(yearReceived), pts);
     }
 
     /** Works out one cycle: each payment goes to the first matching rule; caps are used up in date order. */
-    private Cycle cycle(Program p, LocalDate from, LocalDate to, boolean current, List<Spend> spends, Map<Long, BigDecimal> earnedById, BigDecimal received) {
+    private RewardCycleResponse cycle(RewardProgramResponse p, LocalDate from, LocalDate to, boolean current, List<Spend> spends, Map<Long, BigDecimal> earnedById, BigDecimal received) {
         boolean points = p.kind().equals("POINTS");
         Map<Integer, BigDecimal[]> byRule = new LinkedHashMap<>();                 // index -1 = base rate: {spent, earned}
         BigDecimal total = BigDecimal.ZERO, spent = BigDecimal.ZERO;
@@ -111,7 +91,7 @@ public class RewardService {
         for (Spend s : spends) {
             int idx = -1;
             for (int i = 0; i < p.rules().size(); i++) if (matches(p.rules().get(i), s)) { idx = i; break; }
-            Rule rule = idx >= 0 ? p.rules().get(idx) : null;
+            RewardRuleResponse rule = idx >= 0 ? p.rules().get(idx) : null;
             BigDecimal rate = rule != null ? rule.rate() : p.baseRate();
             BigDecimal raw = s.amount().multiply(rate).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
             raw = points ? raw.setScale(0, RoundingMode.DOWN) : raw.setScale(2, RoundingMode.HALF_UP);
@@ -137,24 +117,24 @@ public class RewardService {
             spent = spent.add(s.amount());
             earnedById.put(s.id(), earn);
         }
-        List<Line> lines = new ArrayList<>();
+        List<RewardLineResponse> lines = new ArrayList<>();
         for (int i = 0; i < p.rules().size(); i++) {
-            Rule r = p.rules().get(i);
+            RewardRuleResponse r = p.rules().get(i);
             BigDecimal[] acc = byRule.getOrDefault(i, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
-            lines.add(new Line(r.label(), r.rate(), Money.r2(acc[0]), acc[1], r.cycleCap(), r.cycleCap() != null && acc[1].compareTo(r.cycleCap()) >= 0));
+            lines.add(new RewardLineResponse(r.label(), r.rate(), Money.r2(acc[0]), acc[1], r.cycleCap(), r.cycleCap() != null && acc[1].compareTo(r.cycleCap()) >= 0));
         }
         BigDecimal[] base = byRule.getOrDefault(-1, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
-        lines.add(new Line("Everything else", p.baseRate(), Money.r2(base[0]), base[1], null, false));
+        lines.add(new RewardLineResponse("Everything else", p.baseRate(), Money.r2(base[0]), base[1], null, false));
         boolean capped = overallCapped || p.cycleCap() != null && total.compareTo(p.cycleCap()) >= 0;
-        return new Cycle(from, to, current, Money.r2(spent), total, value(p, total), Money.r2(received), capped, lines);
+        return new RewardCycleResponse(from, to, current, Money.r2(spent), total, value(p, total), Money.r2(received), capped, lines);
     }
 
-    private static BigDecimal value(Program p, BigDecimal earned) {
+    private static BigDecimal value(RewardProgramResponse p, BigDecimal earned) {
         if (p.kind().equals("CASHBACK")) return Money.r2(earned);
         return p.pointValue() == null ? null : Money.r2(earned.multiply(p.pointValue()));
     }
 
-    private static boolean matches(Rule r, Spend s) {
+    private static boolean matches(RewardRuleResponse r, Spend s) {
         boolean text = r.merchantMatch() == null || r.merchantMatch().isBlank()
                 || s.text().contains(r.merchantMatch().toLowerCase(Locale.ROOT).trim());
         boolean cat = r.categoryId() == null || r.categoryId().equals(s.categoryId());
@@ -224,22 +204,22 @@ public class RewardService {
 
     // ---- setup
 
-    public Optional<Program> program(long accountId) {
+    public Optional<RewardProgramResponse> program(long accountId) {
         var p = new MapSqlParameterSource("a", accountId);
-        List<Rule> rules = jdbc.query("""
+        List<RewardRuleResponse> rules = jdbc.query("""
                 select r.id, r.label, r.merchant_match, r.category_id, c.name category, r.rate, r.cycle_cap
                 from reward_rule r left join category c on c.id = r.category_id where r.account_id = :a order by r.position, r.id
-                """, p, (rs, i) -> new Rule(rs.getLong("id"), rs.getString("label"), rs.getString("merchant_match"),
+                """, p, (rs, i) -> new RewardRuleResponse(rs.getLong("id"), rs.getString("label"), rs.getString("merchant_match"),
                 rs.getObject("category_id") == null ? null : rs.getLong("category_id"), rs.getString("category"),
                 rs.getBigDecimal("rate"), rs.getBigDecimal("cycle_cap")));
-        List<Program> found = jdbc.query("select * from reward_program where account_id = :a", p, (rs, i) -> new Program(
+        List<RewardProgramResponse> found = jdbc.query("select * from reward_program where account_id = :a", p, (rs, i) -> new RewardProgramResponse(
                 rs.getString("kind"), rs.getBigDecimal("base_rate"), rs.getBigDecimal("cycle_cap"), rs.getBigDecimal("point_value"),
                 rs.getBigDecimal("points_balance"), rs.getDate("points_as_of") == null ? null : rs.getDate("points_as_of").toLocalDate(), rules));
         return found.stream().findFirst();
     }
 
     @Transactional
-    public void save(long accountId, ProgramInput in) {
+    public void save(long accountId, RewardProgramRequest in) {
         Account a = accounts.findById(accountId).orElseThrow(notFound("Card"));
         if (a.getType() != AccountType.CREDIT_CARD) throw new BadRequestException("Rewards are for credit cards");
         if (!"CASHBACK".equals(in.kind()) && !"POINTS".equals(in.kind())) throw new BadRequestException("Choose cashback or points");
@@ -262,10 +242,10 @@ public class RewardService {
                   points_as_of = excluded.points_as_of, updated_at = now()
                 """, p);
         jdbc.update("delete from reward_rule where account_id = :a", p);
-        List<RuleInput> rules = in.rules() == null ? List.of() : in.rules();
+        List<RewardRuleRequest> rules = in.rules() == null ? List.of() : in.rules();
         if (rules.size() > 30) throw new BadRequestException("That's a lot of rules; 30 at most");
         int pos = 0;
-        for (RuleInput r : rules) {
+        for (RewardRuleRequest r : rules) {
             String match = r.merchantMatch() == null || r.merchantMatch().isBlank() ? null : r.merchantMatch().trim();
             if (match == null && r.categoryId() == null) throw new BadRequestException("Each special rate needs a merchant or a category");
             if (match != null && match.length() > 200) throw new BadRequestException("Merchant text is too long");

@@ -1,5 +1,7 @@
 package com.hisaab.watch.service;
 
+import com.hisaab.watch.dto.BillResponse;
+import com.hisaab.watch.dto.PriceChangeResponse;
 import com.hisaab.accounts.service.AccountService;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -28,21 +30,9 @@ public class BillService {
         this.accounts = accounts;
     }
 
-    /**
-     * @param key       merchant key (for "not a bill"), or "card:<accountId>" for a card's due date
-     * @param every     human interval: "Every month", "Every week"…
-     * @param overdue   expected but not seen yet (within a grace period)
-     */
-    public record Bill(String key, String name, Long accountId, String account, String category, String categoryColor,
-                       BigDecimal amount, boolean amountVaries, LocalDate due, int daysLeft, boolean overdue, String every,
-                       int timesSeen, LocalDate lastPaid, boolean card) {}
-
     /** One payment of a recurring series. */
     public record Payment(long id, String key, String payee, long accountId, String account, String category, String color,
                           BigDecimal amount, LocalDate day) {}
-
-    /** The price of a fixed-price series changed: {@code from} before {@code on}, {@code to} since. */
-    public record PriceChange(BigDecimal from, BigDecimal to, LocalDate on) {}
 
     /**
      * A payee I pay at a steady interval.
@@ -55,7 +45,7 @@ public class BillService {
      */
     public record Series(String key, String payee, long accountId, String account, String category, String color,
                          String every, long periodDays, List<Payment> payments, List<Payment> days, BigDecimal amount,
-                         boolean varies, PriceChange change, LocalDate due, int daysLeft, boolean stopped) {}
+                         boolean varies, PriceChangeResponse change, LocalDate due, int daysLeft, boolean stopped) {}
 
     private record Period(String label, int minDays, int maxDays) {}
 
@@ -63,32 +53,32 @@ public class BillService {
             new Period("Every week", 6, 8), new Period("Every month", 26, 35),
             new Period("Every 3 months", 84, 98), new Period("Every year", 350, 380));
 
-    public List<Bill> upcoming(int withinDays) {
+    public List<BillResponse> upcoming(int withinDays) {
         LocalDate today = LocalDate.now(Money.ZONE);
         return all().stream().filter(b -> b.daysLeft() <= withinDays).toList();
     }
 
     /** Every recurring payment it has learned, plus card dues, soonest first. */
-    public List<Bill> all() {
+    public List<BillResponse> all() {
         LocalDate today = LocalDate.now(Money.ZONE);
-        List<Bill> out = new ArrayList<>(learned(today));
+        List<BillResponse> out = new ArrayList<>(learned(today));
         for (var a : accounts.list(false)) {
             var c = a.card();
             if (c == null || c.dueDate() == null || a.balance().signum() <= 0) continue;
             int left = (int) ChronoUnit.DAYS.between(today, c.dueDate());
-            out.add(new Bill("card:" + a.id(), a.name() + " bill", a.id(), a.name(), null, null, Money.r2(a.balance()), true,
+            out.add(new BillResponse("card:" + a.id(), a.name() + " bill", a.id(), a.name(), null, null, Money.r2(a.balance()), true,
                     c.dueDate(), left, left < 0, "Card due date", 0, null, true));
         }
-        out.sort(Comparator.comparing(Bill::due));
+        out.sort(Comparator.comparing(BillResponse::due));
         return out;
     }
 
-    private List<Bill> learned(LocalDate today) {
-        List<Bill> out = new ArrayList<>();
+    private List<BillResponse> learned(LocalDate today) {
+        List<BillResponse> out = new ArrayList<>();
         for (Series x : recurring(today, true)) {
             if (x.stopped()) continue;                                              // stopped paying it, apparently
             Payment last = x.days().getLast();
-            out.add(new Bill(x.key(), x.payee(), x.accountId(), x.account(), x.category(), x.color(), x.amount(), x.varies(),
+            out.add(new BillResponse(x.key(), x.payee(), x.accountId(), x.account(), x.category(), x.color(), x.amount(), x.varies(),
                     x.due(), x.daysLeft(), x.daysLeft() < 0, x.every(), x.days().size(), last.day(), false));
         }
         return out;
@@ -134,7 +124,7 @@ public class BillService {
             // Fixed price (possibly with price changes), or a varying amount within a band (electricity, phone).
             BigDecimal amount;
             boolean varies;
-            PriceChange change = null;
+            PriceChangeResponse change = null;
             Steps steps = steps(days);
             if (steps != null) {
                 amount = Money.r2(days.getLast().amount());
@@ -166,19 +156,19 @@ public class BillService {
         return out;
     }
 
-    record Steps(PriceChange change) {}
+    record Steps(PriceChangeResponse change) {}
 
     /**
      * Fixed-price check: the amounts form flat runs (each within 2%), e.g. 649, 649, 649, 799, 799. The first run must
      * have at least two payments so a price is established before it changes. Returns null when it isn't fixed.
      */
     static Steps steps(List<Payment> days) {
-        PriceChange change = null;
+        PriceChangeResponse change = null;
         int runStart = 0;
         for (int i = 1; i < days.size(); i++) {
             if (close(days.get(i).amount(), days.get(runStart).amount())) continue;
             if (change == null && i - runStart < 2) return null;                   // no established price before the first change
-            change = new PriceChange(Money.r2(days.get(i - 1).amount()), Money.r2(days.get(i).amount()), days.get(i).day());
+            change = new PriceChangeResponse(Money.r2(days.get(i - 1).amount()), Money.r2(days.get(i).amount()), days.get(i).day());
             runStart = i;
         }
         return new Steps(change);

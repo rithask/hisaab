@@ -1,5 +1,7 @@
 package com.hisaab.backups.service;
 
+import com.hisaab.backups.dto.BackupResponse;
+import com.hisaab.backups.dto.BackupStatusResponse;
 import com.hisaab.settings.model.Feature;
 import com.hisaab.common.util.Money;
 import com.hisaab.settings.service.FeatureService;
@@ -62,12 +64,6 @@ public class BackupService {
         this.dbPassword = dbPassword;
     }
 
-    public record Backup(String file, long sizeBytes, Instant createdAt) {}
-
-    /** @param stale the last good backup is older than two days (or there's none while the feature is on) */
-    public record Status(boolean enabled, String dir, int keep, Instant lastOk, String lastError, Instant lastErrorAt,
-                         boolean stale, List<Backup> backups) {}
-
     @Scheduled(cron = "${app.backup.cron:0 30 3 * * *}")   // your time zone (TZ)
     public void nightly() {
         if (!features.on(Feature.BACKUPS)) return;
@@ -79,7 +75,7 @@ public class BackupService {
     }
 
     /** Makes a backup now, then trims old ones. Synchronized: never two at once. */
-    public synchronized Backup run() throws IOException {
+    public synchronized BackupResponse run() throws IOException {
         Files.createDirectories(dir);
         String name = PREFIX + LocalDateTime.now(Money.ZONE).format(STAMP) + ".zip";
         Path tmp = dir.resolve(name + ".part");
@@ -100,7 +96,7 @@ public class BackupService {
             trim();
             long size = Files.size(target);
             log.info("Backup written: {} ({} KB)", target, size / 1024);
-            return new Backup(name, size, Instant.now());
+            return new BackupResponse(name, size, Instant.now());
         } catch (IOException | RuntimeException e) {
             Files.deleteIfExists(tmp);
             settings.set("backup.lastError", e.getMessage() == null ? e.toString() : e.getMessage());
@@ -182,19 +178,19 @@ public class BackupService {
     }
 
     /** Newest first. */
-    public List<Backup> list() throws IOException {
+    public List<BackupResponse> list() throws IOException {
         if (!Files.isDirectory(dir)) return List.of();
         try (Stream<Path> s = Files.list(dir)) {
             return s.filter(p -> p.getFileName().toString().startsWith(PREFIX) && p.getFileName().toString().endsWith(".zip"))
                     .map(p -> {
                         try {
-                            return new Backup(p.getFileName().toString(), Files.size(p), Files.getLastModifiedTime(p).toInstant());
+                            return new BackupResponse(p.getFileName().toString(), Files.size(p), Files.getLastModifiedTime(p).toInstant());
                         } catch (IOException e) {
                             return null;
                         }
                     })
                     .filter(Objects::nonNull)
-                    .sorted(Comparator.comparing(Backup::file).reversed())
+                    .sorted(Comparator.comparing(BackupResponse::file).reversed())
                     .toList();
         }
     }
@@ -206,19 +202,19 @@ public class BackupService {
         return p;
     }
 
-    public Status status() throws IOException {
+    public BackupStatusResponse status() throws IOException {
         Instant ok = settings.get("backup.lastOk").filter(s -> !s.isBlank()).map(Instant::parse).orElse(null);
         String err = settings.get("backup.lastError").filter(s -> !s.isBlank()).orElse(null);
         Instant errAt = err == null ? null : settings.get("backup.lastErrorAt").filter(s -> !s.isBlank()).map(Instant::parse).orElse(null);
         boolean on = features.on(Feature.BACKUPS);
         boolean stale = on && (ok == null || ok.isBefore(Instant.now().minusSeconds(48 * 3600)));
-        return new Status(on, dir.toString(), keep, ok, err, errAt, stale, list());
+        return new BackupStatusResponse(on, dir.toString(), keep, ok, err, errAt, stale, list());
     }
 
     /** True when Home should nag: the feature is on and the last run failed or nothing succeeded in two days. */
     public boolean needsAttention() {
         try {
-            Status s = status();
+            BackupStatusResponse s = status();
             boolean failedLast = s.lastError() != null && (s.lastOk() == null || (s.lastErrorAt() != null && s.lastErrorAt().isAfter(s.lastOk())));
             return s.enabled() && (failedLast || (s.stale() && s.lastOk() != null));
         } catch (IOException e) {

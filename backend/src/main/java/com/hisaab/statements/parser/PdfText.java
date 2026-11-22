@@ -1,6 +1,5 @@
 package com.hisaab.statements.parser;
 
-import com.hisaab.statements.service.StatementImportService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;

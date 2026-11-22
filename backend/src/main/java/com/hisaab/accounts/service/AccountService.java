@@ -1,5 +1,8 @@
 package com.hisaab.accounts.service;
 
+import com.hisaab.accounts.dto.AccountRequest;
+import com.hisaab.accounts.dto.AccountResponse;
+import com.hisaab.accounts.dto.CardInfoResponse;
 import com.hisaab.common.model.AccountType;
 import com.hisaab.common.model.Direction;
 import com.hisaab.common.model.Institution;
@@ -33,37 +36,23 @@ public class AccountService {
         this.balances = balances;
     }
 
-    public record AccountInput(String name, AccountType type, Institution institution, String last4,
-                               BigDecimal openingBalance, Instant openingDate, BigDecimal creditLimit,
-                               Integer statementDay, Integer dueDay, Boolean archived) {}
-
-    public record CardInfo(BigDecimal creditLimit, BigDecimal outstanding, BigDecimal available,
-                           BigDecimal utilizationPct, LocalDate lastStatement, LocalDate nextStatement,
-                           LocalDate dueDate, long daysToDue, BigDecimal spentThisCycle,
-                           BigDecimal paidSinceStatement) {}
-
-    public record AccountView(Long id, String name, AccountType type, Institution institution, String last4,
-                              BigDecimal openingBalance, Instant openingDate, boolean archived,
-                              /* bank/cash balance, or card outstanding */ BigDecimal balance,
-                              Integer statementDay, Integer dueDay, CardInfo card) {}
-
     public Account get(Long id) {
         return accounts.findById(id).orElseThrow(notFound("Account " + id));
     }
 
-    public List<AccountView> list(boolean includeArchived) {
+    public List<AccountResponse> list(boolean includeArchived) {
         List<Account> list = includeArchived ? accounts.findAllByOrderByArchivedAscTypeAscNameAsc()
                 : accounts.findByArchivedFalseOrderByTypeAscNameAsc();
         var current = balances.current(list);
         return list.stream().map(a -> view(a, current.get(a.getId()))).toList();
     }
 
-    public AccountView view(Account a) {
+    public AccountResponse view(Account a) {
         return view(a, balances.current(a));
     }
 
-    private AccountView view(Account a, BigDecimal balance) {
-        CardInfo card = null;
+    private AccountResponse view(Account a, BigDecimal balance) {
+        CardInfoResponse card = null;
         if (a.isCard()) {
             BigDecimal limit = a.getCreditLimit();
             BigDecimal available = limit == null ? null : limit.subtract(balance);
@@ -84,9 +73,9 @@ public class AccountService {
                 spent = txns.sumSince(a, Direction.DEBIT, cycleStart);
                 paid = txns.sumSince(a, Direction.CREDIT, statementEnd);
             }
-            card = new CardInfo(limit, balance, available, util, last, next, due, days, spent, paid);
+            card = new CardInfoResponse(limit, balance, available, util, last, next, due, days, spent, paid);
         }
-        return new AccountView(a.getId(), a.getName(), a.getType(), a.getInstitution(), a.getLast4(),
+        return new AccountResponse(a.getId(), a.getName(), a.getType(), a.getInstitution(), a.getLast4(),
                 a.getOpeningBalance(), a.getOpeningDate(), a.isArchived(), balance,
                 a.getStatementDay(), a.getDueDay(), card);
     }
@@ -96,7 +85,7 @@ public class AccountService {
     }
 
     @Transactional
-    public Account save(Account a, AccountInput in) {
+    public Account save(Account a, AccountRequest in) {
         if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
         if (in.type() == null) throw new BadRequestException("Type is required");
         if (in.last4() != null && !in.last4().isBlank() && !in.last4().matches("\\d{4}")) {

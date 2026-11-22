@@ -1,5 +1,8 @@
 package com.hisaab.statements.service;
 
+import com.hisaab.statements.dto.BalanceCheckResponse;
+import com.hisaab.statements.dto.FieldFillResponse;
+import com.hisaab.statements.dto.ImportCommitResponse;
 import com.hisaab.common.model.AccountType;
 import com.hisaab.common.model.Direction;
 import com.hisaab.statements.model.ImportStatus;
@@ -304,29 +307,27 @@ public class StatementImportService {
 
     // ---- what a match would fill in -----------------------------------------------------------------------
 
-    public record Fill(String field, String label, String from, String to) {}
-
     /** Details the statement has that the recorded transaction is missing. */
-    public List<Fill> fills(StatementImportLine l, Txn t) {
-        List<Fill> out = new ArrayList<>();
-        if (isBlank(t.getCounterparty()) && !isBlank(l.getCounterparty())) out.add(new Fill("counterparty", "Payee", null, l.getCounterparty()));
-        if (isBlank(t.getReferenceNo()) && !isBlank(l.getReferenceNo())) out.add(new Fill("reference", "Reference", null, l.getReferenceNo()));
+    public List<FieldFillResponse> fills(StatementImportLine l, Txn t) {
+        List<FieldFillResponse> out = new ArrayList<>();
+        if (isBlank(t.getCounterparty()) && !isBlank(l.getCounterparty())) out.add(new FieldFillResponse("counterparty", "Payee", null, l.getCounterparty()));
+        if (isBlank(t.getReferenceNo()) && !isBlank(l.getReferenceNo())) out.add(new FieldFillResponse("reference", "Reference", null, l.getReferenceNo()));
         if (t.isTimeEstimated() && l.getTxnTime() != null) {
-            out.add(new Fill("time", "Time", null, l.getTxnTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)).toLowerCase()));
+            out.add(new FieldFillResponse("time", "Time", null, l.getTxnTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)).toLowerCase()));
         }
         if (t.isAmountEstimated() && l.getAmount().compareTo(t.getAmount()) != 0) {
-            out.add(new Fill("amount", "Amount", t.getAmount().toPlainString(), l.getAmount().toPlainString()));
+            out.add(new FieldFillResponse("amount", "Amount", t.getAmount().toPlainString(), l.getAmount().toPlainString()));
         } else if (t.isAmountEstimated()) {
-            out.add(new Fill("amount", "Amount", null, "confirmed from statement"));
+            out.add(new FieldFillResponse("amount", "Amount", null, "confirmed from statement"));
         }
         if (isBlank(t.getDescription()) && !isBlank(l.getDescription()) && !l.getDescription().equals(l.getCounterparty())) {
-            out.add(new Fill("description", "Bank's description", null, l.getDescription()));
+            out.add(new FieldFillResponse("description", "Bank's description", null, l.getDescription()));
         }
         return out;
     }
 
     private void applyFills(StatementImportLine l, Txn t) {
-        for (Fill f : fills(l, t)) {
+        for (FieldFillResponse f : fills(l, t)) {
             switch (f.field()) {
                 case "counterparty" -> {
                     t.setCounterparty(l.getCounterparty());
@@ -365,14 +366,7 @@ public class StatementImportService {
         return a.isCard() ? signed.negate() : signed;
     }
 
-    /**
-     * The statement's closing figure next to what the app shows for the same moment, so I can see whether the
-     * import will leave the account agreeing with the bank. Null when the statement ends before my starting
-     * balance (then it can't change anything).
-     */
-    public record BalanceCheck(LocalDate at, BigDecimal statement, BigDecimal appNow) {}
-
-    public Optional<BalanceCheck> balanceCheck(StatementImport imp) {
+    public Optional<BalanceCheckResponse> balanceCheck(StatementImport imp) {
         Account a = imp.getAccount();
         if (a == null || imp.getClosingBalance() == null) return Optional.empty();
         List<StatementImportLine> ls = lines.findByStatementImportOrderByLineNo(imp);
@@ -382,7 +376,7 @@ public class StatementImportService {
         if (!cutoff.isAfter(a.getOpeningDate())) return Optional.empty();
         BigDecimal net = txns.netUpTo(a, a.getOpeningDate(), cutoff, Long.MAX_VALUE);
         BigDecimal app = a.isCard() ? a.getOpeningBalance().subtract(net) : a.getOpeningBalance().add(net);
-        return Optional.of(new BalanceCheck(end, imp.getClosingBalance(), Money.r2(app)));
+        return Optional.of(new BalanceCheckResponse(end, imp.getClosingBalance(), Money.r2(app)));
     }
 
     /** Recorded transactions inside the statement's dates that no statement line matched. */
@@ -412,15 +406,12 @@ public class StatementImportService {
         return l;
     }
 
-    /** @param startingBalance the account's new starting balance, when I asked to correct it; otherwise null */
-    public record Result(int added, int updated, int skipped, BigDecimal startingBalance) {}
-
     /**
      * Applies my decisions. With {@code fixStart}, the account's starting balance is then corrected so the app
      * agrees with the statement's closing figure (for when the starting balance I entered at setup was off).
      */
     @Transactional
-    public Result commit(Long importId, boolean fixStart) {
+    public ImportCommitResponse commit(Long importId, boolean fixStart) {
         StatementImport imp = review(importId);
         Account account = imp.getAccount();
         if (account == null) throw new BadRequestException("Choose which account this statement belongs to first");
@@ -468,7 +459,7 @@ public class StatementImportService {
         BigDecimal newStart = null;
         if (fixStart) {
             txns.flush();
-            Optional<BalanceCheck> check = balanceCheck(imp);
+            Optional<BalanceCheckResponse> check = balanceCheck(imp);
             if (check.isPresent()) {
                 BigDecimal diff = check.get().statement().subtract(check.get().appNow());
                 if (diff.signum() != 0) {
@@ -489,7 +480,7 @@ public class StatementImportService {
         imp.setCompletedAt(Instant.now());
         log.info("Statement import {} done for account {}: {} added, {} completed, {} skipped{}", importId, account.getId(),
                 added, updated, skipped, newStart == null ? "" : ", starting balance corrected");
-        return new Result(added, updated, skipped, newStart);
+        return new ImportCommitResponse(added, updated, skipped, newStart);
     }
 
     @Transactional

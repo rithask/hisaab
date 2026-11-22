@@ -1,5 +1,9 @@
 package com.hisaab.watch.service;
 
+import com.hisaab.watch.dto.RefundResponse;
+import com.hisaab.watch.dto.UnusualItemResponse;
+import com.hisaab.watch.dto.UnusualOverviewResponse;
+import com.hisaab.watch.dto.UnusualReasonResponse;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -34,36 +38,19 @@ public class UnusualService {
         this.dismissals = dismissals;
     }
 
-    /**
-     * Why a payment was flagged. kind: DOUBLE_CHARGE (with {@code otherTxnId}, {@code minutesApart}),
-     * BIG_FOR_MERCHANT ({@code typical} = my usual amount there, {@code timesBefore}), NEW_PAYEE_BIG, FOREIGN
-     * ({@code currency}, {@code originalAmount}), LATE_NIGHT.
-     */
-    public record Reason(String kind, Long otherTxnId, Integer minutesApart, BigDecimal typical, Integer timesBefore,
-                         String currency, BigDecimal originalAmount) {}
-
-    public record Item(String key, long txnId, String name, Long accountId, String account, BigDecimal amount, Instant at,
-                       List<Reason> reasons) {}
-
-    /** status: WAITING, LATE (past expectedBy) or ARRIVED (with the refund's transaction). */
-    public record Refund(long txnId, String name, String account, BigDecimal amount, Instant paidAt, LocalDate expectedBy,
-                         String status, Long refundTxnId, BigDecimal refunded, Instant refundedAt) {}
-
-    public record Overview(List<Item> items, List<Refund> refunds) {}
-
     private record Row(long id, long accountId, String account, BigDecimal amount, Instant at, boolean timeEstimated,
                        String key, String name, String currency, BigDecimal originalAmount) {}
 
-    public Overview overview() {
+    public UnusualOverviewResponse overview() {
         LocalDate today = LocalDate.now(Money.ZONE);
         Set<String> dismissed = dismissals.all();
-        List<Item> items = new ArrayList<>();
-        for (Item i : scan(today)) if (!dismissed.contains(i.key())) items.add(i);
-        items.sort(Comparator.comparing(Item::at).reversed());
-        return new Overview(items, refunds(today));
+        List<UnusualItemResponse> items = new ArrayList<>();
+        for (UnusualItemResponse i : scan(today)) if (!dismissed.contains(i.key())) items.add(i);
+        items.sort(Comparator.comparing(UnusualItemResponse::at).reversed());
+        return new UnusualOverviewResponse(items, refunds(today));
     }
 
-    List<Item> scan(LocalDate today) {
+    List<UnusualItemResponse> scan(LocalDate today) {
         Instant since = today.minusDays(400).atStartOfDay(Money.ZONE).toInstant();
         Instant recent = today.minusDays(RECENT_DAYS).atStartOfDay(Money.ZONE).toInstant();
         List<Row> rows = jdbc.query("""
@@ -82,12 +69,12 @@ public class UnusualService {
         Instant historyWarm = rows.getFirst().at().plus(Duration.ofDays(30));
 
         Map<String, List<BigDecimal>> before = new HashMap<>();
-        List<Item> out = new ArrayList<>();
+        List<UnusualItemResponse> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             Row t = rows.get(i);
             List<BigDecimal> prior = t.key() == null ? List.of() : before.getOrDefault(t.key(), List.of());
             if (!t.at().isBefore(recent)) {
-                List<Reason> reasons = new ArrayList<>();
+                List<UnusualReasonResponse> reasons = new ArrayList<>();
                 // Same amount, same payee, same account, within 30 minutes: often a payment that went through twice.
                 for (int j = i - 1; j >= 0; j--) {
                     Row o = rows.get(j);
@@ -95,26 +82,26 @@ public class UnusualService {
                     if (mins > 30) break;
                     if (t.timeEstimated() || o.timeEstimated()) continue;
                     if (o.accountId() == t.accountId() && o.amount().compareTo(t.amount()) == 0 && Objects.equals(o.key(), t.key()) && t.key() != null) {
-                        reasons.add(new Reason("DOUBLE_CHARGE", o.id(), (int) mins, null, null, null, null));
+                        reasons.add(new UnusualReasonResponse("DOUBLE_CHARGE", o.id(), (int) mins, null, null, null, null));
                         break;
                     }
                 }
                 if (t.currency() != null && !t.currency().equalsIgnoreCase("INR"))
-                    reasons.add(new Reason("FOREIGN", null, null, null, null, t.currency().toUpperCase(Locale.ROOT), t.originalAmount()));
+                    reasons.add(new UnusualReasonResponse("FOREIGN", null, null, null, null, t.currency().toUpperCase(Locale.ROOT), t.originalAmount()));
                 if (prior.isEmpty() && t.key() != null && t.amount().compareTo(NEW_PAYEE_BIG) >= 0 && t.at().isAfter(historyWarm))
-                    reasons.add(new Reason("NEW_PAYEE_BIG", null, null, null, 0, null, null));
+                    reasons.add(new UnusualReasonResponse("NEW_PAYEE_BIG", null, null, null, 0, null, null));
                 if (prior.size() >= 5 && t.amount().compareTo(MERCHANT_MIN) >= 0) {
                     List<BigDecimal> sorted = new ArrayList<>(prior);
                     Collections.sort(sorted);
                     BigDecimal median = sorted.get(sorted.size() / 2);
                     if (t.amount().compareTo(median.multiply(BigDecimal.valueOf(3))) > 0 && t.amount().compareTo(sorted.getLast()) > 0)
-                        reasons.add(new Reason("BIG_FOR_MERCHANT", null, null, Money.r2(median), prior.size(), null, null));
+                        reasons.add(new UnusualReasonResponse("BIG_FOR_MERCHANT", null, null, Money.r2(median), prior.size(), null, null));
                 }
                 int hour = ZonedDateTime.ofInstant(t.at(), Money.ZONE).getHour();
                 if (!t.timeEstimated() && hour < 5 && t.amount().compareTo(LATE_NIGHT_MIN) >= 0)
-                    reasons.add(new Reason("LATE_NIGHT", null, null, null, null, null, null));
+                    reasons.add(new UnusualReasonResponse("LATE_NIGHT", null, null, null, null, null, null));
                 if (!reasons.isEmpty())
-                    out.add(new Item("unusual:" + t.id(), t.id(), t.name(), t.accountId(), t.account(), t.amount(), t.at(), reasons));
+                    out.add(new UnusualItemResponse("unusual:" + t.id(), t.id(), t.name(), t.accountId(), t.account(), t.amount(), t.at(), reasons));
             }
             if (t.key() != null) before.computeIfAbsent(t.key(), k -> new ArrayList<>()).add(t.amount());
         }
@@ -127,8 +114,8 @@ public class UnusualService {
      * Each credit can be the refund for one payment only: payments claim credits oldest first, and a credit already
      * claimed is skipped for the next payment (two returns to the same shop shouldn't both be settled by one refund).
      */
-    public List<Refund> refunds(LocalDate today) {
-        List<Refund> out = new ArrayList<>();
+    public List<RefundResponse> refunds(LocalDate today) {
+        List<RefundResponse> out = new ArrayList<>();
         Set<Long> claimed = new HashSet<>();
         jdbc.query("""
                 select w.txn_id, w.expected_by, t.amount, t.occurred_at, t.merchant_key, a.name account,
@@ -143,14 +130,14 @@ public class UnusualService {
             var match = findRefund(id, amount, paid, rs.getString("merchant_key"), claimed);
             if (match != null) claimed.add(match.id());
             String status = match != null ? "ARRIVED" : today.isAfter(by) ? "LATE" : "WAITING";
-            out.add(new Refund(id, rs.getString("name"), rs.getString("account"), amount, paid, by, status,
+            out.add(new RefundResponse(id, rs.getString("name"), rs.getString("account"), amount, paid, by, status,
                     match == null ? null : match.id(), match == null ? null : match.amount(), match == null ? null : match.at()));
         });
-        out.sort(Comparator.comparing(Refund::paidAt).reversed());               // newest first for the page
+        out.sort(Comparator.comparing(RefundResponse::paidAt).reversed());               // newest first for the page
         return out;
     }
 
-    public Optional<Refund> refund(long txnId) {
+    public Optional<RefundResponse> refund(long txnId) {
         return refunds(LocalDate.now(Money.ZONE)).stream().filter(r -> r.txnId() == txnId).findFirst();
     }
 

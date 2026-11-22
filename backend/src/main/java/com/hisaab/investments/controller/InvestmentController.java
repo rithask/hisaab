@@ -1,13 +1,14 @@
 package com.hisaab.investments.controller;
 
-import com.hisaab.common.dto.Dtos.HoldingDto;
-import com.hisaab.common.dto.Dtos.PortfolioDto;
+import com.hisaab.investments.dto.HoldingImportResponse;
+import com.hisaab.investments.dto.HoldingRequest;
+import com.hisaab.investments.dto.HoldingResponse;
+import com.hisaab.investments.dto.PortfolioResponse;
 import com.hisaab.common.util.Audit;
 import com.hisaab.investments.model.Holding;
 import com.hisaab.investments.model.MfScheme;
 import com.hisaab.investments.repository.HoldingRepository;
 import com.hisaab.investments.service.HoldingService;
-import com.hisaab.investments.service.HoldingService.HoldingInput;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,20 +31,20 @@ public class InvestmentController {
     }
 
     @GetMapping("/holdings")
-    public PortfolioDto portfolio() {
-        return PortfolioDto.of(holdings.findAllByOrderByAssetTypeAscNameAsc().stream().map(HoldingDto::of).toList());
+    public PortfolioResponse portfolio() {
+        return PortfolioResponse.of(holdings.findAllByOrderByAssetTypeAscNameAsc().stream().map(HoldingResponse::of).toList());
     }
 
     @PostMapping("/holdings")
-    public HoldingDto create(@RequestBody HoldingInput in) {
+    public HoldingResponse create(@RequestBody HoldingRequest in) {
         Holding h = holdings.findByAssetTypeAndSymbol(in.assetType(), in.symbol() == null ? "" : in.symbol().trim().toUpperCase())
                 .orElseGet(Holding::new);
-        return HoldingDto.of(service.save(h, in));
+        return HoldingResponse.of(service.save(h, in));
     }
 
     @PutMapping("/holdings/{id}")
-    public HoldingDto update(@PathVariable Long id, @RequestBody HoldingInput in) {
-        return HoldingDto.of(service.save(holdings.findById(id).orElseThrow(notFound("Holding")), in));
+    public HoldingResponse update(@PathVariable Long id, @RequestBody HoldingRequest in) {
+        return HoldingResponse.of(service.save(holdings.findById(id).orElseThrow(notFound("Holding")), in));
     }
 
     @DeleteMapping("/holdings/{id}")
@@ -53,7 +54,7 @@ public class InvestmentController {
     }
 
     @PostMapping("/holdings/import")
-    public HoldingService.ImportResult importCsv(@RequestParam("file") MultipartFile file,
+    public HoldingImportResponse importCsv(@RequestParam("file") MultipartFile file,
                                                  @RequestParam(defaultValue = "true") boolean replace) throws IOException {
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
         if (name.endsWith(".xlsx") || name.endsWith(".xls")) {

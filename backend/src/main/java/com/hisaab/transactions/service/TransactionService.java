@@ -1,5 +1,8 @@
 package com.hisaab.transactions.service;
 
+import com.hisaab.transactions.dto.NewTransactionRequest;
+import com.hisaab.transactions.dto.PaidByRequest;
+import com.hisaab.transactions.dto.TransactionUpdateRequest;
 import com.hisaab.common.model.Direction;
 import com.hisaab.messages.model.Channel;
 import com.hisaab.people.model.SettlementStatus;
@@ -261,12 +264,8 @@ public class TransactionService {
         splits.suggestSettlement(t);
     }
 
-    public record ManualTxn(Long accountId, Direction direction, BigDecimal amount, String currency, Instant occurredAt,
-                            String counterparty, String description, Long categoryId, List<String> tags, String notes,
-                            Boolean transfer) {}
-
     @Transactional
-    public Txn createManual(ManualTxn req, Account account) {
+    public Txn createManual(NewTransactionRequest req, Account account) {
         if (req.amount() == null || req.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
         Txn t = new Txn();
         t.setAccount(account);
@@ -288,21 +287,11 @@ public class TransactionService {
     }
 
     /**
-     * Something a friend paid for, with my share of it.
-     *
-     * @param total what they paid altogether
-     * @param share my part of it; what goes into my spending, and comes off what they owe me
-     * @param where where it was spent (shown as the payee); never learned from
-     */
-    public record PaidByInput(Long personId, BigDecimal total, BigDecimal share, Long categoryId, String where,
-                              Instant occurredAt, String notes, List<String> tags) {}
-
-    /**
      * Records my share of something a friend paid for. It's not a bank transaction: it has no account, nothing
      * is learned from it (category, payee) and nothing is matched to it (duplicates, transfers, repayments).
      */
     @Transactional
-    public Txn createPaidBy(PaidByInput in) {
+    public Txn createPaidBy(PaidByRequest in) {
         Txn t = new Txn();
         t.setDirection(Direction.DEBIT);
         t.setSource(TxnSource.PERSON);
@@ -314,7 +303,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public Txn updatePaidBy(Long id, PaidByInput in) {
+    public Txn updatePaidBy(Long id, PaidByRequest in) {
         Txn t = get(id);
         if (!t.isPaidByPerson()) throw new BadRequestException("This wasn't paid by someone else");
         applyPaidBy(t, in);
@@ -323,7 +312,7 @@ public class TransactionService {
         return t;
     }
 
-    private void applyPaidBy(Txn t, PaidByInput in) {
+    private void applyPaidBy(Txn t, PaidByRequest in) {
         Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
         if (who == null) throw new BadRequestException("Choose who paid");
         if (in.total() == null || in.total().signum() <= 0) throw new BadRequestException("Enter what they paid");
@@ -343,9 +332,6 @@ public class TransactionService {
         t.setCategorySuggested(false);
     }
 
-    public record TxnUpdate(Long categoryId, Boolean clearCategory, List<String> tags, String notes, String counterparty,
-                            Boolean transfer, BigDecimal amount, Instant occurredAt, Boolean learn) {}
-
     /**
      * @param renamedCount   other transactions renamed because a payee rename was learned
      * @param learnedWording the category was remembered for messages worded like this one (it has no payee)
@@ -353,7 +339,7 @@ public class TransactionService {
     public record UpdateResult(Txn txn, int similarCount, int renamedCount, boolean learnedWording) {}
 
     @Transactional
-    public UpdateResult update(Long id, TxnUpdate u) {
+    public UpdateResult update(Long id, TransactionUpdateRequest u) {
         Txn t = get(id);
         if (t.isPaidByPerson()) return new UpdateResult(updateOwn(t, u), 0, 0, false);
         int similar = 0;
@@ -400,7 +386,7 @@ public class TransactionService {
     }
 
     /** Edits to my share of something a friend paid for: plain changes, nothing learned or matched. */
-    private Txn updateOwn(Txn t, TxnUpdate u) {
+    private Txn updateOwn(Txn t, TransactionUpdateRequest u) {
         if (Boolean.TRUE.equals(u.transfer())) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         if (u.counterparty() != null) t.setCounterparty(blankToNull(u.counterparty()));
         if (u.amount() != null) {

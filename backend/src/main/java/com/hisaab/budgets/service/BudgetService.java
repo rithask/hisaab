@@ -1,5 +1,6 @@
 package com.hisaab.budgets.service;
 
+import com.hisaab.budgets.dto.BudgetResponse;
 import com.hisaab.common.util.Money;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -22,14 +23,7 @@ public class BudgetService {
         this.jdbc = jdbc;
     }
 
-    /**
-     * @param projected spending by the end of the month at the current pace
-     * @param status    OK, WARN (80% used, or on pace to go over) or OVER
-     */
-    public record Budget(Long categoryId, String name, String color, BigDecimal limit, BigDecimal spent, BigDecimal remaining,
-                         int pct, BigDecimal projected, String status) {}
-
-    public List<Budget> month(YearMonth ym) {
+    public List<BudgetResponse> month(YearMonth ym) {
         LocalDate today = LocalDate.now(Money.ZONE);
         var p = new MapSqlParameterSource()
                 .addValue("from", Timestamp.from(ym.atDay(1).atStartOfDay(Money.ZONE).toInstant()))
@@ -53,7 +47,7 @@ public class BudgetService {
             BigDecimal projected = Money.r2(spent.divide(BigDecimal.valueOf(fraction), 2, RoundingMode.HALF_UP));
             String status = spent.compareTo(limit) > 0 ? "OVER"
                     : pct >= 80 || (fraction < 1 && projected.compareTo(limit) > 0 && pct >= 50) ? "WARN" : "OK";
-            return new Budget(rs.getLong("category_id"), rs.getString("name"), rs.getString("color"), limit, Money.r2(spent),
+            return new BudgetResponse(rs.getLong("category_id"), rs.getString("name"), rs.getString("color"), limit, Money.r2(spent),
                     Money.r2(limit.subtract(spent)), pct, projected, status);
         });
     }

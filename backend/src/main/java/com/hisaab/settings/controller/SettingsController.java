@@ -1,12 +1,13 @@
 package com.hisaab.settings.controller;
 
+import com.hisaab.settings.dto.MailStatusResponse;
+import com.hisaab.settings.dto.SettingsRequest;
+import com.hisaab.settings.dto.SettingsResponse;
 import com.hisaab.common.util.Audit;
 import com.hisaab.messages.service.MailSyncService;
 import com.hisaab.settings.service.FeatureService;
 import com.hisaab.settings.service.SettingsService;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /** The app's small settings (Settings → General and Features): my name, Home options, feature switches, mailbox status. */
 @RestController
@@ -22,23 +23,17 @@ public class SettingsController {
         this.mail = mail;
     }
 
-    public record MailStatus(boolean configured, String lastSync, String lastError) {}
-
-    public record SettingsDto(String ownerName, MailStatus mail, boolean showInvestmentsOnHome, Map<String, Boolean> features) {}
-
     @GetMapping
-    public SettingsDto getSettings() {
-        return new SettingsDto(settings.ownerName(), new MailStatus(mail.configured(),
+    public SettingsResponse getSettings() {
+        return new SettingsResponse(settings.ownerName(), new MailStatusResponse(mail.configured(),
                 settings.get(SettingsService.MAIL_LAST_SYNC).orElse(null),
                 settings.get(SettingsService.MAIL_LAST_ERROR).filter(s -> !s.isBlank()).orElse(null)),
                 !"false".equals(settings.get(SettingsService.HOME_SHOW_INVESTMENTS).orElse("true")),
                 features.all());
     }
 
-    public record SettingsInput(String ownerName, Boolean showInvestmentsOnHome, Map<String, Boolean> features) {}
-
     @PutMapping
-    public SettingsDto putSettings(@RequestBody SettingsInput in) {
+    public SettingsResponse putSettings(@RequestBody SettingsRequest in) {
         if (in.ownerName() != null && !in.ownerName().trim().equals(settings.ownerName())) {
             settings.set(SettingsService.OWNER_NAME, in.ownerName().trim());
             Audit.log("Owner name changed");

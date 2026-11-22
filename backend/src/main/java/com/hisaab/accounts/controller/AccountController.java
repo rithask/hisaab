@@ -1,10 +1,10 @@
 package com.hisaab.accounts.controller;
 
+import com.hisaab.accounts.dto.AccountRequest;
+import com.hisaab.accounts.dto.AccountResponse;
 import com.hisaab.accounts.model.Account;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.accounts.service.AccountService;
-import com.hisaab.accounts.service.AccountService.AccountInput;
-import com.hisaab.accounts.service.AccountService.AccountView;
 import com.hisaab.auth.util.AuthLog;
 import com.hisaab.common.util.Audit;
 import org.springframework.web.bind.annotation.*;
@@ -23,22 +23,22 @@ public class AccountController {
     }
 
     @GetMapping
-    public List<AccountView> list(@RequestParam(defaultValue = "false") boolean includeArchived) {
+    public List<AccountResponse> list(@RequestParam(defaultValue = "false") boolean includeArchived) {
         return service.list(includeArchived);
     }
 
     @GetMapping("/{id}")
-    public AccountView get(@PathVariable Long id) {
+    public AccountResponse get(@PathVariable Long id) {
         return service.view(service.get(id));
     }
 
     @PostMapping
-    public AccountView create(@RequestBody AccountInput in) {
+    public AccountResponse create(@RequestBody AccountRequest in) {
         return service.view(service.save(new Account(), in));
     }
 
     @PutMapping("/{id}")
-    public AccountView update(@PathVariable Long id, @RequestBody AccountInput in) {
+    public AccountResponse update(@PathVariable Long id, @RequestBody AccountRequest in) {
         return service.view(service.save(service.get(id), in));
     }
 

@@ -1,5 +1,7 @@
 package com.hisaab.settings.service;
 
+import com.hisaab.settings.dto.ResetPreviewResponse;
+import com.hisaab.settings.dto.ResetResultResponse;
 import com.hisaab.settings.model.Feature;
 import com.hisaab.settings.model.ResetPart;
 import com.hisaab.backups.service.BackupService;
@@ -79,14 +81,6 @@ public class ResetService {
         return sql;
     }
 
-    /** What each part would remove, so the sheet can say it before I agree. */
-    public record Preview(long accounts, long transactions, long people, long statements, long holdings, long messages,
-                          long learned, long categories, long settings, long tokens, boolean pocketIdLinked,
-                          boolean backupsOn) {}
-
-    /** @param backup the backup taken just before, or null when I chose to go without */
-    public record Result(String backup) {}
-
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
     private final TransactionTemplate tx;
@@ -111,8 +105,8 @@ public class ResetService {
         return n == null ? 0 : n;
     }
 
-    public Preview preview() {
-        return new Preview(
+    public ResetPreviewResponse preview() {
+        return new ResetPreviewResponse(
                 count("select count(*) from account"),
                 count("select count(*) from txn"),
                 count("select count(*) from person"),
@@ -136,7 +130,7 @@ public class ResetService {
      * Takes a backup (unless backups are off and I said to go without), then clears the chosen parts in one
      * transaction. Saved statement PDFs are deleted only once that has committed.
      */
-    public synchronized Result reset(Collection<ResetPart> chosen, String word, boolean withoutBackup) {
+    public synchronized ResetResultResponse reset(Collection<ResetPart> chosen, String word, boolean withoutBackup) {
         if (chosen == null || chosen.isEmpty()) throw new BadRequestException("Choose what to reset");
         if (word == null || !word.trim().equalsIgnoreCase(WORD)) throw new BadRequestException("Type “" + WORD + "” to confirm");
         Set<ResetPart> parts = withNeeded(chosen);
@@ -162,7 +156,7 @@ public class ResetService {
         settings.forget(); // the reset changed app_setting directly
         if (parts.contains(ResetPart.DATA)) deleteStatementFiles();
         Audit.log("Reset {} backup={}", parts.stream().map(p -> p.name().toLowerCase()).toList(), backup == null ? "none" : backup);
-        return new Result(backup);
+        return new ResetResultResponse(backup);
     }
 
     private void deleteStatementFiles() {

@@ -1,8 +1,12 @@
 package com.hisaab.watch.service;
 
+import com.hisaab.watch.dto.HiddenSubscriptionResponse;
+import com.hisaab.watch.dto.PriceChangeResponse;
+import com.hisaab.watch.dto.SubscriptionAlertResponse;
+import com.hisaab.watch.dto.SubscriptionOverviewResponse;
+import com.hisaab.watch.dto.SubscriptionResponse;
 import com.hisaab.common.util.Money;
 import com.hisaab.watch.service.BillService.Payment;
-import com.hisaab.watch.service.BillService.PriceChange;
 import com.hisaab.watch.service.BillService.Series;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -34,44 +38,20 @@ public class SubscriptionService {
         this.jdbc = jdbc;
     }
 
-    /**
-     * @param status  ACTIVE, NEW (started in the last ~2 months) or STOPPED (the last payment didn't come)
-     * @param monthly the cost per month (a yearly plan counts a twelfth)
-     */
-    public record Subscription(String key, String name, Long accountId, String account, String category, String categoryColor,
-                               BigDecimal amount, String every, BigDecimal monthly, BigDecimal yearly, LocalDate since,
-                               LocalDate lastPaid, LocalDate nextDue, int timesPaid, String status, PriceChange priceChange,
-                               BigDecimal paidThisYear) {}
-
-    /**
-     * Something about a subscription worth a look. The app words it; the fields depend on the kind:
-     * PRICE_UP / PRICE_DOWN: {@code previous} → {@code amount} since {@code day}, {@code perYear} = the yearly difference.
-     * DOUBLE: {@code amount} charged on {@code otherDay} (from {@code otherAccount}) and again on {@code day} (from {@code account}).
-     * NEW: started {@code otherDay}, {@code amount} {@code every}. STOPPED: expected on {@code day}, last paid {@code otherDay}.
-     */
-    public record Alert(String key, String kind, String subscriptionKey, String name, BigDecimal amount, BigDecimal previous,
-                        BigDecimal perYear, String every, LocalDate day, LocalDate otherDay, String account, String otherAccount,
-                        List<Long> txnIds) {}
-
-    public record Overview(List<Subscription> items, List<Alert> alerts, BigDecimal monthly, BigDecimal yearly,
-                           List<Hidden> hidden) {}
-
-    public record Hidden(String key, String name) {}
-
-    public Overview overview() {
+    public SubscriptionOverviewResponse overview() {
         LocalDate today = LocalDate.now(Money.ZONE);
         Set<String> hiddenKeys = hiddenKeys();
         Set<String> dismissed = dismissals.all();
-        List<Subscription> items = new ArrayList<>();
-        List<Alert> alerts = new ArrayList<>();
-        List<Hidden> hidden = new ArrayList<>();
+        List<SubscriptionResponse> items = new ArrayList<>();
+        List<SubscriptionAlertResponse> alerts = new ArrayList<>();
+        List<HiddenSubscriptionResponse> hidden = new ArrayList<>();
         LocalDate historyStart = jdbc.queryForObject(
                 "select min((occurred_at at time zone current_setting('TimeZone'))::date) from txn", new MapSqlParameterSource(), LocalDate.class);
 
         for (Series s : bills.recurring(today, false)) {
             if (s.varies()) continue;                                      // electricity, phone: bills, not subscriptions
             if (hiddenKeys.contains(s.key())) {
-                hidden.add(new Hidden(s.key(), s.payee()));
+                hidden.add(new HiddenSubscriptionResponse(s.key(), s.payee()));
                 continue;
             }
             if (!hiddenKeys.contains("+" + s.key()) && s.category() != null && NOT_SUBSCRIPTIONS.matcher(s.category()).find()) continue;
@@ -86,30 +66,30 @@ public class SubscriptionService {
             BigDecimal monthly = perMonth(s.amount(), s.every());
             BigDecimal paidThisYear = s.payments().stream().filter(p -> p.day().getYear() == today.getYear())
                     .map(Payment::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-            items.add(new Subscription(s.key(), s.payee(), s.accountId(), s.account(), s.category(), s.color(), s.amount(),
+            items.add(new SubscriptionResponse(s.key(), s.payee(), s.accountId(), s.account(), s.category(), s.color(), s.amount(),
                     s.every(), monthly, Money.r2(monthly.multiply(BigDecimal.valueOf(12))), first.day(), last.day(),
                     s.due(), s.days().size(), status, s.change(), Money.r2(paidThisYear)));
 
             alerts.addAll(alertsFor(s, status, today));
         }
         alerts.removeIf(a -> dismissed.contains(a.key()));
-        alerts.sort(Comparator.comparing(Alert::day).reversed());
-        items.sort(Comparator.comparing((Subscription x) -> x.status().equals("STOPPED")).thenComparing(Subscription::monthly, Comparator.reverseOrder()));
-        hidden.sort(Comparator.comparing(Hidden::name, String.CASE_INSENSITIVE_ORDER));
+        alerts.sort(Comparator.comparing(SubscriptionAlertResponse::day).reversed());
+        items.sort(Comparator.comparing((SubscriptionResponse x) -> x.status().equals("STOPPED")).thenComparing(SubscriptionResponse::monthly, Comparator.reverseOrder()));
+        hidden.sort(Comparator.comparing(HiddenSubscriptionResponse::name, String.CASE_INSENSITIVE_ORDER));
 
-        BigDecimal monthly = items.stream().filter(x -> !x.status().equals("STOPPED")).map(Subscription::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Overview(items, alerts, Money.r2(monthly), Money.r2(monthly.multiply(BigDecimal.valueOf(12))), hidden);
+        BigDecimal monthly = items.stream().filter(x -> !x.status().equals("STOPPED")).map(SubscriptionResponse::monthly).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new SubscriptionOverviewResponse(items, alerts, Money.r2(monthly), Money.r2(monthly.multiply(BigDecimal.valueOf(12))), hidden);
     }
 
-    private List<Alert> alertsFor(Series s, String status, LocalDate today) {
-        List<Alert> out = new ArrayList<>();
+    private List<SubscriptionAlertResponse> alertsFor(Series s, String status, LocalDate today) {
+        List<SubscriptionAlertResponse> out = new ArrayList<>();
         Payment last = s.days().getLast();
-        PriceChange c = s.change();
+        PriceChangeResponse c = s.change();
         // A price change is news for about two billing periods.
         if (c != null && ChronoUnit.DAYS.between(c.on(), today) <= Math.max(60, s.periodDays() * 2)) {
             boolean up = c.to().compareTo(c.from()) > 0;
             BigDecimal perYear = Money.r2(perMonth(c.to().subtract(c.from()).abs(), s.every()).multiply(BigDecimal.valueOf(12)));
-            out.add(new Alert("sub:price:" + s.key() + ":" + c.on(), up ? "PRICE_UP" : "PRICE_DOWN", s.key(), s.payee(), c.to(),
+            out.add(new SubscriptionAlertResponse("sub:price:" + s.key() + ":" + c.on(), up ? "PRICE_UP" : "PRICE_DOWN", s.key(), s.payee(), c.to(),
                     c.from(), perYear, s.every(), c.on(), null, s.account(), null, List.of(idOn(s, c.on()))));
         }
         // Charged twice within half a period (same day included), in the last 90 days, for about the same amount.
@@ -120,14 +100,14 @@ public class SubscriptionService {
             long gap = ChronoUnit.DAYS.between(a.day(), b.day());
             if (gap * 2 >= s.periodDays()) continue;
             if (a.amount().subtract(b.amount()).abs().compareTo(b.amount().multiply(new BigDecimal("0.05"))) > 0) continue;
-            out.add(new Alert("sub:double:" + s.key() + ":" + b.id(), "DOUBLE", s.key(), s.payee(), b.amount(), a.amount(), null,
+            out.add(new SubscriptionAlertResponse("sub:double:" + s.key() + ":" + b.id(), "DOUBLE", s.key(), s.payee(), b.amount(), a.amount(), null,
                     s.every(), b.day(), a.day(), b.account(), a.account(), List.of(a.id(), b.id())));
         }
         if (status.equals("NEW"))
-            out.add(new Alert("sub:new:" + s.key(), "NEW", s.key(), s.payee(), s.amount(), null, null, s.every(), last.day(),
+            out.add(new SubscriptionAlertResponse("sub:new:" + s.key(), "NEW", s.key(), s.payee(), s.amount(), null, null, s.every(), last.day(),
                     s.days().getFirst().day(), s.account(), null, List.of(last.id())));
         if (status.equals("STOPPED"))
-            out.add(new Alert("sub:stopped:" + s.key() + ":" + last.day(), "STOPPED", s.key(), s.payee(), s.amount(), null, null,
+            out.add(new SubscriptionAlertResponse("sub:stopped:" + s.key() + ":" + last.day(), "STOPPED", s.key(), s.payee(), s.amount(), null, null,
                     s.every(), s.due(), last.day(), s.account(), null, List.of(last.id())));
         return out;
     }

@@ -1,5 +1,23 @@
 package com.hisaab.dataapi.service;
 
+import com.hisaab.accounts.dto.AccountResponse;
+import com.hisaab.accounts.dto.CardInfoResponse;
+import com.hisaab.dataapi.dto.ApiAccountRefResponse;
+import com.hisaab.dataapi.dto.ApiAmountResponse;
+import com.hisaab.dataapi.dto.ApiBalanceResponse;
+import com.hisaab.dataapi.dto.ApiBalancesResponse;
+import com.hisaab.dataapi.dto.ApiCardResponse;
+import com.hisaab.dataapi.dto.ApiCategoryGroupResponse;
+import com.hisaab.dataapi.dto.ApiCategoryRefResponse;
+import com.hisaab.dataapi.dto.ApiCategoryResponse;
+import com.hisaab.dataapi.dto.ApiListResponse;
+import com.hisaab.dataapi.dto.ApiPageResponse;
+import com.hisaab.dataapi.dto.ApiSmsReceivedResponse;
+import com.hisaab.dataapi.dto.ApiSmsRequest;
+import com.hisaab.dataapi.dto.ApiSummaryResponse;
+import com.hisaab.dataapi.dto.ApiTransactionRequest;
+import com.hisaab.dataapi.dto.ApiTransactionResponse;
+import com.hisaab.transactions.dto.NewTransactionRequest;
 import com.hisaab.categories.model.CategoryKind;
 import com.hisaab.common.model.Direction;
 import com.hisaab.accounts.model.Account;
@@ -9,7 +27,6 @@ import com.hisaab.categories.model.Category;
 import com.hisaab.categories.repository.CategoryRepository;
 import com.hisaab.categories.service.CategorizationService;
 import com.hisaab.common.util.Money;
-import com.hisaab.dataapi.dto.DataApi;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.dataapi.repository.ApiTokenRepository;
 import com.hisaab.messages.service.EmailProcessor;
@@ -93,7 +110,7 @@ public class DataApiService {
      * changed at or after it, in the order they changed, and no default window.
      */
     @Transactional(readOnly = true)
-    public DataApi.Page<DataApi.Transaction> transactions(ApiToken token, String date, String since, String updatedSince,
+    public ApiPageResponse<ApiTransactionResponse> transactions(ApiToken token, String date, String since, String updatedSince,
                                                           String category, String account, Integer limit, String cursor) {
         if (date != null && since != null) throw new BadRequestException("Send either date or since, not both.");
         Instant changed = null;
@@ -145,11 +162,11 @@ public class DataApiService {
         List<Txn> page = more ? rows.subList(0, n) : rows;
         Txn last = more ? page.getLast() : null;
         String next = last == null ? null : new Cursor(byChange, byChange ? last.getUpdatedAt() : last.getOccurredAt(), last.getId()).encode();
-        return new DataApi.Page<>(page.stream().map(t -> transaction(token, t)).toList(), more, next);
+        return new ApiPageResponse<>(page.stream().map(t -> transaction(token, t)).toList(), more, next);
     }
 
     @Transactional(readOnly = true)
-    public DataApi.Transaction transaction(ApiToken token, String id) {
+    public ApiTransactionResponse transaction(ApiToken token, String id) {
         Txn t;
         try {
             t = txns.findById(Long.parseLong(id)).orElse(null);
@@ -162,17 +179,17 @@ public class DataApiService {
 
     /** The categories this token may see (or use, for adding), for another app's menus. */
     @Transactional(readOnly = true)
-    public DataApi.ListOf<DataApi.Category> categories(ApiToken token) {
-        return new DataApi.ListOf<>(categories.findAll(Sort.by("kind", "name")).stream()
+    public ApiListResponse<ApiCategoryResponse> categories(ApiToken token) {
+        return new ApiListResponse<>(categories.findAll(Sort.by("kind", "name")).stream()
                 .filter(c -> token.allowsCategory(c.getId()))
                 .filter(c -> token.isMoneyIn() || c.getKind() == CategoryKind.EXPENSE)
-                .map(c -> new DataApi.Category(c.getId().toString(), c.getName(), c.getKind().name().toLowerCase(Locale.ROOT)))
+                .map(c -> new ApiCategoryResponse(c.getId().toString(), c.getName(), c.getKind().name().toLowerCase(Locale.ROOT)))
                 .toList());
     }
 
     @Transactional(readOnly = true)
-    public DataApi.ListOf<DataApi.AccountRef> accounts(ApiToken token) {
-        return new DataApi.ListOf<>(accounts.findByArchivedFalseOrderByTypeAscNameAsc().stream()
+    public ApiListResponse<ApiAccountRefResponse> accounts(ApiToken token) {
+        return new ApiListResponse<>(accounts.findByArchivedFalseOrderByTypeAscNameAsc().stream()
                 .filter(a -> token.allowsAccount(a.getId())).map(DataApiService::account).toList());
     }
 
@@ -219,25 +236,25 @@ public class DataApiService {
         return id;
     }
 
-    private static DataApi.Transaction transaction(ApiToken token, Txn t) {
+    private static ApiTransactionResponse transaction(ApiToken token, Txn t) {
         boolean notes = token.isIncludeNotes();
-        return new DataApi.Transaction(t.getId().toString(), t.getDirection().name().toLowerCase(Locale.ROOT),
+        return new ApiTransactionResponse(t.getId().toString(), t.getDirection().name().toLowerCase(Locale.ROOT),
                 time(t.getOccurredAt()), amount(t.getAmount()),
-                t.getOriginalAmount() == null ? null : new DataApi.Amount(t.getOriginalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString(), t.getOriginalCurrency()),
+                t.getOriginalAmount() == null ? null : new ApiAmountResponse(t.getOriginalAmount().setScale(2, RoundingMode.HALF_UP).toPlainString(), t.getOriginalCurrency()),
                 t.getCounterparty(),
-                t.getCategory() == null ? null : new DataApi.CategoryRef(t.getCategory().getId().toString(), t.getCategory().getName()),
+                t.getCategory() == null ? null : new ApiCategoryRefResponse(t.getCategory().getId().toString(), t.getCategory().getName()),
                 account(t.getAccount()),
                 notes ? t.getNotes() : null,
                 notes ? t.getTags().stream().map(Tag::getName).sorted().toList() : List.of(),
                 time(t.getCreatedAt()), time(t.getUpdatedAt()));
     }
 
-    static DataApi.AccountRef account(Account a) {
-        return new DataApi.AccountRef(a.getId().toString(), a.getName(), a.getType().name().toLowerCase(Locale.ROOT), a.getLast4());
+    static ApiAccountRefResponse account(Account a) {
+        return new ApiAccountRefResponse(a.getId().toString(), a.getName(), a.getType().name().toLowerCase(Locale.ROOT), a.getLast4());
     }
 
-    static DataApi.Amount amount(BigDecimal v) {
-        return v == null ? null : new DataApi.Amount(v.setScale(2, RoundingMode.HALF_UP).toPlainString(), "INR");
+    static ApiAmountResponse amount(BigDecimal v) {
+        return v == null ? null : new ApiAmountResponse(v.setScale(2, RoundingMode.HALF_UP).toPlainString(), "INR");
     }
 
     static String time(Instant at) {
@@ -293,7 +310,7 @@ public class DataApiService {
      * @param groupBy  category (default), account, month or day
      */
     @Transactional(readOnly = true)
-    public DataApi.Summary summary(ApiToken token, String month, String fromDay, String toDay, String groupBy,
+    public ApiSummaryResponse summary(ApiToken token, String month, String fromDay, String toDay, String groupBy,
                                    String direction, String category, String account) {
         LocalDate first, last;
         if (month != null) {
@@ -378,19 +395,19 @@ public class DataApiService {
             where.append(" and e.account_id = :acct");
             p.addValue("acct", acct);
         }
-        List<DataApi.Group> groups = jdbc.query(ReportService.EFFECTIVE + "select " + key + " k, " + name + " n, sum(e.amt) total, count(*) cnt"
+        List<ApiCategoryGroupResponse> groups = jdbc.query(ReportService.EFFECTIVE + "select " + key + " k, " + name + " n, sum(e.amt) total, count(*) cnt"
                         + " from eff e left join category c on c.id = e.category_id left join account a on a.id = e.account_id"
                         + " where " + where + " group by 1, 2 order by " + order,
-                p, (rs, i) -> new DataApi.Group(rs.getString("k"), rs.getString("n"), amount(rs.getBigDecimal("total")), rs.getLong("cnt")));
+                p, (rs, i) -> new ApiCategoryGroupResponse(rs.getString("k"), rs.getString("n"), amount(rs.getBigDecimal("total")), rs.getLong("cnt")));
         BigDecimal total = groups.stream().map(g -> new BigDecimal(g.total().value())).reduce(BigDecimal.ZERO, BigDecimal::add);
-        long count = groups.stream().mapToLong(DataApi.Group::count).sum();
-        return new DataApi.Summary(first.toString(), last.toString(), dir, by, amount(total), count, groups);
+        long count = groups.stream().mapToLong(ApiCategoryGroupResponse::count).sum();
+        return new ApiSummaryResponse(first.toString(), last.toString(), dir, by, amount(total), count, groups);
     }
 
     // ---- adding ---------------------------------------------------------------------------------------------
 
     /** @param replayed the same request was made before with this Idempotency-Key: this is what it created */
-    public record Added(DataApi.Transaction transaction, boolean replayed) {}
+    public record Added(ApiTransactionResponse transaction, boolean replayed) {}
 
     /**
      * Records a payment an app sends, within the token's limits (its accounts, its categories, money in only
@@ -398,7 +415,7 @@ public class DataApiService {
      * it again.
      */
     @Transactional
-    public Added add(ApiToken token, DataApi.NewTransaction in, String idempotencyKey) {
+    public Added add(ApiToken token, ApiTransactionRequest in, String idempotencyKey) {
         if (in == null) throw new BadRequestException("Send the transaction as JSON.");
         String key = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey.trim();
         if (key != null && (key.length() > 100 || !key.matches("[\\x21-\\x7e]+"))) {
@@ -460,7 +477,7 @@ public class DataApiService {
                 return new Added(transaction(token, before.get()), true);
             }
         }
-        Txn t = transactions.createManual(new TransactionService.ManualTxn(account.getId(), direction, amount, "INR", at,
+        Txn t = transactions.createManual(new NewTransactionRequest(account.getId(), direction, amount, "INR", at,
                 payee, null, categoryId, null, notes, false), account);
         t.setApiToken(me);
         t.setRequestKey(key);
@@ -474,17 +491,17 @@ public class DataApiService {
 
     /** Balances of the token's accounts, as Accounts shows them: for a card, what's owed on it. */
     @Transactional(readOnly = true)
-    public DataApi.Balances balances(ApiToken token) {
-        List<DataApi.Balance> out = new ArrayList<>();
+    public ApiBalancesResponse balances(ApiToken token) {
+        List<ApiBalanceResponse> out = new ArrayList<>();
         for (Account a : accounts.findByArchivedFalseOrderByTypeAscNameAsc()) {
             if (!token.allowsAccount(a.getId())) continue;
-            AccountService.AccountView v = accountViews.view(a);
-            AccountService.CardInfo c = v.card();
-            out.add(new DataApi.Balance(account(a), amount(v.balance()), c == null ? null
-                    : new DataApi.Card(amount(c.creditLimit()), amount(c.available()),
+            AccountResponse v = accountViews.view(a);
+            CardInfoResponse c = v.card();
+            out.add(new ApiBalanceResponse(account(a), amount(v.balance()), c == null ? null
+                    : new ApiCardResponse(amount(c.creditLimit()), amount(c.available()),
                     c.dueDate() == null ? null : c.dueDate().toString(), c.dueDate() == null ? null : c.daysToDue())));
         }
-        return new DataApi.Balances(out, time(Instant.now()));
+        return new ApiBalancesResponse(out, time(Instant.now()));
     }
 
     // ---- SMS ------------------------------------------------------------------------------------------------
@@ -493,7 +510,7 @@ public class DataApiService {
 
     /** Records a bank SMS a phone forwarded; the same text sent twice is counted once. */
     @Transactional
-    public DataApi.SmsReceived sms(ApiToken token, DataApi.NewSms in) {
+    public ApiSmsReceivedResponse sms(ApiToken token, ApiSmsRequest in) {
         if (in == null || in.text() == null || in.text().isBlank()) throw new BadRequestException("text is required.");
         if (in.text().length() > MAX_SMS) throw new BadRequestException("text can be at most " + MAX_SMS + " characters.");
         String sender = in.sender() == null || in.sender().isBlank() ? null : in.sender().trim();
@@ -509,13 +526,13 @@ public class DataApiService {
             if (at.isAfter(now)) at = now;
         }
         SmsOutcome o = processor.processSms(sender, in.text(), at);
-        if (o.alreadySeen()) return new DataApi.SmsReceived("duplicate", "Already received this SMS", null);
+        if (o.alreadySeen()) return new ApiSmsReceivedResponse("duplicate", "Already received this SMS", null);
         Txn t = o.txn();
         if (t != null) {
             txns.flush();
             em.refresh(t);
         }
-        return new DataApi.SmsReceived(o.message().getStatus().name().toLowerCase(Locale.ROOT),
+        return new ApiSmsReceivedResponse(o.message().getStatus().name().toLowerCase(Locale.ROOT),
                 t != null ? EmailProcessor.summary(t) : o.message().getNote(),
                 t == null ? null : transaction(token, t));
     }

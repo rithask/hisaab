@@ -11,7 +11,8 @@ frontend/tsconfig.tsbuildinfo
 .DS_Store
 
 # local database backups
-backups/
+/backups/
+/backend/backups/
 
 # Docker data folders (database, statements, backups) from compose.yaml
 /data/

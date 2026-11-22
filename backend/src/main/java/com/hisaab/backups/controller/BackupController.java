@@ -1,5 +1,7 @@
 package com.hisaab.backups.controller;
 
+import com.hisaab.backups.dto.BackupResponse;
+import com.hisaab.backups.dto.BackupStatusResponse;
 import com.hisaab.settings.model.Feature;
 import com.hisaab.backups.service.BackupService;
 import com.hisaab.common.util.Audit;
@@ -28,13 +30,13 @@ public class BackupController {
     // ---- backups
     @GetMapping("/backups")
     @RequiresFeature(Feature.BACKUPS)
-    public BackupService.Status backupStatus() throws IOException {
+    public BackupStatusResponse backupStatus() throws IOException {
         return backups.status();
     }
 
     @PostMapping("/backups")
     @RequiresFeature(Feature.BACKUPS)
-    public BackupService.Backup backupNow() throws IOException {
+    public BackupResponse backupNow() throws IOException {
         Audit.log("Backup started by hand");
         return backups.run();
     }

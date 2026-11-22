@@ -117,7 +117,7 @@ and the transaction boundaries (`@Transactional`), and entities only change thro
 | `budgets`, `backups` | Those optional features |
 | `settings` | Small settings, feature switches (`FeatureService`, `@RequiresFeature`), Reset |
 | `dataapi` | The Data API (`/api/v1`) and its tokens |
-| `common` | Shared by many features: `Money`, `Names`, the enums most features use (`Direction`, `Institution`, `AccountType`), `Dtos`, `NotFound`, `Audit`, the error handler |
+| `common` | Shared by many features: `Money`, `Names`, the enums most features use (`Direction`, `Institution`, `AccountType`), the account and person references many replies carry, `NotFound`, `Audit`, the error handler |
 | `config` | Security, sign-in (password, OIDC), the API token filter, SPA routing, `AppProperties` |
 
 A new feature gets its own package. Something two features need goes in the one that owns it (and is `public`), or

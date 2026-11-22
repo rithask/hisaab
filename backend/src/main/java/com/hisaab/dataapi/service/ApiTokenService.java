@@ -1,5 +1,8 @@
 package com.hisaab.dataapi.service;
 
+import com.hisaab.dataapi.dto.TokenCreatedResponse;
+import com.hisaab.dataapi.dto.TokenRequest;
+import com.hisaab.dataapi.dto.TokenResponse;
 import com.hisaab.dataapi.model.TokenJob;
 import com.hisaab.accounts.repository.AccountRepository;
 import com.hisaab.categories.repository.CategoryRepository;
@@ -42,27 +45,13 @@ public class ApiTokenService {
         this.accounts = accounts;
     }
 
-    /**
-     * What I chose for a token. Limits that don't apply to its job are ignored.
-     *
-     * @param categories category ids (and "none" for uncategorised) it may see or use; null for all
-     * @param accounts   account ids it may see or add to; null for all
-     * @param moneyIn    also money coming in (otherwise money out only)
-     */
-    public record TokenInput(String name, TokenJob job, List<String> categories, List<Long> accounts, Boolean moneyIn, Boolean includeNotes) {}
-
-    public record TokenView(Long id, String name, TokenJob job, String hint, List<String> categories, List<Long> accounts,
-                            boolean moneyIn, boolean includeNotes, Instant createdAt, Instant lastUsedAt) {}
-
-    public record Created(String token, TokenView view) {}
-
     @Transactional(readOnly = true)
-    public List<TokenView> list() {
+    public List<TokenResponse> list() {
         return tokens.findByRevokedAtIsNullOrderByCreatedAtAsc().stream().map(this::view).toList();
     }
 
     @Transactional
-    public Created create(TokenInput in) {
+    public TokenCreatedResponse create(TokenRequest in) {
         if (in.job() == null) throw new BadRequestException("Choose what the token is for");
         ApiToken t = new ApiToken();
         t.setJob(in.job());
@@ -74,12 +63,12 @@ public class ApiTokenService {
         t.setHint(token.substring(token.length() - 4));
         ApiToken saved = tokens.save(t);
         log.info("API token created id={} name=\"{}\" job={} hint=…{}", saved.getId(), forLog(saved.getName()), saved.getJob(), saved.getHint());
-        return new Created(token, view(saved));
+        return new TokenCreatedResponse(token, view(saved));
     }
 
     /** Changes a token's name or limits; its job stays (make a new token for another job). */
     @Transactional
-    public TokenView update(Long id, TokenInput in) {
+    public TokenResponse update(Long id, TokenRequest in) {
         ApiToken t = active(id);
         apply(t, in);
         log.info("API token changed id={} name=\"{}\" job={}", t.getId(), forLog(t.getName()), t.getJob());
@@ -115,7 +104,7 @@ public class ApiTokenService {
         return tokens.findById(id).filter(ApiToken::isActive).orElseThrow(notFound("Token"));
     }
 
-    private void apply(ApiToken t, TokenInput in) {
+    private void apply(ApiToken t, TokenRequest in) {
         String name = in.name() == null ? "" : in.name().trim();
         if (name.isEmpty()) throw new BadRequestException("Give the token a name, like \"Mileage app\"");
         if (name.length() > 60) throw new BadRequestException("Keep the name under 60 characters");
@@ -161,14 +150,14 @@ public class ApiTokenService {
         return ApiToken.join(out);
     }
 
-    private TokenView view(ApiToken t) {
+    private TokenResponse view(ApiToken t) {
         // limits name what exists now: a deleted category simply drops out (and allows nothing in its place)
         Set<String> cats = t.categoryLimit();
         Set<Long> accts = t.accountLimit();
         List<String> c = cats == null ? null : cats.stream()
                 .filter(x -> x.equals(ApiToken.UNCATEGORISED) || categories.existsById(Long.valueOf(x))).toList();
         List<Long> a = accts == null ? null : accts.stream().filter(accounts::existsById).toList();
-        return new TokenView(t.getId(), t.getName(), t.getJob(), t.getHint(), c, a, t.isMoneyIn(), t.isIncludeNotes(),
+        return new TokenResponse(t.getId(), t.getName(), t.getJob(), t.getHint(), c, a, t.isMoneyIn(), t.isIncludeNotes(),
                 t.getCreatedAt(), t.getLastUsedAt());
     }
 

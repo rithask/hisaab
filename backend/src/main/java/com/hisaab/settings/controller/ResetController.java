@@ -1,10 +1,10 @@
 package com.hisaab.settings.controller;
 
-import com.hisaab.settings.model.ResetPart;
+import com.hisaab.settings.dto.ResetPreviewResponse;
+import com.hisaab.settings.dto.ResetRequest;
+import com.hisaab.settings.dto.ResetResultResponse;
 import com.hisaab.settings.service.ResetService;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /** Settings → Reset: what a reset would remove, and doing it. */
 @RestController
@@ -17,15 +17,12 @@ public class ResetController {
     }
 
     @GetMapping
-    public ResetService.Preview preview() {
+    public ResetPreviewResponse preview() {
         return reset.preview();
     }
 
-    /** @param word what I typed to confirm ("reset") */
-    public record ResetIn(List<ResetPart> parts, String word, boolean withoutBackup) {}
-
     @PostMapping
-    public ResetService.Result reset(@RequestBody ResetIn in) {
+    public ResetResultResponse reset(@RequestBody ResetRequest in) {
         return reset.reset(in.parts(), in.word(), in.withoutBackup());
     }
 }

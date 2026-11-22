@@ -1,5 +1,6 @@
 package com.hisaab.auth.service;
 
+import com.hisaab.auth.dto.OidcLinkResponse;
 import com.hisaab.settings.service.SettingsService;
 import org.springframework.stereotype.Service;
 
@@ -25,15 +26,13 @@ public class OidcLinkService {
     /** An identity waiting for me to confirm linking; kept in the browser session only. */
     public record Pending(String id, String email, String name) implements Serializable {}
 
-    public record Link(boolean linked, String email, Instant linkedAt) {}
-
     public String linkedId() {
         return settings.get(ID).filter(s -> !s.isBlank()).orElse(null);
     }
 
-    public Link link() {
+    public OidcLinkResponse link() {
         String id = linkedId();
-        return new Link(id != null, id == null ? null : settings.get(EMAIL).orElse(null),
+        return new OidcLinkResponse(id != null, id == null ? null : settings.get(EMAIL).orElse(null),
                 id == null ? null : settings.get(AT).filter(s -> !s.isBlank()).map(Instant::parse).orElse(null));
     }
 

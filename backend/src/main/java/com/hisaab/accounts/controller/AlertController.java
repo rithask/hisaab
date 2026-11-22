@@ -1,9 +1,9 @@
 package com.hisaab.accounts.controller;
 
+import com.hisaab.accounts.dto.AlertResponse;
 import com.hisaab.accounts.model.Alert;
 import com.hisaab.accounts.repository.AlertRepository;
 import com.hisaab.accounts.service.BalanceService;
-import com.hisaab.common.dto.Dtos.AlertDto;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,8 +26,8 @@ public class AlertController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public List<AlertDto> alerts() {
-        return alerts.findByDismissedFalseOrderByCreatedAtDesc().stream().map(AlertDto::of).toList();
+    public List<AlertResponse> alerts() {
+        return alerts.findByDismissedFalseOrderByCreatedAtDesc().stream().map(AlertResponse::of).toList();
     }
 
     @PostMapping("/{id}/dismiss")

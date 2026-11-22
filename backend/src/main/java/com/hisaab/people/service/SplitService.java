@@ -1,5 +1,7 @@
 package com.hisaab.people.service;
 
+import com.hisaab.people.dto.PersonBalanceResponse;
+import com.hisaab.people.dto.SplitParticipantRequest;
 import com.hisaab.people.model.SettlementDirection;
 import com.hisaab.people.model.SettlementStatus;
 import com.hisaab.people.model.SplitMethod;
@@ -48,15 +50,13 @@ public class SplitService {
         this.events = events;
     }
 
-    public record Participant(Long personId, BigDecimal value) {}
-
     /**
      * Replace the split on a transaction I paid for.
      * EQUAL: value ignored; the bill is divided among participants (+ me if includeMe), paise remainder stays with me.
      * EXACT: value = amount that person owes. PERCENT: value = percent of the bill.
      */
     @Transactional
-    public List<SplitShare> setSplit(Txn txn, SplitMethod method, boolean includeMe, List<Participant> participants) {
+    public List<SplitShare> setSplit(Txn txn, SplitMethod method, boolean includeMe, List<SplitParticipantRequest> participants) {
         // a bill I split isn't me paying someone back: drop a guess that it was
         settlements.findByTxn(txn).stream().filter(s -> s.getStatus() == SettlementStatus.SUGGESTED).forEach(settlements::delete);
         shares.deleteByTxn(txn);
@@ -79,16 +79,16 @@ public class SplitService {
                 }
             }
             case EXACT -> {
-                for (Participant p : participants) {
+                for (SplitParticipantRequest p : participants) {
                     out.add(share(txn, p.personId(), method, p.value(), Money.r2(p.value())));
                 }
             }
             case PERCENT -> {
-                BigDecimal pctSum = participants.stream().map(Participant::value).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal pctSum = participants.stream().map(SplitParticipantRequest::value).reduce(BigDecimal.ZERO, BigDecimal::add);
                 if (pctSum.compareTo(BigDecimal.valueOf(100)) > 0) {
                     throw new BadRequestException("Percentages add up to more than 100%");
                 }
-                for (Participant p : participants) {
+                for (SplitParticipantRequest p : participants) {
                     BigDecimal amt = total.multiply(p.value()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     out.add(share(txn, p.personId(), method, p.value(), amt));
                 }
@@ -118,25 +118,14 @@ public class SplitService {
         return s;
     }
 
-    /**
-     * Where I stand with someone.
-     *
-     * @param owed        their shares of what I paid for
-     * @param paid        what they paid me back
-     * @param paidForMe   my shares of what they paid for
-     * @param paidBack    what I paid them back
-     * @param outstanding what they owe me: positive, they owe me; negative, I owe them
-     */
-    public record Balance(BigDecimal owed, BigDecimal paid, BigDecimal paidForMe, BigDecimal paidBack, BigDecimal outstanding) {}
-
-    public Balance balance(Person p) {
+    public PersonBalanceResponse balance(Person p) {
         BigDecimal owed = shares.totalOwed(p), paid = settlements.totalPaid(p);
         BigDecimal forMe = txns.totalPaidBy(p), back = settlements.totalPaidBack(p);
-        return new Balance(owed, paid, forMe, back, owed.subtract(forMe).subtract(paid).add(back));
+        return new PersonBalanceResponse(owed, paid, forMe, back, owed.subtract(forMe).subtract(paid).add(back));
     }
 
     /** {@link #balance} for everyone, with four grouped queries instead of four per person; keyed by person id. */
-    public Map<Long, Balance> balances(List<Person> people) {
+    public Map<Long, PersonBalanceResponse> balances(List<Person> people) {
         var owed = byPerson(shares.totalOwedByPerson());
         var forMe = byPerson(txns.totalPaidByPerson());
         var paid = new HashMap<Long, BigDecimal>();
@@ -144,11 +133,11 @@ public class SplitService {
         for (Object[] row : settlements.totalsByPerson(SettlementStatus.CONFIRMED)) {
             (row[1] == SettlementDirection.IN ? paid : back).put((Long) row[0], (BigDecimal) row[2]);
         }
-        Map<Long, Balance> out = new HashMap<>();
+        Map<Long, PersonBalanceResponse> out = new HashMap<>();
         for (Person p : people) {
             BigDecimal o = owed.getOrDefault(p.getId(), BigDecimal.ZERO), pd = paid.getOrDefault(p.getId(), BigDecimal.ZERO);
             BigDecimal f = forMe.getOrDefault(p.getId(), BigDecimal.ZERO), b = back.getOrDefault(p.getId(), BigDecimal.ZERO);
-            out.put(p.getId(), new Balance(o, pd, f, b, o.subtract(f).subtract(pd).add(b)));
+            out.put(p.getId(), new PersonBalanceResponse(o, pd, f, b, o.subtract(f).subtract(pd).add(b)));
         }
         return out;
     }

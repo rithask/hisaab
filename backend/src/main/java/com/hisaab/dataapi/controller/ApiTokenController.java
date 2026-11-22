@@ -1,8 +1,9 @@
 package com.hisaab.dataapi.controller;
 
+import com.hisaab.dataapi.dto.TokenCreatedResponse;
+import com.hisaab.dataapi.dto.TokenRequest;
+import com.hisaab.dataapi.dto.TokenResponse;
 import com.hisaab.dataapi.service.ApiTokenService;
-import com.hisaab.dataapi.service.ApiTokenService.TokenInput;
-import com.hisaab.dataapi.service.ApiTokenService.TokenView;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,18 +19,18 @@ public class ApiTokenController {
     }
 
     @GetMapping
-    public List<TokenView> list() {
+    public List<TokenResponse> list() {
         return tokens.list();
     }
 
     /** The token itself is in the reply, and only there. */
     @PostMapping
-    public ApiTokenService.Created create(@RequestBody TokenInput in) {
+    public TokenCreatedResponse create(@RequestBody TokenRequest in) {
         return tokens.create(in);
     }
 
     @PutMapping("/{id}")
-    public TokenView update(@PathVariable Long id, @RequestBody TokenInput in) {
+    public TokenResponse update(@PathVariable Long id, @RequestBody TokenRequest in) {
         return tokens.update(id, in);
     }
 

@@ -1,7 +1,16 @@
 package com.hisaab.dataapi.controller;
 
+import com.hisaab.dataapi.dto.ApiAccountRefResponse;
+import com.hisaab.dataapi.dto.ApiBalancesResponse;
+import com.hisaab.dataapi.dto.ApiCategoryResponse;
+import com.hisaab.dataapi.dto.ApiListResponse;
+import com.hisaab.dataapi.dto.ApiPageResponse;
+import com.hisaab.dataapi.dto.ApiSmsReceivedResponse;
+import com.hisaab.dataapi.dto.ApiSmsRequest;
+import com.hisaab.dataapi.dto.ApiSummaryResponse;
+import com.hisaab.dataapi.dto.ApiTransactionRequest;
+import com.hisaab.dataapi.dto.ApiTransactionResponse;
 import com.hisaab.config.ApiTokenFilter;
-import com.hisaab.dataapi.dto.DataApi;
 import com.hisaab.dataapi.model.ApiToken;
 import com.hisaab.dataapi.service.DataApiService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +35,7 @@ public class DataApiController {
 
     /** The next page is also linked in a {@code Link: <…>; rel="next"} header (RFC 8288). */
     @GetMapping("/transactions")
-    public org.springframework.http.ResponseEntity<DataApi.Page<DataApi.Transaction>> transactions(HttpServletRequest req,
+    public org.springframework.http.ResponseEntity<ApiPageResponse<ApiTransactionResponse>> transactions(HttpServletRequest req,
                                                           @RequestParam(required = false) String date,
                                                           @RequestParam(required = false) String since,
                                                           @RequestParam(name = "updated_since", required = false) String updatedSince,
@@ -34,7 +43,7 @@ public class DataApiController {
                                                           @RequestParam(required = false) String account,
                                                           @RequestParam(required = false) Integer limit,
                                                           @RequestParam(required = false) String cursor) {
-        DataApi.Page<DataApi.Transaction> page = api.transactions(token(req), date, since, updatedSince, category, account, limit, cursor);
+        ApiPageResponse<ApiTransactionResponse> page = api.transactions(token(req), date, since, updatedSince, category, account, limit, cursor);
         var res = org.springframework.http.ResponseEntity.ok();
         if (page.nextCursor() != null) {
             String next = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequest()
@@ -45,22 +54,22 @@ public class DataApiController {
     }
 
     @GetMapping("/transactions/{id}")
-    public DataApi.Transaction transaction(HttpServletRequest req, @PathVariable String id) {
+    public ApiTransactionResponse transaction(HttpServletRequest req, @PathVariable String id) {
         return api.transaction(token(req), id);
     }
 
     @GetMapping("/categories")
-    public DataApi.ListOf<DataApi.Category> categories(HttpServletRequest req) {
+    public ApiListResponse<ApiCategoryResponse> categories(HttpServletRequest req) {
         return api.categories(token(req));
     }
 
     @GetMapping("/accounts")
-    public DataApi.ListOf<DataApi.AccountRef> accounts(HttpServletRequest req) {
+    public ApiListResponse<ApiAccountRefResponse> accounts(HttpServletRequest req) {
         return api.accounts(token(req));
     }
 
     @GetMapping("/summary")
-    public DataApi.Summary summary(HttpServletRequest req,
+    public ApiSummaryResponse summary(HttpServletRequest req,
                                    @RequestParam(required = false) String month,
                                    @RequestParam(required = false) String from,
                                    @RequestParam(required = false) String to,
@@ -76,8 +85,8 @@ public class DataApiController {
      * (draft-ietf-httpapi-idempotency-key-header), repeating the same request returns what the first one created.
      */
     @PostMapping("/transactions")
-    public org.springframework.http.ResponseEntity<DataApi.Transaction> add(HttpServletRequest req,
-                                                                           @RequestBody(required = false) DataApi.NewTransaction in,
+    public org.springframework.http.ResponseEntity<ApiTransactionResponse> add(HttpServletRequest req,
+                                                                           @RequestBody(required = false) ApiTransactionRequest in,
                                                                            @RequestHeader(name = "Idempotency-Key", required = false) String key) {
         DataApiService.Added a = api.add(token(req), in, key);
         java.net.URI location = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentRequestUri()
@@ -86,12 +95,12 @@ public class DataApiController {
     }
 
     @GetMapping("/balances")
-    public DataApi.Balances balances(HttpServletRequest req) {
+    public ApiBalancesResponse balances(HttpServletRequest req) {
         return api.balances(token(req));
     }
 
     @PostMapping("/sms")
-    public DataApi.SmsReceived sms(HttpServletRequest req, @RequestBody(required = false) DataApi.NewSms in) {
+    public ApiSmsReceivedResponse sms(HttpServletRequest req, @RequestBody(required = false) ApiSmsRequest in) {
         return api.sms(token(req), in);
     }
 }

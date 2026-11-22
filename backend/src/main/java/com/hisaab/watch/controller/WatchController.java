@@ -1,5 +1,14 @@
 package com.hisaab.watch.controller;
 
+import com.hisaab.watch.dto.BillKeyRequest;
+import com.hisaab.watch.dto.BillKeyResponse;
+import com.hisaab.watch.dto.BillResponse;
+import com.hisaab.watch.dto.CardRewardsResponse;
+import com.hisaab.watch.dto.RefundRequest;
+import com.hisaab.watch.dto.RefundResponse;
+import com.hisaab.watch.dto.RewardProgramRequest;
+import com.hisaab.watch.dto.SubscriptionOverviewResponse;
+import com.hisaab.watch.dto.UnusualOverviewResponse;
 import com.hisaab.settings.model.Feature;
 import com.hisaab.common.util.Money;
 import com.hisaab.settings.service.RequiresFeature;
@@ -35,53 +44,49 @@ public class WatchController {
         this.dismissals = dismissals;
     }
 
-    public record KeyInput(String key) {}
-
     // ---- subscriptions
 
     @GetMapping("/subscriptions")
-    public SubscriptionService.Overview subscriptions() {
+    public SubscriptionOverviewResponse subscriptions() {
         return subscriptions.overview();
     }
 
     @PostMapping("/subscriptions/hide")
-    public void hide(@RequestBody KeyInput in) {
+    public void hide(@RequestBody BillKeyRequest in) {
         subscriptions.hide(key(in));
     }
 
     @PostMapping("/subscriptions/unhide")
-    public void unhide(@RequestBody KeyInput in) {
+    public void unhide(@RequestBody BillKeyRequest in) {
         subscriptions.unhide(key(in));
     }
 
     // ---- "looks fine" for an alert from either feature
 
     @PostMapping("/watch/dismiss")
-    public void dismiss(@RequestBody KeyInput in) {
+    public void dismiss(@RequestBody BillKeyRequest in) {
         dismissals.dismiss(key(in));
     }
 
     @PostMapping("/watch/restore")
-    public void restore(@RequestBody KeyInput in) {
+    public void restore(@RequestBody BillKeyRequest in) {
         dismissals.restore(key(in));
     }
 
     // ---- unusual activity and refunds
 
     @GetMapping("/unusual")
-    public UnusualService.Overview unusual() {
+    public UnusualOverviewResponse unusual() {
         return unusual.overview();
     }
 
-    public record RefundInput(long txnId, LocalDate expectedBy) {}
-
     @GetMapping("/refunds/{txnId}")
-    public ResponseEntity<UnusualService.Refund> refund(@PathVariable long txnId) {
+    public ResponseEntity<RefundResponse> refund(@PathVariable long txnId) {
         return unusual.refund(txnId).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/refunds")
-    public UnusualService.Refund expectRefund(@RequestBody RefundInput in) {
+    public RefundResponse expectRefund(@RequestBody RefundRequest in) {
         if (in.expectedBy() != null && in.expectedBy().isBefore(LocalDate.now(Money.ZONE)))
             throw new BadRequestException("Pick a date from today on");
         unusual.expectRefund(in.txnId(), in.expectedBy());
@@ -97,13 +102,13 @@ public class WatchController {
 
     @GetMapping("/rewards")
     @RequiresFeature(Feature.REWARDS)
-    public List<RewardService.CardRewards> rewards() {
+    public List<CardRewardsResponse> rewards() {
         return rewards.all();
     }
 
     @PutMapping("/rewards/{accountId}")
     @RequiresFeature(Feature.REWARDS)
-    public Map<String, Boolean> saveRewards(@PathVariable long accountId, @RequestBody RewardService.ProgramInput in) {
+    public Map<String, Boolean> saveRewards(@PathVariable long accountId, @RequestBody RewardProgramRequest in) {
         rewards.save(accountId, in);
         return Map.of("saved", true);
     }
@@ -114,26 +119,24 @@ public class WatchController {
         rewards.remove(accountId);
     }
 
-    private static String key(KeyInput in) {
+    private static String key(BillKeyRequest in) {
         if (in == null || in.key() == null || in.key().isBlank()) throw new BadRequestException("Missing key");
         return in.key();
     }
 
     // ---- bills
     @GetMapping("/bills")
-    public List<BillService.Bill> bills(@RequestParam(required = false) Integer within) {
+    public List<BillResponse> bills(@RequestParam(required = false) Integer within) {
         return within == null ? bills.all() : bills.upcoming(within);
     }
 
-    public record BillKey(String key) {}
-
     @PostMapping("/bills/ignore")
-    public void notABill(@RequestBody BillKey in) {
+    public void notABill(@RequestBody BillKeyResponse in) {
         bills.ignore(in.key());
     }
 
     @PostMapping("/bills/unignore")
-    public void isABill(@RequestBody BillKey in) {
+    public void isABill(@RequestBody BillKeyResponse in) {
         bills.unignore(in.key());
     }
 }

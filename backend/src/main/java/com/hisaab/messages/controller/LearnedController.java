@@ -1,5 +1,10 @@
 package com.hisaab.messages.controller;
 
+import com.hisaab.messages.dto.BankDomainsResponse;
+import com.hisaab.messages.dto.LearnedResponse;
+import com.hisaab.messages.dto.PayeeAliasResponse;
+import com.hisaab.messages.dto.SmsTemplateResponse;
+import com.hisaab.messages.dto.TrustedDomainResponse;
 import com.hisaab.common.model.Institution;
 import com.hisaab.categories.service.PayeeAliasService;
 import com.hisaab.common.util.Audit;
@@ -9,7 +14,6 @@ import com.hisaab.messages.service.SmsSenders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,43 +36,23 @@ public class LearnedController {
         this.trust = trust;
     }
 
-    public record TemplateDto(Long id, String skeleton, String sample, String institution, String direction, int hits,
-                              Instant lastUsedAt, String channel, String kind, int corrections, boolean paused,
-                              boolean auto) {}
-
-    public record AliasDto(Long id, String rawKey, String displayName, int hits) {}
-
-    /** @param since when I trusted it */
-    public record TrustedDomainDto(String domain, Instant since) {}
-
-    /** A bank's own email domains, built into the app (always trusted, can't be removed). */
-    public record BankDomainsDto(String institution, String name, List<String> domains) {}
-
-    /**
-     * @param senders        SMS sender ids whose bank the app learned
-     * @param trustedDomains email domains I trusted myself
-     * @param bankDomains    the banks' own email domains, built in
-     */
-    public record Learned(List<TemplateDto> formats, List<AliasDto> payees, long senders, List<TrustedDomainDto> trustedDomains,
-                          List<BankDomainsDto> bankDomains) {}
-
     @GetMapping("/sms/learned")
     @Transactional(readOnly = true)
-    public Learned learned() {
-        return new Learned(
-                learning.templates().stream().map(t -> new TemplateDto(t.getId(), t.getSkeleton(), t.getSample(),
+    public LearnedResponse learned() {
+        return new LearnedResponse(
+                learning.templates().stream().map(t -> new SmsTemplateResponse(t.getId(), t.getSkeleton(), t.getSample(),
                         t.getInstitution() == null ? null : t.getInstitution().name(), t.getDirection() == null ? null : t.getDirection().name(),
                         t.getHits(), t.getLastUsedAt(), t.getChannel().name(), t.getKind(), t.getCorrections(), t.isPaused(), t.isAuto())).toList(),
-                aliases.all().stream().map(a -> new AliasDto(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
+                aliases.all().stream().map(a -> new PayeeAliasResponse(a.getId(), a.getRawKey(), a.getDisplayName(), a.getHits())).toList(),
                 smsSenders.senderCount(),
-                trust.trustedSenders().stream().map(t -> new TrustedDomainDto(t.getDomain(), t.getCreatedAt())).toList(),
+                trust.trustedSenders().stream().map(t -> new TrustedDomainResponse(t.getDomain(), t.getCreatedAt())).toList(),
                 bankDomains());
     }
 
     /** Each bank's built-in domains, in the order banks are listed everywhere else. */
-    private static List<BankDomainsDto> bankDomains() {
+    private static List<BankDomainsResponse> bankDomains() {
         return Arrays.stream(Institution.values()).filter(SenderTrust.BANK_DOMAINS::containsKey)
-                .map(i -> new BankDomainsDto(i.name(), i.label(), SenderTrust.BANK_DOMAINS.get(i))).toList();
+                .map(i -> new BankDomainsResponse(i.name(), i.label(), SenderTrust.BANK_DOMAINS.get(i))).toList();
     }
 
     /** Use a paused format again (its correction count starts over). */
