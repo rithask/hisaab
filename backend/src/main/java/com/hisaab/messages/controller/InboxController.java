@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -123,7 +124,7 @@ public class InboxController {
     @PostMapping("/emails/{id}/trust-sender")
     public TrustResponse trustSender(@PathVariable Long id) {
         String domain = SenderTrust.domainOf(message(id).getFromAddress());
-        if (domain == null) throw new IllegalArgumentException("This email has no sender address");
+        if (domain == null) throw new BadRequestException("This email has no sender address");
         return new TrustResponse(domain, processor.trustSender(domain));
     }
 

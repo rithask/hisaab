@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -175,7 +176,7 @@ public class UnusualService {
     public void expectRefund(long txnId, LocalDate expectedBy) {
         LocalDate by = expectedBy != null ? expectedBy : LocalDate.now(Money.ZONE).plusDays(14);
         Integer debit = jdbc.queryForObject("select count(*) from txn where id = :id and direction = 'DEBIT' and account_id is not null", new MapSqlParameterSource("id", txnId), Integer.class);
-        if (debit == null || debit == 0) throw new IllegalArgumentException("Only a payment can have a refund");
+        if (debit == null || debit == 0) throw new BadRequestException("Only a payment can have a refund");
         jdbc.update("""
                 insert into refund_watch (txn_id, expected_by) values (:id, :by)
                 on conflict (txn_id) do update set expected_by = excluded.expected_by

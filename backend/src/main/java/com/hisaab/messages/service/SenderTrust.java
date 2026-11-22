@@ -6,6 +6,8 @@ import com.hisaab.messages.repository.TrustedSenderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotFoundException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,7 +69,7 @@ public class SenderTrust {
     @Transactional
     public void trust(String domain) {
         String d = domain == null ? null : domain.trim().toLowerCase(Locale.ROOT);
-        if (d == null || !d.matches("[a-z0-9.-]+\\.[a-z]{2,}")) throw new IllegalArgumentException("Not an email domain: " + domain);
+        if (d == null || !d.matches("[a-z0-9.-]+\\.[a-z]{2,}")) throw new BadRequestException("Not an email domain: " + domain);
         if (!trusted.existsById(d)) trusted.save(new TrustedSender(d));
     }
 
@@ -81,7 +83,7 @@ public class SenderTrust {
     @Transactional
     public void untrust(String domain) {
         String d = domain == null ? null : domain.trim().toLowerCase(Locale.ROOT);
-        if (d == null || !trusted.existsById(d)) throw new NoSuchElementException("That sender isn't trusted");
+        if (d == null || !trusted.existsById(d)) throw new NotFoundException("That sender isn't trusted");
         trusted.deleteById(d);
     }
 

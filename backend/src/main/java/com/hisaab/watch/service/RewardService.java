@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
@@ -240,8 +241,8 @@ public class RewardService {
     @Transactional
     public void save(long accountId, ProgramInput in) {
         Account a = accounts.findById(accountId).orElseThrow(notFound("Card"));
-        if (a.getType() != AccountType.CREDIT_CARD) throw new IllegalArgumentException("Rewards are for credit cards");
-        if (!"CASHBACK".equals(in.kind()) && !"POINTS".equals(in.kind())) throw new IllegalArgumentException("Choose cashback or points");
+        if (a.getType() != AccountType.CREDIT_CARD) throw new BadRequestException("Rewards are for credit cards");
+        if (!"CASHBACK".equals(in.kind()) && !"POINTS".equals(in.kind())) throw new BadRequestException("Choose cashback or points");
         boolean points = in.kind().equals("POINTS");
         BigDecimal max = points ? BigDecimal.valueOf(1000) : BigDecimal.valueOf(100);
         BigDecimal base = rate(in.baseRate(), max, "The usual rate");
@@ -249,7 +250,7 @@ public class RewardService {
         BigDecimal pv = points ? positive(in.pointValue(), "The value of a point") : null;
         BigDecimal bal = points ? positive(in.pointsBalance(), "The points balance") : null;
         LocalDate asOf = points && bal != null ? (in.pointsAsOf() != null ? in.pointsAsOf() : LocalDate.now(Money.INDIA)) : null;
-        if (asOf != null && asOf.isAfter(LocalDate.now(Money.INDIA))) throw new IllegalArgumentException("The points date can't be in the future");
+        if (asOf != null && asOf.isAfter(LocalDate.now(Money.INDIA))) throw new BadRequestException("The points date can't be in the future");
 
         var p = new MapSqlParameterSource("a", accountId).addValue("kind", in.kind()).addValue("base", base).addValue("cap", cap)
                 .addValue("pv", pv).addValue("bal", bal).addValue("asOf", asOf);
@@ -262,12 +263,12 @@ public class RewardService {
                 """, p);
         jdbc.update("delete from reward_rule where account_id = :a", p);
         List<RuleInput> rules = in.rules() == null ? List.of() : in.rules();
-        if (rules.size() > 30) throw new IllegalArgumentException("That's a lot of rules; 30 at most");
+        if (rules.size() > 30) throw new BadRequestException("That's a lot of rules; 30 at most");
         int pos = 0;
         for (RuleInput r : rules) {
             String match = r.merchantMatch() == null || r.merchantMatch().isBlank() ? null : r.merchantMatch().trim();
-            if (match == null && r.categoryId() == null) throw new IllegalArgumentException("Each special rate needs a merchant or a category");
-            if (match != null && match.length() > 200) throw new IllegalArgumentException("Merchant text is too long");
+            if (match == null && r.categoryId() == null) throw new BadRequestException("Each special rate needs a merchant or a category");
+            if (match != null && match.length() > 200) throw new BadRequestException("Merchant text is too long");
             String label = r.label() == null || r.label().isBlank() ? (match != null ? match : "Category") : r.label().trim();
             if (label.length() > 100) label = label.substring(0, 100);
             jdbc.update("""
@@ -284,13 +285,13 @@ public class RewardService {
 
     private static BigDecimal rate(BigDecimal v, BigDecimal max, String what) {
         if (v == null) return BigDecimal.ZERO;
-        if (v.signum() < 0 || v.compareTo(max) > 0) throw new IllegalArgumentException(what + " must be between 0 and " + max.toPlainString());
+        if (v.signum() < 0 || v.compareTo(max) > 0) throw new BadRequestException(what + " must be between 0 and " + max.toPlainString());
         return v;
     }
 
     private static BigDecimal positive(BigDecimal v, String what) {
         if (v == null) return null;
-        if (v.signum() < 0) throw new IllegalArgumentException(what + " can't be negative");
+        if (v.signum() < 0) throw new BadRequestException(what + " can't be negative");
         return v;
     }
 }

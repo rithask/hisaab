@@ -2,7 +2,7 @@ package com.hisaab.dataapi.exception;
 
 import com.hisaab.config.ApiTokenFilter;
 import com.hisaab.dataapi.controller.DataApiController;
-import com.hisaab.dataapi.service.DataApiService;
+import com.hisaab.common.exception.NotAllowedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -13,7 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HexFormat;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ThreadLocalRandom;
 
 /** The Data API answers errors as standard problem details (RFC 9457), unlike the app's own {"error": ...}. */
 @RestControllerAdvice(assignableTypes = DataApiController.class)
@@ -21,13 +23,13 @@ import java.util.NoSuchElementException;
 public class DataApiErrors {
     private static final Logger log = LoggerFactory.getLogger(DataApiErrors.class);
 
-    @ExceptionHandler(DataApiService.Forbidden.class)
-    ResponseEntity<ProblemDetail> forbidden(DataApiService.Forbidden e) {
+    @ExceptionHandler(TokenForbiddenException.class)
+    ResponseEntity<ProblemDetail> forbidden(TokenForbiddenException e) {
         return problem(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
-    @ExceptionHandler(DataApiService.KeyReused.class)
-    ResponseEntity<ProblemDetail> keyReused(DataApiService.KeyReused e) {
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    ResponseEntity<ProblemDetail> keyReused(IdempotencyKeyReusedException e) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
     }
 
@@ -43,7 +45,8 @@ public class DataApiErrors {
         return problem(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    /** {@code BadRequestException}, {@code NotAllowedException}, and a library's own invalid-argument error. */
+    @ExceptionHandler({IllegalArgumentException.class, NotAllowedException.class})
     ResponseEntity<ProblemDetail> badRequest(RuntimeException e) {
         return problem(HttpStatus.BAD_REQUEST, e.getMessage());
     }
@@ -51,6 +54,7 @@ public class DataApiErrors {
     @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
     ResponseEntity<ProblemDetail> unreadable(Exception e) {
+        log.debug("Data API request unreadable: {}", e.getMessage());
         return problem(HttpStatus.BAD_REQUEST, "The request isn't valid. See docs/api.md for what each endpoint takes.");
     }
 
@@ -73,10 +77,11 @@ public class DataApiErrors {
             HttpStatus status = HttpStatus.valueOf(er.getStatusCode().value());
             return problem(status, er.getBody().getDetail() == null ? status.getReasonPhrase() : er.getBody().getDetail());
         }
-        log.error("Data API request failed", e);
+        String ref = HexFormat.of().toHexDigits(ThreadLocalRandom.current().nextInt()).substring(0, 6);
+        log.error("Data API request failed [ref {}]: {}", ref, e.toString(), e);
         note(e.toString());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on the server."));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on the server (ref " + ref + ")."));
     }
 
     static ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {

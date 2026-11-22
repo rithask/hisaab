@@ -6,6 +6,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.text.PDFTextStripper;
 
+import com.hisaab.statements.exception.PasswordRequiredException;
+import com.hisaab.statements.exception.UnsupportedStatementException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -14,12 +16,6 @@ import java.util.List;
 /** Text of a (possibly password-protected) PDF, one visual line per text line. */
 public final class PdfText {
     private PdfText() {}
-
-    public static class PasswordRequired extends IOException {
-        public PasswordRequired(String message) {
-            super(message);
-        }
-    }
 
     public record Opened(String text, String password) {}
 
@@ -38,9 +34,9 @@ public final class PdfText {
                 if (!pw.isEmpty()) wrongGiven = true;
             } catch (IOException e) {
                 // not a PDF, or a damaged one: the file's fault, not the server's
-                throw new StatementImportService.UnsupportedStatement("This file isn't a PDF that can be read. Upload the statement PDF as the bank sent it.");
+                throw new UnsupportedStatementException("This file isn't a PDF that can be read. Upload the statement PDF as the bank sent it.");
             }
         }
-        throw new PasswordRequired(wrongGiven ? "That password didn't open the statement." : "This statement is password protected.");
+        throw new PasswordRequiredException(wrongGiven ? "That password didn't open the statement." : "This statement is password protected.");
     }
 }

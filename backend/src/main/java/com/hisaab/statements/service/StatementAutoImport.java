@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import com.hisaab.statements.exception.PasswordRequiredException;
+import com.hisaab.statements.exception.UnsupportedStatementException;
 import java.nio.file.Files;
 
 /**
@@ -40,7 +42,7 @@ public class StatementAutoImport {
         try {
             self.read(e.statementFileId());
         } catch (RuntimeException ex) {
-            log.warn("Couldn't read statement {} for import: {}", e.statementFileId(), ex.toString());
+            log.error("Couldn't read statement {} for import", e.statementFileId(), ex);
             self.mark(e.statementFileId(), "ERROR", "Couldn't read it: " + ex.getMessage());
         }
     }
@@ -53,10 +55,12 @@ public class StatementAutoImport {
         try {
             byte[] pdf = Files.readAllBytes(storage.resolve(f.getStoredPath()));
             imports.start(pdf, f.getFileName(), null, false, f);
-        } catch (PdfText.PasswordRequired ex) {
+        } catch (PasswordRequiredException ex) {
+            log.info("Statement {} from email needs its password before it can be read", fileId);
             f.setImportStatus("NEEDS_PASSWORD");
             f.setImportNote("Needs its password once; after that, statements for this account open by themselves.");
-        } catch (StatementImportService.UnsupportedStatement ex) {
+        } catch (UnsupportedStatementException ex) {
+            log.info("Statement {} from email isn't one the app can read: {}", fileId, ex.getMessage());
             f.setImportStatus("UNSUPPORTED");
             f.setImportNote(ex.getMessage());
         } catch (java.io.IOException ex) {

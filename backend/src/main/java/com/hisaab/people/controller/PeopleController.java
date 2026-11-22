@@ -18,6 +18,8 @@ import com.hisaab.transactions.repository.TxnRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotAllowedException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -103,14 +105,14 @@ public class PeopleController {
         Person p = person(id);
         // what they paid for me is part of my spending: don't let it vanish with them
         if (txns.existsByPaidBy(p)) {
-            throw new IllegalStateException(p.getName() + " paid for things you recorded. Delete those first, or keep " + p.getName() + ".");
+            throw new NotAllowedException(p.getName() + " paid for things you recorded. Delete those first, or keep " + p.getName() + ".");
         }
         people.delete(p);
         Audit.log("Person deleted id={} with their split history", id);
     }
 
     private static Person apply(Person p, PersonInput in) {
-        if (in.name() == null || in.name().isBlank()) throw new IllegalArgumentException("Name is required");
+        if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
         p.setName(in.name().trim());
         p.setUpiName(in.upiName() == null || in.upiName().isBlank() ? null : in.upiName().trim());
         p.setPhone(in.phone());

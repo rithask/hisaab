@@ -28,6 +28,9 @@ import com.hisaab.transactions.service.TransactionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotAllowedException;
+import com.hisaab.statements.exception.UnsupportedStatementException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -91,18 +94,12 @@ public class StatementImportService {
     // ---- reading ------------------------------------------------------------------------------------------
 
     /** Thrown when the PDF opened but isn't a statement format I can read. */
-    public static class UnsupportedStatement extends IllegalArgumentException {
-        public UnsupportedStatement(String m) {
-            super(m);
-        }
-    }
-
     /**
      * Reads an uploaded statement (or one saved from email) and prepares it for review.
      *
      * @param password tried along with any remembered statement passwords; may be null
      */
-    @Transactional(noRollbackFor = UnsupportedStatement.class)
+    @Transactional(noRollbackFor = UnsupportedStatementException.class)
     public StatementImport start(byte[] pdf, String fileName, String password, boolean remember, StatementFile fromEmail)
             throws IOException {
         List<String> candidates = new ArrayList<>();
@@ -113,12 +110,12 @@ public class StatementImportService {
         StatementParser parser = parsers.stream().filter(p -> p.supports(opened.text())).findFirst().orElse(null);
         if (parser == null) {
             log.warn("Statement not recognised by any parser ({} characters of text{})", opened.text().length(), fromEmail == null ? ", uploaded" : ", from email statement " + fromEmail.getId());
-            throw new UnsupportedStatement("This statement's format isn't supported yet. Supported: Canara Bank, Axis Bank account, Axis credit card and HDFC credit card statements.");
+            throw new UnsupportedStatementException("This statement's format isn't supported yet. Supported: Canara Bank, Axis Bank account, Axis credit card and HDFC credit card statements.");
         }
         ParsedStatement s = parser.parse(opened.text());
         if (s.rows().isEmpty()) {
             log.warn("Statement read by {} but no transactions found{}", s.parser(), fromEmail == null ? " (uploaded)" : " (email statement " + fromEmail.getId() + ")");
-            throw new UnsupportedStatement("No transactions were found in this statement.");
+            throw new UnsupportedStatementException("No transactions were found in this statement.");
         }
 
         StatementImport imp = new StatementImport();
@@ -410,7 +407,7 @@ public class StatementImportService {
         StatementImport imp = review(importId);
         StatementImportLine l = lines.findById(lineId).filter(x -> x.getStatementImport().getId().equals(imp.getId()))
                 .orElseThrow(notFound("Line"));
-        if (d == LineDecision.MERGE && l.getMatchTxn() == null) throw new IllegalArgumentException("Nothing to merge this line with");
+        if (d == LineDecision.MERGE && l.getMatchTxn() == null) throw new BadRequestException("Nothing to merge this line with");
         l.setDecision(d);
         return l;
     }
@@ -426,10 +423,10 @@ public class StatementImportService {
     public Result commit(Long importId, boolean fixStart) {
         StatementImport imp = review(importId);
         Account account = imp.getAccount();
-        if (account == null) throw new IllegalArgumentException("Choose which account this statement belongs to first");
+        if (account == null) throw new BadRequestException("Choose which account this statement belongs to first");
         List<StatementImportLine> ls = lines.findByStatementImportOrderByLineNo(imp);
         long open = ls.stream().filter(l -> l.getDecision() == null).count();
-        if (open > 0) throw new IllegalArgumentException(open + " line" + (open > 1 ? "s need" : " needs") + " your decision before importing");
+        if (open > 0) throw new BadRequestException(open + " line" + (open > 1 ? "s need" : " needs") + " your decision before importing");
 
         int added = 0, updated = 0, skipped = 0;
         for (StatementImportLine l : ls) {
@@ -458,6 +455,7 @@ public class StatementImportService {
             try {
                 f.setSizeBytes(Files.size(storage.resolve(imp.getStoredPath())));
             } catch (IOException e) {
+                log.warn("Couldn't read the size of statement file {}: {}", imp.getStoredPath(), e.toString());
                 f.setSizeBytes(0);
             }
             f.setReceivedAt(Instant.now());
@@ -503,8 +501,9 @@ public class StatementImportService {
         if (imp.getStatementFile() == null && imp.getStoredPath() != null) {
             try {
                 Files.deleteIfExists(storage.resolve(imp.getStoredPath()));
-            } catch (IOException ignored) {
-                // a leftover upload is harmless
+            } catch (IOException e) {
+                // A leftover upload is harmless, but say where it is.
+                log.warn("Couldn't delete the cancelled upload {}: {}", imp.getStoredPath(), e.toString());
             }
             imp.setStoredPath(null);
         }
@@ -524,7 +523,7 @@ public class StatementImportService {
 
     private StatementImport review(Long id) {
         StatementImport imp = get(id);
-        if (imp.getStatus() != ImportStatus.REVIEW) throw new IllegalStateException("This import is already " + imp.getStatus().name().toLowerCase());
+        if (imp.getStatus() != ImportStatus.REVIEW) throw new NotAllowedException("This import is already " + imp.getStatus().name().toLowerCase());
         return imp;
     }
 

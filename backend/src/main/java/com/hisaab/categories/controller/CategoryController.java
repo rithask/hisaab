@@ -17,6 +17,7 @@ import com.hisaab.transactions.repository.TagRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.util.List;
 import java.util.Locale;
 
@@ -62,8 +63,8 @@ public class CategoryController {
     }
 
     private static Category apply(Category c, CategoryInput in) {
-        if (in.name() == null || in.name().isBlank()) throw new IllegalArgumentException("Name is required");
-        if (in.kind() == null) throw new IllegalArgumentException("Kind is required");
+        if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
+        if (in.kind() == null) throw new BadRequestException("Kind is required");
         c.setName(in.name().trim());
         c.setKind(in.kind());
         if (in.color() != null && in.color().matches("#[0-9a-fA-F]{6}")) c.setColor(in.color());
@@ -114,7 +115,7 @@ public class CategoryController {
     }
 
     private CategoryRule apply(CategoryRule r, RuleInput in) {
-        if (in.pattern() == null || in.pattern().isBlank()) throw new IllegalArgumentException("Pattern is required");
+        if (in.pattern() == null || in.pattern().isBlank()) throw new BadRequestException("Pattern is required");
         r.setMatchType(in.matchType() == null ? RuleMatch.CONTAINS : in.matchType());
         r.setPattern(in.pattern().trim().toLowerCase(Locale.ROOT));
         r.setCategory(categories.findById(in.categoryId()).orElseThrow(() -> new IllegalArgumentException("Unknown category")));

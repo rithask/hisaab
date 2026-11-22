@@ -10,6 +10,7 @@ import com.hisaab.transactions.repository.TxnRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -68,10 +69,10 @@ public class TransferService {
     @Transactional
     public void link(Txn a, Txn b) {
         if (a.getAccount().getId().equals(b.getAccount().getId())) {
-            throw new IllegalArgumentException("Both sides of a transfer must be in different accounts");
+            throw new BadRequestException("Both sides of a transfer must be in different accounts");
         }
         if (a.getDirection() == b.getDirection()) {
-            throw new IllegalArgumentException("A transfer needs one debit and one credit");
+            throw new BadRequestException("A transfer needs one debit and one credit");
         }
         a.setLinkedTxn(b);
         b.setLinkedTxn(a);

@@ -8,6 +8,7 @@ import com.hisaab.messages.service.EmailProcessor.SmsOutcome;
 import com.hisaab.transactions.model.Txn;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,8 +47,8 @@ public class SmsController {
     }
 
     private SmsResult ingest(String sender, String text) {
-        if (text == null || text.isBlank()) throw new IllegalArgumentException("SMS text is empty (send it as \"text\")");
-        if (text.length() > MAX_LENGTH) throw new IllegalArgumentException("SMS text is too long (max " + MAX_LENGTH + " characters)");
+        if (text == null || text.isBlank()) throw new BadRequestException("SMS text is empty (send it as \"text\")");
+        if (text.length() > MAX_LENGTH) throw new BadRequestException("SMS text is too long (max " + MAX_LENGTH + " characters)");
         if (sender != null && sender.length() > 100) sender = sender.substring(0, 100);
         SmsOutcome o = processor.processSms(sender, text, Instant.now());
 

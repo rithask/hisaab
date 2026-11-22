@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -82,7 +83,7 @@ public class StatementImportController {
     @PostMapping("/statement-imports")
     public ImportView upload(@RequestParam("file") MultipartFile file, @RequestParam(required = false) String password,
                              @RequestParam(defaultValue = "false") boolean remember) throws IOException {
-        if (file.isEmpty()) throw new IllegalArgumentException("Choose a statement PDF");
+        if (file.isEmpty()) throw new BadRequestException("Choose a statement PDF");
         return view(service.start(file.getBytes(), file.getOriginalFilename(), password, remember, null));
     }
 
@@ -113,7 +114,7 @@ public class StatementImportController {
 
     @PutMapping("/statement-imports/{id}/account")
     public ImportView account(@PathVariable Long id, @RequestBody AccountChoice in) {
-        if (in.accountId() == null) throw new IllegalArgumentException("Pick an account");
+        if (in.accountId() == null) throw new BadRequestException("Pick an account");
         return view(service.setAccount(id, in.accountId()));
     }
 

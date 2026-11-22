@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -21,7 +22,7 @@ public class WatchDismissals {
     }
 
     public void dismiss(String key) {
-        if (key == null || key.isBlank() || key.length() > 300) throw new IllegalArgumentException("Unknown alert");
+        if (key == null || key.isBlank() || key.length() > 300) throw new BadRequestException("Unknown alert");
         jdbc.update("insert into watch_dismiss (key) values (:k) on conflict do nothing", new MapSqlParameterSource("k", key));
     }
 

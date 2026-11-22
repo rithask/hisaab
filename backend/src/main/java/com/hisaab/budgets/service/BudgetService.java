@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
@@ -58,7 +59,7 @@ public class BudgetService {
     }
 
     public void set(long categoryId, BigDecimal limit) {
-        if (limit == null || limit.signum() <= 0) throw new IllegalArgumentException("A budget must be more than zero");
+        if (limit == null || limit.signum() <= 0) throw new BadRequestException("A budget must be more than zero");
         jdbc.update("""
                 insert into budget (category_id, monthly_limit) values (:c, :l)
                 on conflict (category_id) do update set monthly_limit = excluded.monthly_limit

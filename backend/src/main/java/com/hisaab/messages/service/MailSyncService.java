@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotAllowedException;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -89,7 +91,13 @@ public class MailSyncService {
 
     @Scheduled(fixedDelayString = "${app.mail.poll-interval:PT2M}", initialDelayString = "PT20S")
     public void scheduledSync() {
-        if (configured()) sync();
+        if (!configured()) return;
+        try {
+            sync();
+        } catch (RuntimeException e) {
+            // sync() records mailbox errors itself; this is anything it didn't expect.
+            log.error("Scheduled mail sync failed", e);
+        }
     }
 
     /** Fetch messages that arrived since the last sync. The first ever sync just bookmarks the mailbox. */
@@ -129,10 +137,10 @@ public class MailSyncService {
      * {@link #importStatus()}. Emails already seen are skipped (by Message-ID). Only one import runs at a time.
      */
     public synchronized ImportStatus startImport(LocalDate since) {
-        if (!configured()) throw new IllegalStateException("The mailbox isn't set up (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
-        if (since == null) throw new IllegalArgumentException("Pick a start date");
-        if (since.isAfter(LocalDate.now(Money.ZONE))) throw new IllegalArgumentException("Pick a date that isn't in the future");
-        if (importStatus.active()) throw new IllegalStateException("An import is already running");
+        if (!configured()) throw new NotAllowedException("The mailbox isn't set up (MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD)");
+        if (since == null) throw new BadRequestException("Pick a start date");
+        if (since.isAfter(LocalDate.now(Money.ZONE))) throw new BadRequestException("Pick a date that isn't in the future");
+        if (importStatus.active()) throw new NotAllowedException("An import is already running");
         cancelImport.set(false);
         importStatus = new ImportStatus("CONNECTING", since, null, 0, 0, Instant.now(), null, null);
         importer.submit(() -> runImport(since));
@@ -296,11 +304,12 @@ public class MailSyncService {
         try {
             return processor.process(in);
         } catch (Exception e) {
-            log.warn("Failed to process message uid={}: {}", uid, e.toString());
+            log.error("Failed to process message uid={}", uid, e);
             try {
                 processor.recordFailure(in, e);
-            } catch (Exception ignored) {
-                // best effort
+            } catch (Exception recordError) {
+                // Not even the failure could be saved, so the log is the only trace of this email.
+                log.error("Could not record the failure for message uid={} (message id {})", uid, in.messageId(), recordError);
             }
             return false;
         }

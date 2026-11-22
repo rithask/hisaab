@@ -13,6 +13,8 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotAllowedException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -147,8 +149,8 @@ public class ResetService {
      * transaction. Saved statement PDFs are deleted only once that has committed.
      */
     public synchronized Result reset(Collection<Part> chosen, String word, boolean withoutBackup) {
-        if (chosen == null || chosen.isEmpty()) throw new IllegalArgumentException("Choose what to reset");
-        if (word == null || !word.trim().equalsIgnoreCase(WORD)) throw new IllegalArgumentException("Type “" + WORD + "” to confirm");
+        if (chosen == null || chosen.isEmpty()) throw new BadRequestException("Choose what to reset");
+        if (word == null || !word.trim().equalsIgnoreCase(WORD)) throw new BadRequestException("Type “" + WORD + "” to confirm");
         Set<Part> parts = withNeeded(chosen);
 
         String backup = null;
@@ -156,10 +158,10 @@ public class ResetService {
             try {
                 backup = backups.run().file();
             } catch (IOException | RuntimeException e) {
-                throw new IllegalStateException("Couldn't take a backup first, so nothing was reset. " + e.getMessage());
+                throw new NotAllowedException("Couldn't take a backup first, so nothing was reset. " + e.getMessage());
             }
         } else if (!withoutBackup) {
-            throw new IllegalStateException("Backups are off. Tick “Reset without a backup” to go ahead anyway.");
+            throw new NotAllowedException("Backups are off. Tick “Reset without a backup” to go ahead anyway.");
         }
 
         tx.executeWithoutResult(status -> {

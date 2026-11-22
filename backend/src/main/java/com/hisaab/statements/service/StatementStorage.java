@@ -5,6 +5,7 @@ import com.hisaab.common.util.Money;
 import com.hisaab.config.AppProperties;
 import org.springframework.stereotype.Component;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,7 +59,7 @@ public class StatementStorage {
             int i = s.indexOf("statements/");
             p = i >= 0 ? root.resolve(s.substring(i)).normalize() : given.normalize();
         }
-        if (!p.startsWith(root)) throw new IllegalArgumentException("Path outside storage");
+        if (!p.startsWith(root)) throw new BadRequestException("Path outside storage");
         return p;
     }
 

@@ -1,8 +1,11 @@
 package com.hisaab.settings.service;
 
 import com.hisaab.common.util.Audit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.NotAllowedException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -15,6 +18,8 @@ import java.util.Map;
  */
 @Service
 public class FeatureService {
+    private static final Logger log = LoggerFactory.getLogger(FeatureService.class);
+
     public enum Feature {
         BACKUPS, BUDGETS, REWARDS, DATA_API(false);
 
@@ -41,7 +46,7 @@ public class FeatureService {
 
     /** Refuses the request (400 with a readable message) when the feature is switched off. */
     public void require(Feature f) {
-        if (!on(f)) throw new IllegalStateException("This feature is turned off in Settings");
+        if (!on(f)) throw new NotAllowedException("This feature is turned off in Settings");
     }
 
     public void set(Feature f, boolean on) {
@@ -63,8 +68,9 @@ public class FeatureService {
                 Feature f = Feature.valueOf(k.toUpperCase());
                 if (on(f) != v) Audit.log("Feature {} switched {}", f.name().toLowerCase(), v ? "on" : "off");
                 set(f, v);
-            } catch (IllegalArgumentException ignored) {
-                // unknown feature names are ignored
+            } catch (IllegalArgumentException unknown) {
+                // An older or newer app may send a feature this server doesn't have: skip it, but say so.
+                log.warn("Ignored unknown feature \"{}\"", k);
             }
         });
     }

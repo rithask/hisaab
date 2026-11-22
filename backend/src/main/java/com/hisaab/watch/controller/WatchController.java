@@ -11,6 +11,7 @@ import com.hisaab.watch.service.WatchDismissals;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,7 @@ public class WatchController {
     @PostMapping("/refunds")
     public UnusualService.Refund expectRefund(@RequestBody RefundInput in) {
         if (in.expectedBy() != null && in.expectedBy().isBefore(LocalDate.now(Money.ZONE)))
-            throw new IllegalArgumentException("Pick a date from today on");
+            throw new BadRequestException("Pick a date from today on");
         unusual.expectRefund(in.txnId(), in.expectedBy());
         return unusual.refund(in.txnId()).orElseThrow();
     }
@@ -114,7 +115,7 @@ public class WatchController {
     }
 
     private static String key(KeyInput in) {
-        if (in == null || in.key() == null || in.key().isBlank()) throw new IllegalArgumentException("Missing key");
+        if (in == null || in.key() == null || in.key().isBlank()) throw new BadRequestException("Missing key");
         return in.key();
     }
 

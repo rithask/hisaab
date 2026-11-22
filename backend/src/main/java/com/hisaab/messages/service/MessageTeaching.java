@@ -24,6 +24,7 @@ import com.hisaab.transactions.service.TransactionService.TxnUpdate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Arrays;
@@ -135,15 +136,15 @@ public class MessageTeaching {
      */
     @Transactional
     public TeachResult teach(RawEmail raw, Teaching in) {
-        if (raw.getStatus() == EmailStatus.STATEMENT) throw new IllegalArgumentException("Statements are imported, not taught");
-        if (in.direction() == null) throw new IllegalArgumentException("Say whether money went out or came in");
-        if (in.amount() == null || in.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
+        if (in.direction() == null) throw new BadRequestException("Say whether money went out or came in");
+        if (in.amount() == null || in.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
         Account account = accounts.findById(in.accountId() == null ? -1L : in.accountId())
                 .orElseThrow(() -> new IllegalArgumentException("Pick the account"));
         Category category = in.categoryId() == null ? null : categories.findById(in.categoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown category"));
         if (category != null && category.getKind() != CategorizationService.kindFor(in.direction())) {
-            throw new IllegalArgumentException(in.direction() == Direction.DEBIT ? "Pick a spending category for money going out"
+            throw new BadRequestException(in.direction() == Direction.DEBIT ? "Pick a spending category for money going out"
                     : "Pick an income category for money coming in");
         }
         String text = raw.getBodyText();
@@ -227,7 +228,7 @@ public class MessageTeaching {
      */
     @Transactional
     public SkipResult notATransaction(RawEmail raw) {
-        if (raw.getStatus() == EmailStatus.STATEMENT) throw new IllegalArgumentException("Statements are imported, not taught");
+        if (raw.getStatus() == EmailStatus.STATEMENT) throw new BadRequestException("Statements are imported, not taught");
         learning.corrected(raw.getTemplate(), raw.getBodyText(), null);
         raw.setTemplate(null);
         SmsLearningService.LearnResult r = learning.skip(raw.getChannel(), raw.getBodyText(), raw);

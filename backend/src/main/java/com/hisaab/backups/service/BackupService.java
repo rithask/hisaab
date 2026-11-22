@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotFoundException;
 import java.io.*;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +74,7 @@ public class BackupService {
         try {
             run();
         } catch (IOException | RuntimeException e) {
-            // already recorded in settings by run()
+            // run() has already logged it and recorded it for Settings
         }
     }
 
@@ -198,9 +200,9 @@ public class BackupService {
     }
 
     public Path file(String name) {
-        if (!name.matches(PREFIX + "[0-9-]+\\.zip")) throw new IllegalArgumentException("Not a backup file");
+        if (!name.matches(PREFIX + "[0-9-]+\\.zip")) throw new BadRequestException("Not a backup file");
         Path p = dir.resolve(name).normalize();
-        if (!p.startsWith(dir) || !Files.isRegularFile(p)) throw new NoSuchElementException("Backup not found");
+        if (!p.startsWith(dir) || !Files.isRegularFile(p)) throw new NotFoundException("Backup not found");
         return p;
     }
 

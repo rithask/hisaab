@@ -19,6 +19,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -85,7 +86,7 @@ public class SplitService {
             case PERCENT -> {
                 BigDecimal pctSum = participants.stream().map(Participant::value).reduce(BigDecimal.ZERO, BigDecimal::add);
                 if (pctSum.compareTo(BigDecimal.valueOf(100)) > 0) {
-                    throw new IllegalArgumentException("Percentages add up to more than 100%");
+                    throw new BadRequestException("Percentages add up to more than 100%");
                 }
                 for (Participant p : participants) {
                     BigDecimal amt = total.multiply(p.value()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -95,10 +96,10 @@ public class SplitService {
         }
         BigDecimal sum = out.stream().map(SplitShare::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         if (sum.compareTo(total) > 0) {
-            throw new IllegalArgumentException("Shares (" + sum + ") exceed the transaction amount (" + total + ")");
+            throw new BadRequestException("Shares (" + sum + ") exceed the transaction amount (" + total + ")");
         }
         for (SplitShare s : out) {
-            if (s.getAmount().signum() <= 0) throw new IllegalArgumentException("Each share must be more than zero");
+            if (s.getAmount().signum() <= 0) throw new BadRequestException("Each share must be more than zero");
         }
         List<SplitShare> saved = shares.saveAll(out);
         events.publishEvent(new BalancesChanged("split changed")); // a repayment may have arrived before I split it
@@ -262,13 +263,13 @@ public class SplitService {
     @Transactional
     public Recorded record(Person p, SettlementDirection direction, BigDecimal amount, Instant at, Txn txn, String note) {
         direction = direction == null ? SettlementDirection.IN : direction;
-        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (amount == null || amount.signum() <= 0) throw new BadRequestException("Amount must be positive");
         if (txn != null) {
             if (txn.isTransfer() || txn.isPaidByPerson() || txn.getAccount() == null) {
-                throw new IllegalArgumentException("Only money in or out of your accounts can be a repayment");
+                throw new BadRequestException("Only money in or out of your accounts can be a repayment");
             }
             if (txn.isDebit() != (direction == SettlementDirection.OUT)) {
-                throw new IllegalArgumentException(txn.isDebit() ? "Money you paid out can only be you paying someone back"
+                throw new BadRequestException(txn.isDebit() ? "Money you paid out can only be you paying someone back"
                         : "Money you received can only be someone paying you back");
             }
             // a suggestion or a "no" on this money gives way to what I chose
@@ -276,7 +277,7 @@ public class SplitService {
             settlements.flush();
             BigDecimal linked = settlements.findByTxn(txn).stream().map(Settlement::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
             if (linked.add(amount).compareTo(txn.getAmount()) > 0) {
-                throw new IllegalArgumentException("That's more than the " + txn.getAmount().toPlainString() + " this payment was");
+                throw new BadRequestException("That's more than the " + txn.getAmount().toPlainString() + " this payment was");
             }
             if (at == null) at = txn.getOccurredAt();
         }

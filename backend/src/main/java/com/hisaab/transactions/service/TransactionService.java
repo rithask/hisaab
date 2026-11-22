@@ -35,6 +35,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -266,7 +267,7 @@ public class TransactionService {
 
     @Transactional
     public Txn createManual(ManualTxn req, Account account) {
-        if (req.amount() == null || req.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (req.amount() == null || req.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
         Txn t = new Txn();
         t.setAccount(account);
         t.setDirection(req.direction());
@@ -315,7 +316,7 @@ public class TransactionService {
     @Transactional
     public Txn updatePaidBy(Long id, PaidByInput in) {
         Txn t = get(id);
-        if (!t.isPaidByPerson()) throw new IllegalArgumentException("This wasn't paid by someone else");
+        if (!t.isPaidByPerson()) throw new BadRequestException("This wasn't paid by someone else");
         applyPaidBy(t, in);
         if (in.tags() != null) t.setTags(resolveTags(in.tags()));
         events.publishEvent(new BalancesChanged("they paid for me"));
@@ -324,11 +325,11 @@ public class TransactionService {
 
     private void applyPaidBy(Txn t, PaidByInput in) {
         Person who = in.personId() == null ? null : people.findById(in.personId()).orElse(null);
-        if (who == null) throw new IllegalArgumentException("Choose who paid");
-        if (in.total() == null || in.total().signum() <= 0) throw new IllegalArgumentException("Enter what they paid");
-        if (in.share() == null || in.share().signum() <= 0) throw new IllegalArgumentException("Your share must be more than zero");
+        if (who == null) throw new BadRequestException("Choose who paid");
+        if (in.total() == null || in.total().signum() <= 0) throw new BadRequestException("Enter what they paid");
+        if (in.share() == null || in.share().signum() <= 0) throw new BadRequestException("Your share must be more than zero");
         BigDecimal total = Money.r2(in.total()), share = Money.r2(in.share());
-        if (share.compareTo(total) > 0) throw new IllegalArgumentException("Your share can't be more than they paid");
+        if (share.compareTo(total) > 0) throw new BadRequestException("Your share can't be more than they paid");
         t.setPaidBy(who);
         t.setPaidTotal(total);
         t.setAmount(share);
@@ -369,7 +370,7 @@ public class TransactionService {
             }
         }
         if (u.amount() != null) {
-            if (u.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+            if (u.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
             t.setAmount(Money.r2(u.amount()));
             t.setAmountEstimated(false);
         }
@@ -400,11 +401,11 @@ public class TransactionService {
 
     /** Edits to my share of something a friend paid for: plain changes, nothing learned or matched. */
     private Txn updateOwn(Txn t, TxnUpdate u) {
-        if (Boolean.TRUE.equals(u.transfer())) throw new IllegalArgumentException("Someone else paid for this, so it isn't a transfer");
+        if (Boolean.TRUE.equals(u.transfer())) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         if (u.counterparty() != null) t.setCounterparty(blankToNull(u.counterparty()));
         if (u.amount() != null) {
-            if (u.amount().signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-            if (u.amount().compareTo(t.getPaidTotal()) > 0) throw new IllegalArgumentException("Your share can't be more than they paid");
+            if (u.amount().signum() <= 0) throw new BadRequestException("Amount must be positive");
+            if (u.amount().compareTo(t.getPaidTotal()) > 0) throw new BadRequestException("Your share can't be more than they paid");
             t.setAmount(Money.r2(u.amount()));
         }
         if (u.occurredAt() != null) t.setOccurredAt(u.occurredAt());

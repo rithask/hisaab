@@ -11,6 +11,7 @@ import com.hisaab.transactions.repository.TxnRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -96,16 +97,16 @@ public class AccountService {
 
     @Transactional
     public Account save(Account a, AccountInput in) {
-        if (in.name() == null || in.name().isBlank()) throw new IllegalArgumentException("Name is required");
-        if (in.type() == null) throw new IllegalArgumentException("Type is required");
+        if (in.name() == null || in.name().isBlank()) throw new BadRequestException("Name is required");
+        if (in.type() == null) throw new BadRequestException("Type is required");
         if (in.last4() != null && !in.last4().isBlank() && !in.last4().matches("\\d{4}")) {
-            throw new IllegalArgumentException("Last 4 digits must be exactly 4 digits");
+            throw new BadRequestException("Last 4 digits must be exactly 4 digits");
         }
         if (in.statementDay() != null && (in.statementDay() < 1 || in.statementDay() > 31)) {
-            throw new IllegalArgumentException("Statement day must be 1-31");
+            throw new BadRequestException("Statement day must be 1-31");
         }
         if (in.dueDay() != null && (in.dueDay() < 1 || in.dueDay() > 31)) {
-            throw new IllegalArgumentException("Due day must be 1-31");
+            throw new BadRequestException("Due day must be 1-31");
         }
         a.setName(in.name().trim());
         a.setType(in.type());

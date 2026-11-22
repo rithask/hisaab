@@ -21,6 +21,10 @@ must do when upgrading (marked **Upgrade:**).
   wait for review again; what was already recorded stays).
 
 ### Fixed
+- When something fails on the server, the message now carries a short **reference** (for example "ref 3fa91c")
+  that finds the full error in the server log. A request the app couldn't read no longer shows the server's
+  internal parser message. Background jobs (mail sync, price updates, statements from email) now log every
+  failure instead of dropping some silently.
 - A bank alert email whose date can't be read is still recorded, at the time the email arrived, instead of being
   marked as an error. An impossible date (31 Feb) is no longer quietly read as a different day, and 12-hour times
   ("4:44 PM") are read.

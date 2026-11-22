@@ -31,6 +31,10 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
+import com.hisaab.common.exception.NotFoundException;
+import com.hisaab.dataapi.exception.IdempotencyKeyReusedException;
+import com.hisaab.dataapi.exception.TokenForbiddenException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -49,20 +53,6 @@ import java.util.*;
  */
 @Service
 public class DataApiService {
-    /** Refused because of the token's limits (403). */
-    public static class Forbidden extends RuntimeException {
-        public Forbidden(String message) {
-            super(message);
-        }
-    }
-
-    /** An Idempotency-Key reused with a different request (422, draft-ietf-httpapi-idempotency-key-header). */
-    public static class KeyReused extends RuntimeException {
-        public KeyReused(String message) {
-            super(message);
-        }
-    }
-
     public static final int MAX_LIMIT = 200;
     static final int DEFAULT_DAYS = 30;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
@@ -105,13 +95,13 @@ public class DataApiService {
     @Transactional(readOnly = true)
     public DataApi.Page<DataApi.Transaction> transactions(ApiToken token, String date, String since, String updatedSince,
                                                           String category, String account, Integer limit, String cursor) {
-        if (date != null && since != null) throw new IllegalArgumentException("Send either date or since, not both.");
+        if (date != null && since != null) throw new BadRequestException("Send either date or since, not both.");
         Instant changed = null;
         if (updatedSince != null) {
             try {
                 changed = OffsetDateTime.parse(updatedSince.trim()).toInstant();
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("updated_since must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
+                throw new BadRequestException("updated_since must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
             }
         }
         boolean byChange = changed != null;
@@ -126,12 +116,12 @@ public class DataApiService {
             from = LocalDate.now(Money.ZONE).minusDays(DEFAULT_DAYS).atStartOfDay(Money.ZONE).toInstant();
         }
         int n = limit == null ? 50 : limit;
-        if (n < 1 || n > MAX_LIMIT) throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT + ".");
+        if (n < 1 || n > MAX_LIMIT) throw new BadRequestException("limit must be between 1 and " + MAX_LIMIT + ".");
         CategoryAsk cat = category == null ? null : askCategory(token, category);
         Long acct = account == null ? null : askAccount(token, account);
         Cursor after = cursor == null ? null : Cursor.decode(cursor);
         if (after != null && after.byChange() != byChange) {
-            throw new IllegalArgumentException("That cursor belongs to a list in another order. Send the same parameters as for the first page.");
+            throw new BadRequestException("That cursor belongs to a list in another order. Send the same parameters as for the first page.");
         }
         // the order the list is in, and what the cursor moves along
         String key = byChange ? "updatedAt" : "occurredAt";
@@ -166,7 +156,7 @@ public class DataApiService {
         } catch (NumberFormatException e) {
             t = null;
         }
-        if (t == null || !visible(token, t)) throw new NoSuchElementException("No such transaction.");
+        if (t == null || !visible(token, t)) throw new NotFoundException("No such transaction.");
         return transaction(token, t);
     }
 
@@ -214,18 +204,18 @@ public class DataApiService {
     private CategoryAsk askCategory(ApiToken token, String v) {
         String s = v.trim();
         if (s.equalsIgnoreCase("uncategorised") || s.equalsIgnoreCase("uncategorized") || s.equalsIgnoreCase(ApiToken.UNCATEGORISED)) {
-            if (!token.allowsCategory(null)) throw new Forbidden("This token can't read uncategorised transactions.");
+            if (!token.allowsCategory(null)) throw new TokenForbiddenException("This token can't read uncategorised transactions.");
             return new CategoryAsk(true, null);
         }
         Optional<Category> c = s.matches("\\d+") ? categories.findById(Long.parseLong(s))
                 : categories.findFirstByNameIgnoreCaseOrderByIdAsc(s);
-        if (c.isEmpty() || !token.allowsCategory(c.get().getId())) throw new Forbidden("This token can't read the category \"" + clip(s) + "\".");
+        if (c.isEmpty() || !token.allowsCategory(c.get().getId())) throw new TokenForbiddenException("This token can't read the category \"" + clip(s) + "\".");
         return new CategoryAsk(false, c.get().getId());
     }
 
     private Long askAccount(ApiToken token, String v) {
         Long id = v.trim().matches("\\d+") ? Long.valueOf(v.trim()) : null;
-        if (id == null || !accounts.existsById(id) || !token.allowsAccount(id)) throw new Forbidden("This token can't read that account.");
+        if (id == null || !accounts.existsById(id) || !token.allowsAccount(id)) throw new TokenForbiddenException("This token can't read that account.");
         return id;
     }
 
@@ -258,7 +248,7 @@ public class DataApiService {
         try {
             return LocalDate.parse(v.trim());
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException(name + " must be a date like 2026-11-12.");
+            throw new BadRequestException(name + " must be a date like 2026-11-12.");
         }
     }
 
@@ -275,13 +265,20 @@ public class DataApiService {
             return Base64.getUrlEncoder().withoutPadding().encodeToString(((byChange ? "u" : "o") + "|" + at + "|" + id).getBytes(StandardCharsets.UTF_8));
         }
 
+        private static final String INVALID = "That cursor isn't valid. Use next_cursor from the previous page.";
+
         static Cursor decode(String s) {
+            String[] p;
             try {
-                String[] p = new String(Base64.getUrlDecoder().decode(s), StandardCharsets.UTF_8).split("\\|");
-                if (!p[0].equals("u") && !p[0].equals("o")) throw new IllegalArgumentException();
+                p = new String(Base64.getUrlDecoder().decode(s), StandardCharsets.UTF_8).split("\\|");
+            } catch (IllegalArgumentException notBase64) {
+                throw new BadRequestException(INVALID);
+            }
+            if (p.length < 3 || !(p[0].equals("u") || p[0].equals("o"))) throw new BadRequestException(INVALID);
+            try {
                 return new Cursor(p[0].equals("u"), Instant.parse(p[1]), Long.parseLong(p[2]));
-            } catch (RuntimeException e) {
-                throw new IllegalArgumentException("That cursor isn't valid. Use next_cursor from the previous page.");
+            } catch (RuntimeException unreadable) {
+                throw new BadRequestException(INVALID);
             }
         }
     }
@@ -300,29 +297,29 @@ public class DataApiService {
                                    String direction, String category, String account) {
         LocalDate first, last;
         if (month != null) {
-            if (fromDay != null || toDay != null) throw new IllegalArgumentException("Send either month or from/to, not both.");
+            if (fromDay != null || toDay != null) throw new BadRequestException("Send either month or from/to, not both.");
             YearMonth ym;
             try {
                 ym = YearMonth.parse(month.trim());
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("month must look like 2026-11.");
+                throw new BadRequestException("month must look like 2026-11.");
             }
             first = ym.atDay(1);
             last = ym.atEndOfMonth();
         } else if (fromDay != null) {
             first = day(fromDay, "from");
             last = toDay == null ? LocalDate.now(Money.ZONE) : day(toDay, "to");
-            if (last.isBefore(first)) throw new IllegalArgumentException("to must not be before from.");
+            if (last.isBefore(first)) throw new BadRequestException("to must not be before from.");
         } else {
-            if (toDay != null) throw new IllegalArgumentException("Send from with to.");
+            if (toDay != null) throw new BadRequestException("Send from with to.");
             YearMonth ym = YearMonth.now(Money.ZONE);
             first = ym.atDay(1);
             last = ym.atEndOfMonth();
         }
         String by = groupBy == null ? "category" : groupBy.trim().toLowerCase(Locale.ROOT);
         String dir = direction == null ? "debit" : direction.trim().toLowerCase(Locale.ROOT);
-        if (!dir.equals("debit") && !dir.equals("credit")) throw new IllegalArgumentException("direction must be debit or credit.");
-        if (dir.equals("credit") && !token.isMoneyIn()) throw new Forbidden("This token can only read money going out.");
+        if (!dir.equals("debit") && !dir.equals("credit")) throw new BadRequestException("direction must be debit or credit.");
+        if (dir.equals("credit") && !token.isMoneyIn()) throw new TokenForbiddenException("This token can only read money going out.");
         CategoryAsk cat = category == null ? null : askCategory(token, category);
         Long acct = account == null ? null : askAccount(token, account);
 
@@ -343,7 +340,7 @@ public class DataApiService {
                 name = key;
                 order = "k";
             }
-            default -> throw new IllegalArgumentException("group_by must be category, account, month or day.");
+            default -> throw new BadRequestException("group_by must be category, account, month or day.");
         }
 
         var p = new MapSqlParameterSource()
@@ -402,35 +399,35 @@ public class DataApiService {
      */
     @Transactional
     public Added add(ApiToken token, DataApi.NewTransaction in, String idempotencyKey) {
-        if (in == null) throw new IllegalArgumentException("Send the transaction as JSON.");
+        if (in == null) throw new BadRequestException("Send the transaction as JSON.");
         String key = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey.trim();
         if (key != null && (key.length() > 100 || !key.matches("[\\x21-\\x7e]+"))) {
-            throw new IllegalArgumentException("Idempotency-Key must be 1 to 100 visible ASCII characters.");
+            throw new BadRequestException("Idempotency-Key must be 1 to 100 visible ASCII characters.");
         }
         BigDecimal amount = in.amount();
-        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("amount must be a positive number.");
-        if (amount.stripTrailingZeros().scale() > 2) throw new IllegalArgumentException("amount can have at most two decimals.");
+        if (amount == null || amount.signum() <= 0) throw new BadRequestException("amount must be a positive number.");
+        if (amount.stripTrailingZeros().scale() > 2) throw new BadRequestException("amount can have at most two decimals.");
         String dirName = in.direction() == null ? "debit" : in.direction().trim().toLowerCase(Locale.ROOT);
         Direction direction = switch (dirName) {
             case "debit" -> Direction.DEBIT;
             case "credit" -> Direction.CREDIT;
-            default -> throw new IllegalArgumentException("direction must be debit or credit.");
+            default -> throw new BadRequestException("direction must be debit or credit.");
         };
-        if (direction == Direction.CREDIT && !token.isMoneyIn()) throw new Forbidden("This token can only add money going out.");
-        if (in.account() == null || in.account().isBlank()) throw new IllegalArgumentException("account is required.");
+        if (direction == Direction.CREDIT && !token.isMoneyIn()) throw new TokenForbiddenException("This token can only add money going out.");
+        if (in.account() == null || in.account().isBlank()) throw new BadRequestException("account is required.");
         Long accountId = in.account().trim().matches("\\d+") ? Long.valueOf(in.account().trim()) : null;
         Account account = accountId == null ? null : accounts.findById(accountId).orElse(null);
         if (account == null || account.isArchived() || !token.allowsAccount(account.getId())) {
-            throw new Forbidden("This token can't add to that account.");
+            throw new TokenForbiddenException("This token can't add to that account.");
         }
         Long categoryId = null;
         if (in.category() != null && !in.category().isBlank()) {
             String c = in.category().trim();
             Optional<Category> cat = c.matches("\\d+") ? categories.findById(Long.parseLong(c))
                     : categories.findFirstByNameIgnoreCaseOrderByIdAsc(c);
-            if (cat.isEmpty() || !token.allowsCategory(cat.get().getId())) throw new Forbidden("This token can't use the category \"" + clip(c) + "\".");
+            if (cat.isEmpty() || !token.allowsCategory(cat.get().getId())) throw new TokenForbiddenException("This token can't use the category \"" + clip(c) + "\".");
             if (cat.get().getKind() != CategorizationService.kindFor(direction)) {
-                throw new IllegalArgumentException(cat.get().getName() + " is " + (direction == Direction.DEBIT ? "an income" : "a spending")
+                throw new BadRequestException(cat.get().getName() + " is " + (direction == Direction.DEBIT ? "an income" : "a spending")
                         + " category, so it can't be used for money " + (direction == Direction.DEBIT ? "going out." : "coming in."));
             }
             categoryId = cat.get().getId();
@@ -440,14 +437,14 @@ public class DataApiService {
             try {
                 at = OffsetDateTime.parse(in.occurredAt().trim()).toInstant();
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("occurred_at must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
+                throw new BadRequestException("occurred_at must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
             }
-            if (at.isAfter(Instant.now().plus(Duration.ofMinutes(5)))) throw new IllegalArgumentException("occurred_at can't be in the future.");
+            if (at.isAfter(Instant.now().plus(Duration.ofMinutes(5)))) throw new BadRequestException("occurred_at can't be in the future.");
         }
         String payee = in.payee() == null || in.payee().isBlank() ? null : in.payee().trim();
-        if (payee != null && payee.length() > 200) throw new IllegalArgumentException("payee can be at most 200 characters.");
+        if (payee != null && payee.length() > 200) throw new BadRequestException("payee can be at most 200 characters.");
         String notes = in.notes() == null || in.notes().isBlank() ? null : in.notes().trim();
-        if (notes != null && notes.length() > 2000) throw new IllegalArgumentException("notes can be at most 2000 characters.");
+        if (notes != null && notes.length() > 2000) throw new BadRequestException("notes can be at most 2000 characters.");
 
         // what the request asked for, so a reused key with a different request is told apart from a retry
         String fingerprint = ApiTokenService.sha256(String.join("\u0000", amount.setScale(2, RoundingMode.HALF_UP).toPlainString(),
@@ -458,7 +455,7 @@ public class DataApiService {
             Optional<Txn> before = txns.findByApiTokenAndRequestKey(me, key);
             if (before.isPresent()) {
                 if (!fingerprint.equals(before.get().getRequestHash())) {
-                    throw new KeyReused("This Idempotency-Key was already used for a different request.");
+                    throw new IdempotencyKeyReusedException("This Idempotency-Key was already used for a different request.");
                 }
                 return new Added(transaction(token, before.get()), true);
             }
@@ -497,16 +494,16 @@ public class DataApiService {
     /** Records a bank SMS a phone forwarded; the same text sent twice is counted once. */
     @Transactional
     public DataApi.SmsReceived sms(ApiToken token, DataApi.NewSms in) {
-        if (in == null || in.text() == null || in.text().isBlank()) throw new IllegalArgumentException("text is required.");
-        if (in.text().length() > MAX_SMS) throw new IllegalArgumentException("text can be at most " + MAX_SMS + " characters.");
+        if (in == null || in.text() == null || in.text().isBlank()) throw new BadRequestException("text is required.");
+        if (in.text().length() > MAX_SMS) throw new BadRequestException("text can be at most " + MAX_SMS + " characters.");
         String sender = in.sender() == null || in.sender().isBlank() ? null : in.sender().trim();
-        if (sender != null && sender.length() > 100) throw new IllegalArgumentException("sender can be at most 100 characters.");
+        if (sender != null && sender.length() > 100) throw new BadRequestException("sender can be at most 100 characters.");
         Instant now = Instant.now(), at = now;
         if (in.receivedAt() != null && !in.receivedAt().isBlank()) {
             try {
                 at = OffsetDateTime.parse(in.receivedAt().trim()).toInstant();
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("received_at must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
+                throw new BadRequestException("received_at must be an RFC 3339 time like 2026-11-13T17:05:00+05:30.");
             }
             // a phone whose clock runs ahead: it's being forwarded now anyway
             if (at.isAfter(now)) at = now;

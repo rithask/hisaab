@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -62,7 +63,7 @@ public class ApiTokenService {
 
     @Transactional
     public Created create(TokenInput in) {
-        if (in.job() == null) throw new IllegalArgumentException("Choose what the token is for");
+        if (in.job() == null) throw new BadRequestException("Choose what the token is for");
         ApiToken t = new ApiToken();
         t.setJob(in.job());
         apply(t, in);
@@ -116,8 +117,8 @@ public class ApiTokenService {
 
     private void apply(ApiToken t, TokenInput in) {
         String name = in.name() == null ? "" : in.name().trim();
-        if (name.isEmpty()) throw new IllegalArgumentException("Give the token a name, like \"Mileage app\"");
-        if (name.length() > 60) throw new IllegalArgumentException("Keep the name under 60 characters");
+        if (name.isEmpty()) throw new BadRequestException("Give the token a name, like \"Mileage app\"");
+        if (name.length() > 60) throw new BadRequestException("Keep the name under 60 characters");
         t.setName(name);
         Job job = t.getJob();
         boolean usesCategories = job == Job.READ_TRANSACTIONS || job == Job.ADD_TRANSACTIONS || job == Job.READ_TOTALS;
@@ -130,7 +131,7 @@ public class ApiTokenService {
 
     private String categoryLimit(List<String> ids) {
         if (ids == null) return null;
-        if (ids.isEmpty()) throw new IllegalArgumentException("Pick at least one category, or All");
+        if (ids.isEmpty()) throw new BadRequestException("Pick at least one category, or All");
         Set<String> out = new LinkedHashSet<>();
         for (String raw : ids) {
             String v = raw == null ? "" : raw.trim();
@@ -140,10 +141,10 @@ public class ApiTokenService {
             }
             try {
                 long id = Long.parseLong(v);
-                if (!categories.existsById(id)) throw new IllegalArgumentException("Unknown category");
+                if (!categories.existsById(id)) throw new BadRequestException("Unknown category");
                 out.add(Long.toString(id));
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Unknown category");
+                throw new BadRequestException("Unknown category");
             }
         }
         return ApiToken.join(out);
@@ -151,10 +152,10 @@ public class ApiTokenService {
 
     private String accountLimit(List<Long> ids) {
         if (ids == null) return null;
-        if (ids.isEmpty()) throw new IllegalArgumentException("Pick at least one account, or All");
+        if (ids.isEmpty()) throw new BadRequestException("Pick at least one account, or All");
         Set<Long> out = new LinkedHashSet<>();
         for (Long id : ids) {
-            if (id == null || !accounts.existsById(id)) throw new IllegalArgumentException("Unknown account");
+            if (id == null || !accounts.existsById(id)) throw new BadRequestException("Unknown account");
             out.add(id);
         }
         return ApiToken.join(out);

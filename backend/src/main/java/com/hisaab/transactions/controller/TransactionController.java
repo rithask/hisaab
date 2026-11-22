@@ -21,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -92,8 +93,8 @@ public class TransactionController {
     @PostMapping
     @Transactional
     public TxnDto create(@RequestBody ManualTxn req) {
-        if (req.accountId() == null) throw new IllegalArgumentException("Account is required");
-        if (req.direction() == null) throw new IllegalArgumentException("Direction is required");
+        if (req.accountId() == null) throw new BadRequestException("Account is required");
+        if (req.direction() == null) throw new BadRequestException("Direction is required");
         return dto(service.createManual(req, accounts.get(req.accountId())));
     }
 
@@ -141,7 +142,7 @@ public class TransactionController {
     @Transactional
     public TxnDto link(@PathVariable Long id, @RequestBody LinkRequest req) {
         Txn t = service.get(id), other = service.get(req.otherId());
-        if (t.isPaidByPerson() || other.isPaidByPerson()) throw new IllegalArgumentException("Someone else paid for this, so it isn't a transfer");
+        if (t.isPaidByPerson() || other.isPaidByPerson()) throw new BadRequestException("Someone else paid for this, so it isn't a transfer");
         transfers.link(t, other);
         return dto(t);
     }
@@ -171,8 +172,8 @@ public class TransactionController {
     @Transactional
     public SplitDto setSplit(@PathVariable Long id, @RequestBody SplitRequest req) {
         Txn t = service.get(id);
-        if (!t.isDebit()) throw new IllegalArgumentException("Only money I paid out can be split");
-        if (t.isPaidByPerson()) throw new IllegalArgumentException("Someone else paid for this; change your share instead");
+        if (!t.isDebit()) throw new BadRequestException("Only money I paid out can be split");
+        if (t.isPaidByPerson()) throw new BadRequestException("Someone else paid for this; change your share instead");
         var saved = splits.setSplit(t, req.method() == null ? SplitMethod.EQUAL : req.method(),
                 Boolean.TRUE.equals(req.includeMe()),
                 req.participants());

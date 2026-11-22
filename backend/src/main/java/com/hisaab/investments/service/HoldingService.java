@@ -21,6 +21,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hisaab.common.exception.BadRequestException;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -57,10 +58,10 @@ public class HoldingService {
 
     @Transactional
     public Holding save(Holding h, HoldingInput in) {
-        if (in.assetType() == null) throw new IllegalArgumentException("Asset type is required");
-        if (in.symbol() == null || in.symbol().isBlank()) throw new IllegalArgumentException("Symbol is required");
-        if (in.quantity() == null || in.quantity().signum() <= 0) throw new IllegalArgumentException("Quantity must be positive");
-        if (in.avgPrice() == null || in.avgPrice().signum() < 0) throw new IllegalArgumentException("Average price is required");
+        if (in.assetType() == null) throw new BadRequestException("Asset type is required");
+        if (in.symbol() == null || in.symbol().isBlank()) throw new BadRequestException("Symbol is required");
+        if (in.quantity() == null || in.quantity().signum() <= 0) throw new BadRequestException("Quantity must be positive");
+        if (in.avgPrice() == null || in.avgPrice().signum() < 0) throw new BadRequestException("Average price is required");
         h.setAssetType(in.assetType());
         h.setSymbol(in.assetType() == AssetType.STOCK ? in.symbol().trim().toUpperCase(Locale.ROOT) : in.symbol().trim());
         h.setExchange(in.assetType() == AssetType.STOCK ? (in.exchange() == null ? "NSE" : in.exchange()) : null);
@@ -101,7 +102,7 @@ public class HoldingService {
             Integer qty = col(header, "qty", "quantity", "quantityavailable", "netqty");
             Integer avg = col(header, "avgcost", "averageprice", "avgprice", "buyavg", "averagecost");
             if (sym == null || qty == null || avg == null) {
-                throw new IllegalArgumentException("Couldn't find symbol/quantity/average price columns. Found: "
+                throw new BadRequestException("Couldn't find symbol/quantity/average price columns. Found: "
                         + parser.getHeaderNames());
             }
             for (CSVRecord r : parser) {
@@ -171,8 +172,12 @@ public class HoldingService {
     @Scheduled(cron = "0 5 16 * * MON-FRI", zone = "Asia/Kolkata")
     public void scheduledStockRefresh() {
         if (!enabled) return;
-        int n = refreshAllStocks();
-        log.debug("Stock prices refreshed: {} updated", n);
+        try {
+            int updated = refreshAllStocks();
+            log.debug("Stock prices refreshed: {} updated", updated);
+        } catch (RuntimeException e) {
+            log.error("Scheduled stock price refresh failed", e);
+        }
     }
 
     @Transactional

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import com.hisaab.common.exception.NotFoundException;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -43,7 +44,7 @@ public class StatementController {
     public ResponseEntity<Resource> download(@PathVariable Long id) {
         StatementFile s = statements.findById(id).orElseThrow(notFound("Statement"));
         Resource file = new FileSystemResource(storage.resolve(s.getStoredPath()));
-        if (!file.exists()) throw new NoSuchElementException("File is missing from storage");
+        if (!file.exists()) throw new NotFoundException("File is missing from storage");
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(s.getFileName()).build().toString())
