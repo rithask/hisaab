@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-24
+
 ### Changed
 - Adding a transaction: the account, category and time each open a **dropdown list** instead of a row of chips.
   Accounts are grouped (cards, then bank and cash) with their last 4 digits and balance; categories can be
