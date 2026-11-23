@@ -20,6 +20,10 @@ must do when upgrading (marked **Upgrade:**).
   people after), and someone new can be added right there without leaving the form. The same picker splits a
   payment later from its details, and records what a friend paid from their page ("I paid" there is now
   "Split a payment"). A friend's payment can now be split between more than two of you.
+- **Adding a transaction fits on one screen** on a phone, with no scrolling: **Transfer** sits next to Spent and
+  Received at the top, the currency is the ₹ in front of the amount (tap it to change), the account, category and
+  time are one row, and Return on the amount moves on to the payee. Tapping **Now** opens your phone's own date and
+  time picker in one tap ("Yesterday" is gone); a **Now** button next to it goes back to the current time.
 
 ## [0.15.0] - 2026-11-22
 

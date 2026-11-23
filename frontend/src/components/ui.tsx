@@ -284,7 +284,11 @@ const openSheets: object[] = []
  * and rise) with the page header: Back, then the title. On wider screens it's a centred dialog over the page.
  * Escape closes the top one either way.
  */
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+/**
+ * A window for a form: centred on wide screens, full screen on phones.
+ * @param compact on phones, Back and the title share one line, for forms that need the room (adding a payment)
+ */
+export function Sheet({ open, onClose, title, children, compact }: { open: boolean; onClose: () => void; title: string; children: ReactNode; compact?: boolean }) {
   const wide = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
 
   const closeRef = useRef(onClose)
@@ -341,10 +345,17 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
             transition={BASE}
           >
             {/* the page header, kept in view while the window scrolls */}
-            <header className="sticky top-0 z-20 -mx-5 mb-4 bg-surface px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
-              <BackButton onClick={onClose} />
-              <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
-            </header>
+            {compact ? (
+              <header className="sticky top-0 z-20 -mx-5 mb-3 grid grid-cols-[1fr_auto_1fr] items-center bg-surface px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
+                <BackButton onClick={onClose} className="mb-0 justify-self-start" />
+                <h1 className="text-title font-semibold">{title}</h1>
+              </header>
+            ) : (
+              <header className="sticky top-0 z-20 -mx-5 mb-4 bg-surface px-5 pb-2 pt-[max(env(safe-area-inset-top),0.75rem)]">
+                <BackButton onClick={onClose} />
+                <h1 className="text-heading font-bold leading-tight tracking-[-0.02em]">{title}</h1>
+              </header>
+            )}
             {/* fills the rest of the screen, so a form can keep its button at the bottom (mt-auto) */}
             <div className="flex flex-1 flex-col">{children}</div>
           </motion.div>
@@ -354,7 +365,15 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   )
 }
 
-// ---- Dropdown ---------------------------------------------------------------------------------------
+// ---- Pills and dropdowns -----------------------------------------------------------------------------
+
+/** The round, 44px-tall pill that choices and pickers share: filled when on (or open), grey otherwise. */
+export const pill = (on: boolean, className?: string) =>
+  cx(
+    'pressable flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-label font-medium transition-colors duration-quick',
+    on ? 'bg-ink text-bg' : 'bg-surface-2 text-ink',
+    className,
+  )
 
 export type DropdownOption<T> = { value: T; label: string; detail?: string; icon?: ReactNode; group?: string }
 
@@ -370,6 +389,7 @@ export function Dropdown<T extends string | number>({
   label,
   children,
   searchFrom = 9,
+  className,
 }: {
   value: T | undefined
   options: DropdownOption<T>[]
@@ -380,6 +400,8 @@ export function Dropdown<T extends string | number>({
   children: ReactNode
   /** Show a search box from this many options. */
   searchFrom?: number
+  /** Extra classes for the pill, e.g. a maximum width (the whole row's width when not given). */
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -485,10 +507,7 @@ export function Dropdown<T extends string | number>({
             setOpen(true)
           }
         }}
-        className={cx(
-          'pressable flex h-11 max-w-full items-center gap-2 rounded-full px-4 text-label font-medium transition-colors duration-quick',
-          open ? 'bg-ink text-bg' : 'bg-surface-2 text-ink',
-        )}
+        className={pill(open, className ?? 'max-w-full')}
       >
         <span className="flex min-w-0 items-center gap-2 truncate">{children}</span>
         <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-quick', open ? 'rotate-180' : 'opacity-50')} />
