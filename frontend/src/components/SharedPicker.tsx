@@ -59,9 +59,12 @@ export function outcomeOf(total: number, s: Shared): Outcome {
   return out
 }
 
-/** Who paid: a friend who paid is usually part of it too, so they're ticked as well; equal shares again. */
+/**
+ * Who paid. It never changes who it's split between (the summary line says what that means); typed amounts are
+ * cleared, since they're theirs when I paid and mine when a friend did.
+ */
 export function withPayer(s: Shared, payer: Member): Shared {
-  return { ...s, payer, custom: false, members: payer === 'me' || s.members.includes(payer) ? s.members : [...s.members, payer] }
+  return { ...s, payer, custom: false }
 }
 
 // ---- Who I usually share with (this device only: a convenience, not data) --------------------------------
