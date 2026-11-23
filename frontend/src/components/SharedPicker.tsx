@@ -1,9 +1,8 @@
 import { Check, Plus } from '@phosphor-icons/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { api, type Person } from '../api'
 import { firstName, joinList, money } from '../format'
-import { useMoneyMutation } from '../hooks'
 import { Avatar, cx, ErrorText, FieldLabel, Input, TextButton } from './ui'
 
 /**
@@ -212,15 +211,16 @@ function AddPerson({ onAdded }: { onAdded: (p: Person) => void }) {
   const qc = useQueryClient()
   const [typing, setTyping] = useState(false)
   const [name, setName] = useState('')
-  const add = useMoneyMutation(
-    () => api<Person>('/people', { body: { name: name.trim() } }),
-    (p) => {
+  // Only the people list changes, so only it is updated (a money mutation would reload every screen's data).
+  const add = useMutation({
+    mutationFn: () => api<Person>('/people', { body: { name: name.trim() } }),
+    onSuccess: (p) => {
       qc.setQueryData<Person[]>(['people'], (list) => (list ? [...list, p] : list))
       onAdded(p)
       setName('')
       setTyping(false)
     },
-  )
+  })
   if (!typing)
     return (
       <button type="button" onClick={() => setTyping(true)} className="pressable flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-surface-2 px-4 text-label font-medium text-accent">

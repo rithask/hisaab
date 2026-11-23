@@ -427,7 +427,9 @@ export function Dropdown<T extends string | number>({
   }
 
   // Where to draw it: under the pill if there's room, otherwise above; never past the screen's 16px gutters.
-  const measure = () => {
+  // Scrolling the list itself moves nothing, and an unchanged place isn't set again (no redraw while scrolling).
+  const measure = (e?: Event) => {
+    if (e?.target instanceof Node && panel.current?.contains(e.target)) return
     const r = trigger.current?.getBoundingClientRect()
     if (!r) return
     const vw = window.innerWidth
@@ -438,7 +440,8 @@ export function Dropdown<T extends string | number>({
     const above = r.top - 16
     const up = below < 260 && above > below
     const maxHeight = Math.min(up ? above : below, 420) - 8
-    setPlace(up ? { left, bottom: vh - r.top + 8, width, maxHeight } : { left, top: r.bottom + 8, width, maxHeight })
+    const next = up ? { left, bottom: vh - r.top + 8, width, maxHeight } : { left, top: r.bottom + 8, width, maxHeight }
+    setPlace((p) => (p && p.left === next.left && p.top === next.top && p.bottom === next.bottom && p.width === next.width && p.maxHeight === next.maxHeight ? p : next))
   }
   useLayoutEffect(() => {
     if (!open) return
