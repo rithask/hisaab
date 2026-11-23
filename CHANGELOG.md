@@ -9,6 +9,12 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Changed
+- Adding a transaction: the account, category and time each open a **dropdown list** instead of a row of chips.
+  Accounts are grouped (cards, then bank and cash) with their last 4 digits and balance; categories can be
+  searched. The account picked for you is now the one you use most for that kind of payment (your usual card
+  for spending, your usual bank account for money in), not Cash.
+
 ## [0.15.0] - 2026-11-22
 
 ### Added

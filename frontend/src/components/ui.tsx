@@ -1,12 +1,14 @@
-import { CaretDown, CaretLeft, CaretRight, X, type Icon as PhIcon } from '@phosphor-icons/react'
+import { CaretDown, CaretLeft, CaretRight, Check, MagnifyingGlass, X, type Icon as PhIcon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -349,6 +351,218 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         ))}
     </AnimatePresence>,
     document.body,
+  )
+}
+
+// ---- Dropdown ---------------------------------------------------------------------------------------
+
+export type DropdownOption<T> = { value: T; label: string; detail?: string; icon?: ReactNode; group?: string }
+
+/**
+ * A pill that opens a list of choices right under it (or above, when there's no room below): one tap to pick,
+ * a tick on the current one. Long lists get a search box. Escape, a tap outside or picking closes it; arrow keys
+ * and Enter work with a keyboard. The list is drawn over everything, so a scrolling sheet can't clip it.
+ */
+export function Dropdown<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+  children,
+  searchFrom = 9,
+}: {
+  value: T | undefined
+  options: DropdownOption<T>[]
+  onChange: (v: T) => void
+  /** What the list is for, for screen readers ("Account"). */
+  label: string
+  /** What the pill shows. */
+  children: ReactNode
+  /** Show a search box from this many options. */
+  searchFrom?: number
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [active, setActive] = useState(0)
+  const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number; width: number; maxHeight: number } | null>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLDivElement>(null)
+  const id = useId()
+
+  const q = query.trim().toLowerCase()
+  const shown = q ? options.filter((o) => o.label.toLowerCase().includes(q) || o.detail?.toLowerCase().includes(q)) : options
+  const searchable = options.length >= searchFrom
+
+  const close = (focusBack = true) => {
+    setOpen(false)
+    setQuery('')
+    if (focusBack) trigger.current?.focus({ preventScroll: true })
+  }
+  const pick = (o: DropdownOption<T>) => {
+    onChange(o.value)
+    close()
+  }
+
+  // Where to draw it: under the pill if there's room, otherwise above; never past the screen's 16px gutters.
+  const measure = () => {
+    const r = trigger.current?.getBoundingClientRect()
+    if (!r) return
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const width = Math.min(Math.max(r.width, 260), 340, vw - 32)
+    const left = Math.min(Math.max(16, r.left), vw - 16 - width)
+    const below = vh - r.bottom - 16
+    const above = r.top - 16
+    const up = below < 260 && above > below
+    const maxHeight = Math.min(up ? above : below, 420) - 8
+    setPlace(up ? { left, bottom: vh - r.top + 8, width, maxHeight } : { left, top: r.bottom + 8, width, maxHeight })
+  }
+  useLayoutEffect(() => {
+    if (!open) return
+    measure()
+    setActive(Math.max(0, options.findIndex((o) => o.value === value)))
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const drawn = open && place != null
+  useEffect(() => {
+    if (!drawn) return
+    // On a phone the keyboard would cover the list, so the search box is only focused with a mouse or keyboard.
+    const fine = window.matchMedia('(pointer: fine)').matches
+    ;(searchable && fine ? panel.current?.querySelector('input') : list.current)?.focus({ preventScroll: true })
+    const outside = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (!panel.current?.contains(t) && !trigger.current?.contains(t)) close(false)
+    }
+    // Escape closes only the list, not the sheet underneath (which listens on document).
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      close()
+    }
+    document.addEventListener('pointerdown', outside, true)
+    document.addEventListener('keydown', key, true)
+    return () => {
+      document.removeEventListener('pointerdown', outside, true)
+      document.removeEventListener('keydown', key, true)
+    }
+  }, [drawn]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the highlighted row in view while moving with the arrow keys.
+  useEffect(() => {
+    list.current?.querySelector(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [active])
+
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === 'ArrowDown') setActive((i) => Math.min(i + 1, shown.length - 1))
+    else if (e.key === 'ArrowUp') setActive((i) => Math.max(i - 1, 0))
+    else if (e.key === 'Home') setActive(0)
+    else if (e.key === 'End') setActive(shown.length - 1)
+    else if (e.key === 'Enter' && shown[active]) pick(shown[active])
+    else if (e.key === 'Tab') close(false)
+    else return
+    e.preventDefault()
+  }
+
+  return (
+    <>
+      <button
+        ref={trigger}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
+        onClick={() => (open ? close() : setOpen(true))}
+        onKeyDown={(e) => {
+          if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault()
+            setOpen(true)
+          }
+        }}
+        className={cx(
+          'pressable flex h-11 max-w-full items-center gap-2 rounded-full px-4 text-label font-medium transition-colors duration-quick',
+          open ? 'bg-ink text-bg' : 'bg-surface-2 text-ink',
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-2 truncate">{children}</span>
+        <CaretDown size={12} weight="bold" className={cx('shrink-0 transition-transform duration-quick', open ? 'rotate-180' : 'opacity-50')} />
+      </button>
+      {createPortal(
+        <AnimatePresence>
+          {open && place && (
+            <motion.div
+              ref={panel}
+              className="fixed z-[70] flex flex-col overflow-hidden rounded-card border border-line bg-surface shadow-[var(--shadow-float)]"
+              style={{ left: place.left, top: place.top, bottom: place.bottom, width: place.width, maxHeight: place.maxHeight, transformOrigin: place.top != null ? 'top left' : 'bottom left' }}
+              initial={{ opacity: 0, scale: 0.97, y: place.top != null ? -4 : 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, transition: QUICK }}
+              transition={BASE}
+              onKeyDown={onKeyDown}
+            >
+              {searchable && (
+                <label className="flex shrink-0 items-center gap-2 border-b border-line px-3">
+                  <MagnifyingGlass size={16} className="ink-3 shrink-0" />
+                  <input
+                    value={query}
+                    onChange={(e) => (setQuery(e.target.value), setActive(0))}
+                    placeholder="Search"
+                    aria-label={`Search ${label.toLowerCase()}`}
+                    aria-controls={`${id}-list`}
+                    aria-activedescendant={shown[active] ? `${id}-${active}` : undefined}
+                    className="h-11 min-w-0 flex-1 bg-transparent text-input outline-none placeholder:text-ink-3"
+                  />
+                </label>
+              )}
+              <div
+                ref={list}
+                id={`${id}-list`}
+                role="listbox"
+                aria-label={label}
+                tabIndex={-1}
+                aria-activedescendant={shown[active] ? `${id}-${active}` : undefined}
+                className="overflow-y-auto overscroll-contain py-1.5 outline-none"
+              >
+                {shown.length === 0 && <p className="ink-2 px-4 py-3 text-label">Nothing matches “{query}”</p>}
+                {shown.map((o, i) => {
+                  const on = o.value === value
+                  return (
+                    <div key={String(o.value)}>
+                      {o.group && o.group !== shown[i - 1]?.group && (
+                        <p className={cx('ink-3 px-4 pb-1 text-caption font-medium', i > 0 ? 'pt-3' : 'pt-1.5')}>{o.group}</p>
+                      )}
+                      <div
+                        id={`${id}-${i}`}
+                        data-i={i}
+                        role="option"
+                        aria-selected={on}
+                        onClick={() => pick(o)}
+                        onPointerMove={() => setActive(i)}
+                        className={cx('row flex min-h-11 cursor-pointer items-center gap-3 px-4 py-2', i === active && 'bg-[var(--hover)]')}
+                      >
+                        {o.icon && <span className="flex w-5 shrink-0 justify-center">{o.icon}</span>}
+                        <span className="min-w-0 flex-1">
+                          <span className={cx('block truncate text-body', on && 'font-semibold')}>{o.label}</span>
+                          {o.detail && <span className="ink-2 block truncate text-small">{o.detail}</span>}
+                        </span>
+                        {on && <Check size={16} weight="bold" className="shrink-0 text-accent" />}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   )
 }
 

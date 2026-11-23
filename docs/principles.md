@@ -49,7 +49,7 @@ The tokens and the short form of these rules are at the top of `frontend/src/ind
    (`−₹500`, "Over budget").
 4. **Familiar patterns.** Lists of rows, chips for filters, segmented controls for views, sheets for forms,
    a switch for on/off. Reuse the components in `components/ui.tsx` (`Card`, `List`, `Section`, `Sheet`, `Chip`,
-   `Segmented`, `Toggle`, `Button`, `IconButton`, `TextButton`, `BackButton`, `IconBadge`, `InfoBox`, `FieldLabel`,
+   `Segmented`, `Dropdown`, `Toggle`, `Button`, `IconButton`, `TextButton`, `BackButton`, `IconBadge`, `InfoBox`, `FieldLabel`,
    `Field`, `Empty`, `FeatureGate`, …) and `PersonPicker` (`PaidBy.tsx`) instead of making new ones, and the
    helpers in `format.ts` (`money`, `firstName`, `joinNames`, `plural`, `fileSize`, `percent`, …) instead of
    formatting by hand.
