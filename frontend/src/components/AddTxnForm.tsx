@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowsLeftRight, Bank, HandCoins, NotePencil, Users, UsersThree, CalendarBlank, CaretDown, ClockCounterClockwise, CreditCard, Sparkle, Storefront, Wallet } from '@phosphor-icons/react'
+import { ArrowsLeftRight, Bank, NotePencil, Users, UsersThree, CalendarBlank, CaretDown, ClockCounterClockwise, CreditCard, Sparkle, Storefront, Wallet } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, type Txn } from '../api'
 import { dateTime, fromLocalInput, money, money0, toLocalInput } from '../format'
 import { useAccounts, useCategories, useMoneyMutation, usePeople } from '../hooks'
 import { categoryIcon } from '../icons'
 import { DateTimePicker } from './DatePicker'
-import { BalanceChange, PersonPicker, ShareFields, shareOf, type ShareMode } from './PaidBy'
-import { Button, cx, Dropdown, ErrorText, Input, Segmented, Sheet, Avatar, Fold, FieldLabel, type DropdownOption } from './ui'
-import type { Method } from './SplitEditor'
+import { BalanceChange } from './PaidBy'
+import { NOT_SHARED, outcomeOf, rememberShared, SharedPicker, type Outcome, type Shared } from './SharedPicker'
+import { Button, cx, Dropdown, ErrorText, Input, Segmented, Sheet, Fold, FieldLabel, type DropdownOption } from './ui'
 
 export function AddTxnSheet({ open, onClose, defaultAccountId }: { open: boolean; onClose: () => void; defaultAccountId?: number }) {
   return (
@@ -29,7 +29,7 @@ const WHEN_OPTIONS: DropdownOption<WhenMode>[] = [
 /**
  * Adding a transaction is two decisions: how much, and where. The app fills in the rest (account, category,
  * when) as one line of guesses, each a dropdown to change it; a recent payee fills them from last time. The rare
- * extras (someone else paid, splitting, a note, a transfer) are chips that each open their own few fields.
+ * extras (shared with people, a note, a transfer) are chips that each open their own few fields.
  */
 function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaultAccountId?: number }) {
   const accounts = useAccounts()
@@ -48,20 +48,10 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   // Once I pick an account myself (or a payee picks it), the default stops following the direction.
   const [accountPicked, setAccountPicked] = useState(defaultAccountId != null)
   const [noting, setNoting] = useState(false)
-  const [splitting, setSplitting] = useState(false)
-  const [splitWith, setSplitWith] = useState<number[]>([])
-  // how to split while adding: equally (me included), or each person's amount or percent (I keep the rest)
-  const [splitMethod, setSplitMethod] = useState<Method>('EQUAL')
-  const [splitValues, setSplitValues] = useState<Record<number, string>>({})
-  // Lent to someone: the whole payment is theirs, so it's a split without me and needs no category
-  const [lending, setLending] = useState(false)
-  const [lendTo, setLendTo] = useState<number | ''>('')
-  // "Someone else paid": a friend paid; I record my share, with no account of mine
+  // Shared with people: who paid (me or a friend) and who it's split between; one control for all of it.
   const people = usePeople()
-  const [someone, setSomeone] = useState(false)
-  const [personId, setPersonId] = useState<number | ''>('')
-  const [shareMode, setShareMode] = useState<ShareMode>('HALF')
-  const [exactShare, setExactShare] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [shared, setShared] = useState<Shared>(NOT_SHARED)
 
   const active = (accounts.data ?? []).filter((a) => !a.archived)
   // The default account: the one used most among recent payments in this direction (newest wins a tie), so
@@ -84,26 +74,16 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const kind = direction === 'DEBIT' ? 'EXPENSE' : 'INCOME'
   const kindCats = (cats.data ?? []).filter((c) => c.kind === kind)
   const value = Number(amount)
-  const paidByOther = someone && direction === 'DEBIT'
-  const share = shareOf(value, shareMode, exactShare)
-  const payer = (people.data ?? []).find((p) => p.id === personId)
-  const lendNow = lending && !paidByOther && !transfer && direction === 'DEBIT'
-  const splitNow = splitting && !paidByOther && !transfer && direction === 'DEBIT' && splitWith.length > 0
-  // Each person's share as entered (amounts or percent); checked here so a payment is never saved with a split the server would refuse
-  const theirShares = splitWith.map((id) => Number(splitValues[id] || 0))
-  const theirTotal =
-    splitMethod === 'EXACT' ? theirShares.reduce((a, b) => a + b, 0) : splitMethod === 'PERCENT' ? Math.round(theirShares.reduce((a, b) => a + b, 0) * value) / 100 : 0
-  const splitProblem = !splitNow || splitMethod === 'EQUAL'
-    ? null
-    : theirShares.some((x) => !(x > 0))
-      ? splitMethod === 'EXACT' ? 'Enter an amount for each person' : 'Enter a percent for each person'
-      : splitMethod === 'PERCENT' && theirShares.reduce((a, b) => a + b, 0) > 100
-        ? 'Percentages add up to more than 100%'
-        : theirTotal > value
-          ? `Shares add up to ${money(theirTotal)}, more than ${money(value)}`
-          : null
-  const valid = paidByOther ? value > 0 && personId !== '' && share > 0 && share <= value : value > 0 && accountId !== '' && (!lendNow || lendTo !== '') && !splitProblem
-  const borrower = (people.data ?? []).find((p) => p.id === lendTo)
+  // Sharing applies to money I spent, and not to a move between my own accounts.
+  const shareOn = sharing && direction === 'DEBIT' && !transfer
+  const outcome: Outcome = shareOn ? outcomeOf(value, shared) : { kind: 'none' }
+  const paidByOther = outcome.kind === 'paidBy'
+  const share = outcome.kind === 'paidBy' ? outcome.share : 0
+  const payer = (people.data ?? []).find((p) => p.id === shared.payer)
+  // Lent: I paid and none of it is mine, so it isn't my spending and needs no category
+  const lendNow = outcome.kind === 'split' && !outcome.includeMe
+  const nobody = shareOn && outcome.kind === 'none'
+  const valid = value > 0 && !outcome.problem && !nobody && (paidByOther || accountId !== '')
   const account = active.find((a) => a.id === accountId)
   const AccountIcon = account?.type === 'CREDIT_CARD' ? CreditCard : account?.type === 'CASH' ? Wallet : Bank
   const category = kindCats.find((c) => c.id === categoryId)
@@ -140,31 +120,29 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
   const occurredAt = () => (whenMode === 'custom' ? fromLocalInput(when) : new Date(Date.now() - (whenMode === 'yesterday' ? 864e5 : 0)).toISOString())
   const save = useMoneyMutation(
     () =>
-      paidByOther
-        ? api('/transactions/paid-by', { body: { personId, total: value, share, categoryId: categoryId || null, where: counterparty, occurredAt: occurredAt(), notes } })
+      (outcome.kind === 'paidBy'
+        ? api('/transactions/paid-by', { body: { personId: outcome.personId, total: value, share, categoryId: categoryId || null, where: counterparty, occurredAt: occurredAt(), notes } })
         : api<Txn>('/transactions', {
-        body: {
-          accountId,
-          direction,
-          amount: value,
-          currency,
-          counterparty,
-          categoryId: transfer || lendNow ? null : categoryId || null,
-          occurredAt: occurredAt(),
-          notes,
-          transfer,
-        },
-      }).then((t) =>
-        // Split with friends: equally, me included; the split can be changed on the transaction later.
-        lendNow
-          ? api(`/transactions/${t.id}/split`, { method: 'PUT', body: { method: 'EQUAL', includeMe: false, participants: [{ personId: lendTo, value: null }] } })
-          : splitNow
-            ? api(`/transactions/${t.id}/split`, {
-                method: 'PUT',
-                body: { method: splitMethod, includeMe: true, participants: splitWith.map((personId) => ({ personId, value: splitMethod === 'EQUAL' ? null : Number(splitValues[personId] || 0) })) },
-              })
-            : t,
-      ),
+            body: {
+              accountId,
+              direction,
+              amount: value,
+              currency,
+              counterparty,
+              categoryId: transfer || lendNow ? null : categoryId || null,
+              occurredAt: occurredAt(),
+              notes,
+              transfer,
+            },
+          }).then((t) =>
+            outcome.kind === 'split'
+              ? api(`/transactions/${t.id}/split`, {
+                  method: 'PUT',
+                  body: { method: outcome.method, includeMe: outcome.includeMe, participants: outcome.participants },
+                })
+              : t,
+          )
+      ).then((r) => (outcome.kind !== 'none' && rememberShared(shared), r)),
     onClose,
   )
 
@@ -191,6 +169,21 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
 
   const sign = direction === 'DEBIT' ? '−' : '+'
   const symbol = currency === 'INR' ? '₹' : currency
+  const amountText = `${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`
+  // The button reads back what will be saved, or says what's missing.
+  const saveLabel = save.isPending
+    ? 'Saving…'
+    : !(value > 0)
+      ? 'Enter an amount'
+      : nobody
+        ? 'Pick who it’s split with'
+        : outcome.problem
+          ? 'Check the split'
+          : outcome.kind === 'paidBy'
+            ? `Save your share ${money(share)}`
+            : outcome.kind === 'split'
+              ? `Save ${amountText}, ${outcome.includeMe ? `your share ${money(outcome.myShare)}` : 'lent'}`
+              : `Save ${amountText}`
   return (
     // A column that fills the sheet, so Save sits at the bottom of the screen even when the form is short
     <form
@@ -278,7 +271,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
         <Dropdown
           label="Account"
           value={paidByOther ? undefined : accountId === '' ? undefined : accountId}
-          onChange={(id) => (setAccountId(id), setAccountPicked(true), setSomeone(false))}
+          onChange={(id) => (setAccountId(id), setAccountPicked(true), setShared({ ...shared, payer: 'me' }))}
           options={accountOptions}
         >
           {paidByOther ? <Users size={17} /> : <AccountIcon size={17} />}
@@ -305,91 +298,24 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <FieldLabel className="mt-6">Also</FieldLabel>
       {/* wraps instead of scrolling: only a few, and each should be seen */}
       <ChipRow wrap>
-        {direction === 'DEBIT' && (
-          <Choice on={someone} onClick={() => (setSomeone(!someone), setSplitting(false), setLending(false), setTransfer(false), setCurrency('INR'))}>
-            <Users size={17} weight={someone ? 'fill' : 'regular'} /> Someone else paid
-          </Choice>
-        )}
-        {direction === 'DEBIT' && !someone && (
-          <Choice on={splitting} onClick={() => (setSplitting(!splitting), setLending(false), setTransfer(false))}>
-            <UsersThree size={17} weight={splitting ? 'fill' : 'regular'} /> Split with friends
-          </Choice>
-        )}
-        {direction === 'DEBIT' && !someone && (
-          <Choice on={lending} onClick={() => (setLending(!lending), setSplitting(false), setTransfer(false))}>
-            <HandCoins size={17} weight={lending ? 'fill' : 'regular'} /> Lent to someone
+        {direction === 'DEBIT' && !transfer && (
+          <Choice on={sharing} onClick={() => setSharing(!sharing)}>
+            <UsersThree size={17} weight={sharing ? 'fill' : 'regular'} /> Shared
           </Choice>
         )}
         <Choice on={noting} onClick={() => setNoting(!noting)}>
           <NotePencil size={17} weight={noting ? 'fill' : 'regular'} /> Note
         </Choice>
-        {!someone && (
-          <Choice on={transfer} onClick={() => (setTransfer(!transfer), setSplitting(false), setLending(false))}>
+        {!paidByOther && (
+          <Choice on={transfer} onClick={() => (setTransfer(!transfer), setSharing(false))}>
             <ArrowsLeftRight size={17} weight={transfer ? 'fill' : 'regular'} /> Between my accounts
           </Choice>
         )}
       </ChipRow>
-      <Fold open={paidByOther}>
-        <div className="space-y-4 pt-4">
-          <PersonPicker people={people.data ?? []} value={personId} onChange={setPersonId} />
-          <div>
-            <FieldLabel>Your share</FieldLabel>
-            <ShareFields total={value} mode={shareMode} setMode={setShareMode} exact={exactShare} setExact={setExactShare} />
-          </div>
-          {payer && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
-        </div>
-      </Fold>
-      <Fold open={splitting && !paidByOther}>
+      <Fold open={shareOn}>
         <div className="space-y-3 pt-4">
-          <PersonPicker multiple people={people.data ?? []} value={splitWith} onChange={setSplitWith} />
-          {splitWith.length > 0 && (
-            <Segmented<Method>
-              value={splitMethod}
-              onChange={setSplitMethod}
-              options={[
-                { value: 'EQUAL', label: 'Equally' },
-                { value: 'EXACT', label: 'Amounts' },
-                { value: 'PERCENT', label: 'Percent' },
-              ]}
-            />
-          )}
-          {splitMethod !== 'EQUAL' &&
-            (people.data ?? [])
-              .filter((p) => splitWith.includes(p.id))
-              .map((p) => (
-                <div key={p.id} className="flex items-center gap-3">
-                  <Avatar name={p.name} size={32} />
-                  <span className="min-w-0 flex-1 truncate text-body">{p.name}</span>
-                  <div className="w-28 shrink-0">
-                    <Input
-                      className="py-2 text-right"
-                      inputMode="decimal"
-                      placeholder={splitMethod === 'PERCENT' ? '%' : '₹'}
-                      aria-label={`${p.name}'s ${splitMethod === 'PERCENT' ? 'percent' : 'amount'}`}
-                      value={splitValues[p.id] ?? ''}
-                      onChange={(e) => setSplitValues((v) => ({ ...v, [p.id]: e.target.value.replace(/[^\d.]/g, '') }))}
-                    />
-                  </div>
-                </div>
-              ))}
-          {splitWith.length > 0 && value > 0 && (
-            <p className={cx('px-1 text-small', splitProblem ? 'text-negative' : 'ink-2')}>
-              {splitProblem ??
-                (splitMethod === 'EQUAL'
-                  ? `Split equally with you: ${money(Math.floor((value / (splitWith.length + 1)) * 100) / 100)} each. Change it later on the transaction.`
-                  : `They owe you ${money(theirTotal)}; your share is ${money(value - theirTotal)}.`)}
-            </p>
-          )}
-        </div>
-      </Fold>
-      <Fold open={lendNow}>
-        <div className="space-y-3 pt-4">
-          <PersonPicker people={people.data ?? []} value={lendTo} onChange={setLendTo} />
-          {borrower && value > 0 && (
-            <p className="ink-2 px-1 text-small">
-              {borrower.name} will owe you {money(value)}. Not counted as your spending; when they pay you back, link it to them.
-            </p>
-          )}
+          <SharedPicker total={value} value={shared} onChange={(v) => (setShared(v), v.payer !== 'me' && setCurrency('INR'))} people={people.data ?? []} />
+          {payer && paidByOther && share > 0 && share <= value && <BalanceChange person={payer} change={share} />}
         </div>
       </Fold>
       <Fold open={noting}>
@@ -402,7 +328,7 @@ function AddTxnForm({ onClose, defaultAccountId }: { onClose: () => void; defaul
       <div className="sticky bottom-0 z-10 -mx-5 mt-auto bg-[linear-gradient(to_top,var(--surface)_72%,transparent)] px-5 pb-1 pt-5">
         <ErrorText error={save.error} />
         <Button type="submit" className="mt-2 w-full" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving…' : valid && paidByOther ? `Save your share ${money(share)}` : valid ? `Save ${sign}${symbol === '₹' ? '₹' : symbol + ' '}${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}${lendNow && borrower ? `, lent to ${borrower.name}` : splitNow ? (splitMethod === 'EQUAL' ? `, split ${splitWith.length + 1} ways` : `, your share ${money(value - theirTotal)}`) : ''}` : lendNow && value > 0 && lendTo === '' ? 'Who did you lend it to?' : value > 0 && splitProblem ? 'Check the split' : 'Enter an amount'}
+          {saveLabel}
         </Button>
       </div>
     </form>

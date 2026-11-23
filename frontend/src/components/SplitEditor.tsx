@@ -1,62 +1,47 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, Users } from '@phosphor-icons/react'
-import { AnimatePresence, motion } from 'motion/react'
+import { Users } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { api, type Split, type Txn } from '../api'
 import { money } from '../format'
 import { useMoneyMutation, usePeople } from '../hooks'
-import { Button, cx, ErrorText, Input, Segmented, Toggle, MoreRow } from './ui'
-import { QUICK } from '../motion'
+import { NOT_SHARED, outcomeOf, rememberShared, SharedPicker, type Shared } from './SharedPicker'
+import { Button, ErrorText, MoreRow } from './ui'
 
-
-export type Method = 'EQUAL' | 'EXACT' | 'PERCENT'
-
-/** @param part "linked": only an existing split; "ask": only the offer to split (under More). */
+/**
+ * Splitting a payment I made, after it's recorded: the same picker as when adding one, with "Paid by" left out
+ * (it came from my account). Leaving only me in it removes the split.
+ * @param part "linked": only an existing split; "ask": only the offer to split (under More).
+ */
 export function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' }) {
   const people = usePeople()
   const split = useQuery({ queryKey: ['split', txn.id], queryFn: () => api<Split>(`/transactions/${txn.id}/split`) })
   const [editing, setEditing] = useState(false)
-  const [method, setMethod] = useState<Method>('EQUAL')
-  const [includeMe, setIncludeMe] = useState(true)
-  const [values, setValues] = useState<Record<number, string>>({})
+  const [shared, setShared] = useState<Shared>(NOT_SHARED)
 
+  // Start from the split as saved; amounts as they came out, whichever way they were entered.
   useEffect(() => {
-    if (!split.data || split.data.shares.length === 0) return
-    const m = split.data.shares[0].method
-    setMethod(m)
-    setIncludeMe(split.data.myShare > 0) // money I lent stays lent when edited
-    setValues(Object.fromEntries(split.data.shares.map((s) => [s.personId, m === 'EQUAL' ? '' : String(s.input ?? s.amount)])))
+    const s = split.data
+    if (!s || s.shares.length === 0) return setShared(NOT_SHARED)
+    setShared({
+      payer: 'me',
+      members: [...(s.myShare > 0 ? (['me'] as const) : []), ...s.shares.map((x) => x.personId)],
+      custom: s.shares[0].method !== 'EQUAL',
+      amounts: Object.fromEntries(s.shares.map((x) => [x.personId, String(x.amount)])),
+    })
   }, [split.data])
 
+  const outcome = outcomeOf(txn.amount, shared)
   const save = useMoneyMutation(
     () =>
       api<Split>(`/transactions/${txn.id}/split`, {
         method: 'PUT',
-        body: {
-          method,
-          includeMe,
-          participants: Object.entries(values).map(([id, v]) => ({ personId: Number(id), value: method === 'EQUAL' ? null : Number(v || 0) })),
-        },
+        body:
+          outcome.kind === 'split'
+            ? { method: outcome.method, includeMe: outcome.includeMe, participants: outcome.participants }
+            : { method: 'EQUAL', includeMe: true, participants: [] },
       }),
-    () => setEditing(false),
+    () => (rememberShared(shared), setEditing(false)),
   )
-
-  const selected = Object.keys(values).map(Number)
-  const toggle = (id: number) =>
-    setValues((v) => {
-      const n = { ...v }
-      if (id in n) delete n[id]
-      else n[id] = ''
-      return n
-    })
-
-  const preview = (() => {
-    const n = selected.length + (includeMe ? 1 : 0)
-    if (method === 'EQUAL' && n > 0) return `${money(Math.floor((txn.amount / n) * 100) / 100)} each`
-    if (method === 'PERCENT') return `${selected.reduce((s, id) => s + Number(values[id] || 0), 0)}% assigned`
-    if (method === 'EXACT') return `${money(selected.reduce((s, id) => s + Number(values[id] || 0), 0))} of ${money(txn.amount)} assigned`
-    return ''
-  })()
 
   const has = (split.data?.shares.length ?? 0) > 0
   if (!split.data || (part === 'linked' ? !has : has)) return null
@@ -99,60 +84,15 @@ export function SplitEditor({ txn, part }: { txn: Txn; part: 'linked' | 'ask' })
   }
 
   return (
-    <div className="anim-pop space-y-3 rounded-box bg-surface-2 p-4">
-      <Segmented<Method>
-        value={method}
-        onChange={setMethod}
-        className="bg-surface"
-        options={[
-          { value: 'EQUAL', label: 'Equally' },
-          { value: 'EXACT', label: 'Amounts' },
-          { value: 'PERCENT', label: 'Percent' },
-        ]}
-      />
-      {method === 'EQUAL' && <Toggle checked={includeMe} onChange={setIncludeMe} label="Include me in the split" />}
-      {(people.data ?? []).length === 0 && <p className="ink-2 text-label">Add people under the Splits tab first.</p>}
-      <div className="space-y-1">
-        {(people.data ?? []).map((p) => (
-          <div key={p.id} className="flex items-center gap-2">
-            {/* No shrink and no weight change on tap (both made the row jump); only the circle fills and the tick pops in. */}
-            <button
-              type="button"
-              aria-pressed={p.id in values}
-              onClick={() => toggle(p.id)}
-              className="row flex min-h-11 flex-1 select-none items-center gap-3 rounded-box px-2 py-2 text-left text-body [-webkit-touch-callout:none]"
-            >
-              <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-quick', p.id in values ? 'border-ink accent-fill' : 'border-line-strong')}>
-                <AnimatePresence initial={false}>
-                  {p.id in values && (
-                    <motion.span key="tick" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={QUICK} className="flex">
-                      <Check size={13} weight="bold" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </span>
-              {p.name}
-            </button>
-            {method !== 'EQUAL' && p.id in values && (
-              <Input
-                className="w-28 bg-surface py-2 text-right"
-                inputMode="decimal"
-                placeholder={method === 'PERCENT' ? '%' : '₹'}
-                value={values[p.id]}
-                onChange={(e) => setValues((v) => ({ ...v, [p.id]: e.target.value }))}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="ink-2 px-1 text-caption font-medium">{preview}</p>
+    <div className="anim-pop space-y-3">
+      <SharedPicker total={txn.amount} value={shared} onChange={setShared} people={people.data ?? []} fixedPayer />
       <ErrorText error={save.error} />
       <div className="flex gap-2">
         <Button variant="secondary" className="flex-1" onClick={() => setEditing(false)}>
           Cancel
         </Button>
-        <Button className="flex-1" onClick={() => save.mutate(undefined)} disabled={save.isPending}>
-          Save split
+        <Button className="flex-1" onClick={() => save.mutate(undefined)} disabled={save.isPending || !!outcome.problem}>
+          {outcome.kind === 'none' && (split.data?.shares.length ?? 0) > 0 ? 'Remove split' : 'Save split'}
         </Button>
       </div>
     </div>

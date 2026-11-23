@@ -14,6 +14,12 @@ must do when upgrading (marked **Upgrade:**).
   Accounts are grouped (cards, then bank and cash) with their last 4 digits and balance; categories can be
   searched. The account picked for you is now the one you use most for that kind of payment (your usual card
   for spending, your usual bank account for money in), not Cash.
+- **Sharing a payment is one choice, "Shared"**, instead of three ("Someone else paid", "Split with friends",
+  "Lent to someone"). Pick who paid (you or a friend) and who it's split between; equal shares unless you change
+  the amounts. The people you share with most come first, your last group is one tap (and you can add or remove
+  people after), and someone new can be added right there without leaving the form. The same picker splits a
+  payment later from its details, and records what a friend paid from their page ("I paid" there is now
+  "Split a payment"). A friend's payment can now be split between more than two of you.
 
 ## [0.15.0] - 2026-11-22
 

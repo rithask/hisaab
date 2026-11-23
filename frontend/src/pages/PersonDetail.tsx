@@ -94,7 +94,7 @@ export default function PersonDetail() {
         )}
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => setSheet('iPaid')}>
-            <Receipt size={17} /> I paid
+            <Receipt size={17} /> Split a payment
           </Button>
           <Button variant="secondary" onClick={() => setSheet('theyPaid')}>
             <Users size={17} /> {first} paid
@@ -169,13 +169,13 @@ export default function PersonDetail() {
   )
 }
 
-/** "I paid": pick the payment to split; its sheet has the split editor. */
+/** "Split a payment": pick one of my payments; its sheet has the split editor. */
 function PickPayment({ first, onPick }: { first: string; onPick: (t: Txn) => void }) {
   const q = useQuery({ queryKey: ['transactions', 'to-split'], queryFn: () => api<{ items: Txn[] }>('/transactions?direction=DEBIT&size=40') })
   const list = (q.data?.items ?? []).filter((t) => !t.paidBy && !t.transfer && !t.sharedAmount)
   return (
     <div>
-      <p className="ink-2 mb-3 px-1 text-label">Pick what you paid for, then tap Split and choose {first}.</p>
+      <p className="ink-2 mb-3 px-1 text-label">Pick what you paid for, then tap Split with friends and choose {first}.</p>
       <List>
         {list.map((t) => (
           <TxnRow key={t.id} t={t} onClick={() => onPick(t)} showDate />
