@@ -9,6 +9,8 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-24
+
 ### Added
 - **ICICI Bank credit card** alert emails are now read ("Transaction alert for your ICICI Bank Credit Card"): amount,
   merchant, card and date. Their time has no am or pm, so it's read as the latest of the two that isn't after the
