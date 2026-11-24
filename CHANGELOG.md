@@ -9,6 +9,12 @@ must do when upgrading (marked **Upgrade:**).
 
 ## [Unreleased]
 
+### Added
+- **ICICI Bank credit card** alert emails are now read ("Transaction alert for your ICICI Bank Credit Card"): amount,
+  merchant, card and date. Their time has no am or pm, so it's read as the latest of the two that isn't after the
+  email arrived. ICICI is a bank you can pick for an account, its addresses are trusted like the other banks', and
+  bank SMS from ICICI are recognised. Refunds and payments on the card aren't read yet and wait for review.
+
 ## [0.16.0] - 2026-11-24
 
 ### Changed

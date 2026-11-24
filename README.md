@@ -67,7 +67,9 @@ Older mail can be pulled in from Settings → Import & backups → Import older 
 | HDFC credit card | "Rs. X has been debited from your HDFC Bank Credit Card ending NNNN towards …" | verified with a real sample |
 | Canara Bank account | "An amount of INR X has been DEBITED/CREDITED on dd/mm/yy … account XXXXNNNN …" | verified (debit); credit inferred |
 | Axis Bank account | table: Amount Debited/Credited, Account Number, Date & Time, Transaction Info | verified (debit); credit inferred |
-| Axis credit card, SBI card | — | not yet: these come up in **To check** on Home |
+| Axis Bank credit card | table: Transaction Amount, Merchant Name, Axis Bank Credit Card No., Date & Time | verified (spends); refunds and payments wait for review |
+| ICICI Bank credit card | "Your ICICI Bank Credit Card XXNNNN has been used for a transaction of INR X on Mon d, yyyy at hh:mm:ss. Info: …" | verified (spends); refunds and payments wait for review |
+| SBI card | — | not yet: these come up in **To check** on Home |
 
 Unrecognised emails are kept and can be re-processed once a parser is added.
 

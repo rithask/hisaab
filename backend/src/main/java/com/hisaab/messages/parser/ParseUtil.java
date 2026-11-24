@@ -39,7 +39,7 @@ public final class ParseUtil {
 
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
             fmt("dd MMM, uuuu"), fmt("dd MMM uuuu"), fmt("d MMM, uuuu"), fmt("d MMM uuuu"),
-            fmt("dd-MMM-uuuu"), fmt("dd-MMM-uu"),
+            fmt("dd-MMM-uuuu"), fmt("dd-MMM-uu"), fmt("MMM d, uuuu"), fmt("MMM d uuuu"),
             fmt("dd/MM/uu"), fmt("dd/MM/uuuu"), fmt("dd-MM-uu"), fmt("dd-MM-uuuu"), fmt("uuuu-MM-dd"));
 
     private static DateTimeFormatter fmt(String p) {

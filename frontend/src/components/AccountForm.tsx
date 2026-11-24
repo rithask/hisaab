@@ -51,6 +51,7 @@ export default function AccountForm({ account, onDone, presetType }: { account?:
     { value: 'AXIS', label: 'Axis' },
     { value: 'SBI', label: 'SBI' },
     { value: 'CANARA', label: 'Canara' },
+    { value: 'ICICI', label: 'ICICI' },
     { value: 'OTHER', label: 'Other' },
   ]
   // Filled in, under More details, so the summary on the fold says what's set.

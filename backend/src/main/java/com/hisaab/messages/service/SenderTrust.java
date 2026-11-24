@@ -36,6 +36,7 @@ public class SenderTrust {
             Institution.HDFC, List.of("hdfcbank.net", "hdfcbank.com", "hdfc.bank.in", "hdfcbank.bank.in"),
             Institution.AXIS, List.of("axisbank.com", "axis.bank.in", "axisbank.bank.in"),
             Institution.CANARA, List.of("canarabank.com", "canarabank.in", "canarabank.bank.in"),
+            Institution.ICICI, List.of("icicibank.com", "icici.bank.in", "icicibank.bank.in"),
             Institution.SBI, List.of("sbi.co.in", "sbi.bank.in", "sbicard.com", "sbicard.bank.in"));
 
     private final TrustedSenderRepository trusted;

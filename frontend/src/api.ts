@@ -52,7 +52,7 @@ export const qs = (params: Record<string, string | number | boolean | undefined 
 // ---- types (mirror the backend DTOs) ---------------------------------------------------------------
 
 export type AccountType = 'BANK' | 'CREDIT_CARD' | 'CASH'
-export type Institution = 'HDFC' | 'AXIS' | 'SBI' | 'CANARA' | 'OTHER'
+export type Institution = 'HDFC' | 'AXIS' | 'SBI' | 'CANARA' | 'ICICI' | 'OTHER'
 export type Direction = 'DEBIT' | 'CREDIT'
 
 export interface CardInfo {

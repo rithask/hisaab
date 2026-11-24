@@ -264,10 +264,12 @@ public class SmsParser {
         if (s.contains("AXIS")) return Institution.AXIS;
         if (s.contains("SBI") || s.contains("CBSSBI")) return Institution.SBI;
         if (s.contains("CANBNK") || s.contains("CANARA")) return Institution.CANARA;
+        if (s.contains("ICICI")) return Institution.ICICI;
         String t = flat.toLowerCase(Locale.ROOT);
         if (t.contains("hdfc")) return Institution.HDFC;
         if (t.contains("axis")) return Institution.AXIS;
         if (t.contains("canara")) return Institution.CANARA;
+        if (t.contains("icici")) return Institution.ICICI;
         if (t.matches(".*\\b(sbi|sbi card|state bank)\\b.*") || t.endsWith("-sbi")) return Institution.SBI;
         return Institution.OTHER;
     }

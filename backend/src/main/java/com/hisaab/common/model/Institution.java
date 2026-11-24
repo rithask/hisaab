@@ -2,7 +2,7 @@ package com.hisaab.common.model;
 
 /** The bank an account is with; OTHER for any bank the app has no parsers for. */
 public enum Institution {
-    HDFC("HDFC Bank"), AXIS("Axis Bank"), SBI("SBI"), CANARA("Canara Bank"), OTHER("bank");
+    HDFC("HDFC Bank"), AXIS("Axis Bank"), SBI("SBI"), CANARA("Canara Bank"), ICICI("ICICI Bank"), OTHER("bank");
 
     private final String label;
 

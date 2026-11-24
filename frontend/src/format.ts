@@ -82,6 +82,7 @@ export const institutionColor: Record<string, string> = {
   AXIS: '#9f1239',
   SBI: '#0369a1',
   CANARA: '#ca8a04',
+  ICICI: '#c2410c',
   OTHER: '#475569',
 }
 
